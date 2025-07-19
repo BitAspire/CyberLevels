@@ -7,6 +7,12 @@
 
 # IntelliJ
 out/
+build/
+
+# Gradle
+.gradle
+lib/
+libs/
 
 # Compiled class file
 *.class

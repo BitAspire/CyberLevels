@@ -1,7 +1,7 @@
 package net.zerotoil.dev.iridiumapi;
 
 import com.google.common.collect.ImmutableMap;
-import net.md_5.bungee.api.*;
+import net.md_5.bungee.api.ChatColor;
 import net.zerotoil.dev.iridiumapi.patterns.*;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
@@ -49,7 +49,7 @@ public class IridiumAPI {
 
     @NotNull
     public static String color(@NotNull String string, @NotNull Color color) {
-        return (SUPPORTS_RGB ? ChatColor.of(color) : getClosestColor(color)) + string;
+        return getClosestColor(color) + string;
     }
 
     @NotNull
@@ -64,8 +64,7 @@ public class IridiumAPI {
 
     @NotNull
     public static ChatColor getColor(@NotNull String string) {
-        return SUPPORTS_RGB ? ChatColor.of(new Color(Integer.parseInt(string, 16)))
-                : getClosestColor(new Color(Integer.parseInt(string, 16)));
+        return getClosestColor(new Color(Integer.parseInt(string, 16)));
     }
 
     @NotNull
@@ -135,7 +134,7 @@ public class IridiumAPI {
 
         for (int i = 0; i < step; i++) {
             Color color = Color.getHSBColor((float) (colorStep * i), saturation, saturation);
-            colors[i] = SUPPORTS_RGB ? ChatColor.of(color) : getClosestColor(color);
+            colors[i] = getClosestColor(color);
         }
         return colors;
     }
@@ -157,7 +156,7 @@ public class IridiumAPI {
             Color color = new Color(start.getRed() + ((stepR * i) * direction[0]),
                     start.getGreen() + ((stepG * i) * direction[1]),
                     start.getBlue() + ((stepB * i) * direction[2]));
-            colors[i] = SUPPORTS_RGB ? ChatColor.of(color) : getClosestColor(color);
+            colors[i] = getClosestColor(color);
         }
 
         return colors;

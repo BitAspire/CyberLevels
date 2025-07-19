@@ -1,5 +1,5 @@
 name: CyberLevels
-version: '${project.version}'
+version: '${version}'
 main: net.zerotoil.dev.cyberlevels.CyberLevels
 api-version: 1.13
 prefix: CLV

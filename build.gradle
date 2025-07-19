@@ -1,0 +1,92 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.6'
+}
+
+group = 'net.zerotoil.dev'
+version = '0.5.10'
+description = 'CyberLevels'
+
+repositories {
+    mavenLocal()
+    flatDir {
+        dirs 'libs'
+    }
+    maven {
+        url = uri('https://hub.spigotmc.org/nexus/content/repositories/snapshots/')
+    }
+
+    maven {
+        url = uri('https://oss.sonatype.org/content/groups/public/')
+    }
+
+    maven {
+        url = uri('https://repo.extendedclip.com/content/repositories/placeholderapi/')
+    }
+
+    maven {
+        url = uri('https://repo.maven.apache.org/maven2/')
+    }
+}
+
+dependencies {
+    // Spigot API
+    compileOnly "org.spigotmc:spigot-api:1.13.2-R0.1-SNAPSHOT"
+
+    // Lombok
+    compileOnly("org.projectlombok:lombok:1.18.38")
+    annotationProcessor("org.projectlombok:lombok:1.18.38")
+
+    testCompileOnly("org.projectlombok:lombok:1.18.38")
+    testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
+
+    // Other Minecraft plugin API's
+    compileOnly 'me.clip:placeholderapi:2.11.6'
+    compileOnly files('libs/RivalHarvesterHoesAPI.jar')
+    compileOnly files('libs/RivalPickaxesAPI.jar')
+
+    // Database
+    implementation 'com.zaxxer:HikariCP:3.4.5'
+    implementation 'com.h2database:h2:1.4.200'
+    implementation 'mysql:mysql-connector-java:8.0.21'
+    implementation 'org.xerial:sqlite-jdbc:3.36.0.3'
+
+    // Misc
+    implementation 'org.apache.commons:commons-lang3:3.18.0'
+    implementation 'net.objecthunter:exp4j:0.4.8'
+}
+
+def targetJavaVersion = 8
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    def props = [version: version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand props
+    }
+}
+
+//shadowJar {
+//    minimize()
+//
+//    relocate 'io.lettuce', 'me.archdev.staffrelay.lettuce'
+//}
+
+tasks.build.dependsOn shadowJar

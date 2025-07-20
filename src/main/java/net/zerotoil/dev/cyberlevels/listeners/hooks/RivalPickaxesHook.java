@@ -25,7 +25,7 @@ public class RivalPickaxesHook implements Listener {
         }
 
         // prevent silk touch abuse
-        if (this.plugin.expCache().isPreventSilkTouchAbuse()) {
+        if (this.plugin.getExpCache().isPreventSilkTouchAbuse()) {
             if (this.plugin.serverVersion() > 8 && event.getPlayer().getInventory().getItemInMainHand().containsEnchantment(Enchantment.SILK_TOUCH))  {
                 return;
             } else if (this.plugin.serverVersion() <= 8 && event.getPlayer().getItemInHand().containsEnchantment(Enchantment.SILK_TOUCH)) {
@@ -33,9 +33,9 @@ public class RivalPickaxesHook implements Listener {
             }
         }
 
-        if (this.plugin.expCache().isOnlyNaturalBlocks() && event.getBlock().hasMetadata("CLV_PLACED")) {
+        if (this.plugin.getExpCache().isOnlyNaturalBlocks() && event.getBlock().hasMetadata("CLV_PLACED")) {
 
-            if (!(event.getBlock().getBlockData() instanceof Ageable) || this.plugin.expCache().isIncludeNaturalCrops()) {
+            if (!(event.getBlock().getBlockData() instanceof Ageable) || this.plugin.getExpCache().isIncludeNaturalCrops()) {
                 return;
             }
 
@@ -46,7 +46,7 @@ public class RivalPickaxesHook implements Listener {
             }
         }
 
-        sendExp(event.getPlayer(), this.plugin.expCache().expEarnEvents().get("rivalpick-breaking"), event.getBlock().getType().toString());
+        sendExp(event.getPlayer(), this.plugin.getExpCache().expEarnEvents().get("rivalpick-breaking"), event.getBlock().getType().toString());
 
     }
 
@@ -62,12 +62,12 @@ public class RivalPickaxesHook implements Listener {
         if (expEarnEvent.isSpecificEnabled() && expEarnEvent.isInSpecificList(item))
             counter += expEarnEvent.getSpecificExp(item);
 
-        if (counter > 0) this.plugin.levelCache().playerLevels().get(player).addExp(counter, this.plugin.levelCache().doEventMultiplier());
-        else if (counter < 0) this.plugin.levelCache().playerLevels().get(player).removeExp(Math.abs(counter));
+        if (counter > 0) this.plugin.getLevelCache().playerLevels().get(player).addExp(counter, this.plugin.getLevelCache().doEventMultiplier());
+        else if (counter < 0) this.plugin.getLevelCache().playerLevels().get(player).removeExp(Math.abs(counter));
     }
 
     public boolean checkAbuse(Player player, EXPEarnEvent event) {
-        return (this.plugin.expCache().isAntiAbuse(player, event.getCategory()));
+        return (this.plugin.getExpCache().isAntiAbuse(player, event.getCategory()));
     }
 
 

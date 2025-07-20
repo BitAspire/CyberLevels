@@ -1,5 +1,8 @@
 package net.zerotoil.dev.cyberlevels;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 import net.zerotoil.dev.cyberlevels.addons.Metrics;
 import net.zerotoil.dev.cyberlevels.addons.PlaceholderAPI;
 import net.zerotoil.dev.cyberlevels.commands.CLVCommand;
@@ -19,19 +22,22 @@ import org.apache.commons.lang3.SystemUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public final class CyberLevels extends JavaPlugin {
 
-    private Logger logger;
-    private Files files;
+    @Getter(AccessLevel.NONE)
+    Logger logger;
+    Files files;
 
-    private LangUtils langUtils;
-    private LevelUtils levelUtils;
-    private PlayerUtils playerUtils;
+    LangUtils langUtils;
+    LevelUtils levelUtils;
+    PlayerUtils playerUtils;
 
-    private LevelCache levelCache;
-    private EXPCache expCache;
+    LevelCache levelCache;
+    EXPCache expCache;
 
-    private EXPListeners expListeners;
+    EXPListeners expListeners;
 
     @Override
     public void onEnable() {
@@ -148,32 +154,7 @@ public final class CyberLevels extends JavaPlugin {
         return Integer.parseInt(Bukkit.getBukkitVersion().split("-")[0].split("\\.")[1]);
     }
 
-    public void logger(String... messages) {
-        logger.log(messages);
-    }
-
-    public Files files() {
-        return files;
-    }
-    public LevelUtils levelUtils() {
-        return levelUtils;
-    }
-    public PlayerUtils playerUtils() {
-        return playerUtils;
-    }
-
-    public LevelCache levelCache() {
-        return levelCache;
-    }
-    public EXPCache expCache() {
-        return expCache;
-    }
-
-    public LangUtils langUtils() {
-        return langUtils;
-    }
-
-    public EXPListeners expListeners() {
-        return expListeners;
+    public void logger(String... message) {
+        logger.log(message);
     }
 }

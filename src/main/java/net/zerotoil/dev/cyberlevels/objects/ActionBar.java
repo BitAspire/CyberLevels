@@ -1,5 +1,6 @@
 package net.zerotoil.dev.cyberlevels.objects;
 
+import lombok.Getter;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
@@ -10,6 +11,7 @@ import java.lang.reflect.Constructor;
 
 public class ActionBar implements Reflection {
 
+    @Getter
     private final GetActionBar actionBar;
 
     public ActionBar(CyberLevels main) {
@@ -19,8 +21,6 @@ public class ActionBar implements Reflection {
     public interface GetActionBar {
         void send(Player player, String message);
     }
-
-    public GetActionBar getMethod() { return actionBar; }
 
     private GetActionBar oldActionBar() {
         return (player, message) -> {

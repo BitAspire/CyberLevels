@@ -1,5 +1,7 @@
 package net.zerotoil.dev.cyberlevels.objects;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import org.bukkit.Bukkit;
@@ -11,16 +13,17 @@ import org.bukkit.permissions.PermissionAttachmentInfo;
 import java.util.ArrayList;
 import java.util.List;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RewardObject {
 
-    private final CyberLevels main;
+    final CyberLevels main;
 
-    private final String soundName;
-    private final float volume;
-    private final float pitch;
+    final String soundName;
+    final float volume;
+    final float pitch;
 
-    private final List<String> commands, messages;
-    private final List<Long> levels;
+    final List<String> commands, messages;
+    final List<Long> levels;
 
     public RewardObject(CyberLevels main, String rewardName) {
         this.main = main;
@@ -29,11 +32,11 @@ public class RewardObject {
         volume = rewardsYML().getInt("rewards." + rewardName + ".sound.volume", 1);
         pitch = rewardsYML().getInt("rewards." + rewardName + ".sound.pitch", 1);
 
-        commands = main.langUtils().convertList(rewardsYML(), "rewards." + rewardName + ".commands");
-        messages = main.langUtils().convertList(rewardsYML(), "rewards." + rewardName + ".messages");
+        commands = main.getLangUtils().convertList(rewardsYML(), "rewards." + rewardName + ".commands");
+        messages = main.getLangUtils().convertList(rewardsYML(), "rewards." + rewardName + ".messages");
         levels = new ArrayList<>();
 
-        for (String s : main.langUtils().convertList(rewardsYML(), "rewards." + rewardName + ".levels")) {
+        for (String s : main.getLangUtils().convertList(rewardsYML(), "rewards." + rewardName + ".levels")) {
 
             //parse compact level syntax ex: "1-100"
             if (s.contains("-")) {
@@ -77,13 +80,13 @@ public class RewardObject {
 
         this.levels.add(level);
 
-        if (main.levelCache().levelData().get(level) != null) {
-            main.levelCache().levelData().get(level).addReward(this);
+        if (main.getLevelCache().levelData().get(level) != null) {
+            main.getLevelCache().levelData().get(level).addReward(this);
         }
     }
 
     private Configuration rewardsYML() {
-        return main.files().getConfig("rewards");
+        return main.getFiles().getConfig("rewards");
     }
 
     public void giveReward(Player player) {
@@ -101,14 +104,14 @@ public class RewardObject {
             while (command.charAt(0) == ' ') command = command.substring(1);
 
             if (!command.startsWith("[") || command.toLowerCase().startsWith("[console]")) {
-                command = main.langUtils().parseFormat("[console]", command);
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), PlaceholderAPI.setPlaceholders(player, main.levelUtils().getPlaceholders(command, player, true)));
+                command = main.getLangUtils().parseFormat("[console]", command);
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), PlaceholderAPI.setPlaceholders(player, main.getLevelUtils().getPlaceholders(command, player, true)));
                 continue;
             }
 
             if (command.toLowerCase().startsWith("[player]")) {
-                command = main.langUtils().parseFormat("[player]", command);
-                Bukkit.dispatchCommand(player, PlaceholderAPI.setPlaceholders(player, main.levelUtils().getPlaceholders(command, player, true)));
+                command = main.getLangUtils().parseFormat("[player]", command);
+                Bukkit.dispatchCommand(player, PlaceholderAPI.setPlaceholders(player, main.getLevelUtils().getPlaceholders(command, player, true)));
             }
 
         }
@@ -122,15 +125,15 @@ public class RewardObject {
             while (message.charAt(0) == ' ') message = message.substring(1);
 
             message = message.replace("[global]", "");
-            message = main.levelUtils().getPlaceholders(message, player, true);
+            message = main.getLevelUtils().getPlaceholders(message, player, true);
 
             if (message.toLowerCase().startsWith("[player]")) {
                 if (isSuppressed(player, "player")) continue;
-                main.langUtils().typeMessage(player, main.langUtils().parseFormat("[player]", message));
+                main.getLangUtils().typeMessage(player, main.getLangUtils().parseFormat("[player]", message));
             } else {
                 if (isSuppressed(player, "global")) continue;
                 String result = message;
-                Bukkit.getOnlinePlayers().forEach(p -> main.langUtils().typeMessage(p, result));
+                Bukkit.getOnlinePlayers().forEach(p -> main.getLangUtils().typeMessage(p, result));
             }
         }
     }

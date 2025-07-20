@@ -1,7 +1,8 @@
 package net.zerotoil.dev.cyberlevels.objects.antiabuse;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
-import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
@@ -9,27 +10,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class AntiAbuse {
 
-    private final CyberLevels main;
-    private final String location;
+    final CyberLevels main;
+    final String location;
 
-    private List<String> expEvents; // = new ArrayList<>();
+    List<String> expEvents; // = new ArrayList<>();
 
-    private boolean cooldownEnabled;
-    private long cooldownTime;
+    boolean cooldownEnabled;
+    long cooldownTime;
 
-    private boolean limiterEnabled;
-    private long limiterAmount;
-    private String limiterTimer;
-    private TimedAbuseReset abuseReset;
+    boolean limiterEnabled;
+    long limiterAmount;
+    String limiterTimer;
+    TimedAbuseReset abuseReset;
 
-    private boolean worldsEnabled;
-    private boolean worldsWhitelist;
-    private List<String> worlds;
+    boolean worldsEnabled;
+    boolean worldsWhitelist;
+    List<String> worlds;
 
-    private Map<Player, Long> playerCooldowns = new HashMap<>();
-    private Map<Player, Long> playerLimiters = new HashMap<>();
+    Map<Player, Long> playerCooldowns = new HashMap<>();
+    Map<Player, Long> playerLimiters = new HashMap<>();
 
     public AntiAbuse(CyberLevels main, String location) {
         this.main = main;
@@ -39,7 +41,7 @@ public class AntiAbuse {
 
     private void initiateAntiAbuse() {
 
-        ConfigurationSection section = main.files().getConfig("anti-abuse").getConfigurationSection("anti-abuse." + location);
+        ConfigurationSection section = main.getFiles().getConfig("anti-abuse").getConfigurationSection("anti-abuse." + location);
         if (section == null) return;
 
         expEvents = section.getStringList("exp-events");

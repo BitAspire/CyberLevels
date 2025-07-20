@@ -1,5 +1,8 @@
 package net.zerotoil.dev.cyberlevels.utilities;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.configuration.Configuration;
@@ -9,17 +12,18 @@ import org.jetbrains.annotations.Nullable;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class LevelUtils {
 
-    private final CyberLevels main;
-    private DecimalFormat decimalFormat;
-    private int decimals;
-    private boolean useSpecificFormula;
+    final CyberLevels main;
+    DecimalFormat decimalFormat;
+    @Getter int decimals;
+    boolean useSpecificFormula;
 
-    private String bar;
-    private String startBar;
-    private String middleBar;
-    private String endBar;
+    String bar;
+    String startBar;
+    String middleBar;
+    String endBar;
 
     public LevelUtils(CyberLevels main) {
         this.main = main;
@@ -28,16 +32,16 @@ public class LevelUtils {
     }
 
     private void loadUtility() {
-        if (main.files().getConfig("config").isConfigurationSection("config.round-evaluation") &&
-                main.files().getConfig("config").getBoolean("config.round-evaluation.enabled")) {
+        if (main.getFiles().getConfig("config").isConfigurationSection("config.round-evaluation") &&
+                main.getFiles().getConfig("config").getBoolean("config.round-evaluation.enabled")) {
 
             StringBuilder decimalFormat = new StringBuilder("#");
-            int roundDigits = main.files().getConfig("config").getInt("config.round-evaluation.digits", 2);
+            int roundDigits = main.getFiles().getConfig("config").getInt("config.round-evaluation.digits", 2);
             if (roundDigits > 0) decimalFormat.append(".");
             for (int i = 0; i < roundDigits; i++)
                 decimalFormat.append("#");
 
-            this.decimals = main.files().getConfig("config").getInt("config.round-evaluation.digits");
+            this.decimals = main.getFiles().getConfig("config").getInt("config.round-evaluation.digits");
             this.decimalFormat = new DecimalFormat(decimalFormat.toString());
             this.decimalFormat.setRoundingMode(RoundingMode.CEILING);
             this.decimalFormat.setMinimumFractionDigits(roundDigits);
@@ -52,11 +56,11 @@ public class LevelUtils {
     }
 
     public Configuration levelsYML() {
-        return main.files().getConfig("levels");
+        return main.getFiles().getConfig("levels");
     }
 
     public Configuration langYML() {
-        return main.files().getConfig("lang");
+        return main.getFiles().getConfig("lang");
     }
 
     public String generalFormula() {
@@ -96,25 +100,25 @@ public class LevelUtils {
         String[] keys = {"{level}", "{playerEXP}", "{nextLevel}",
                 "{maxLevel}", "{minLevel}", "{minEXP}"};
         String[] values = {
-                main.levelCache().playerLevels().get(player).getLevel() + "",
-                roundStringDecimal(main.levelCache().playerLevels().get(player).getExp()),
-                (main.levelCache().playerLevels().get(player).getLevel() + 1) + "",
-                main.levelCache().maxLevel() + "", main.levelCache().startLevel() + "",
-                main.levelCache().startExp() + "",
+                main.getLevelCache().playerLevels().get(player).getLevel() + "",
+                roundStringDecimal(main.getLevelCache().playerLevels().get(player).getExp()),
+                (main.getLevelCache().playerLevels().get(player).getLevel() + 1) + "",
+                main.getLevelCache().maxLevel() + "", main.getLevelCache().startLevel() + "",
+                main.getLevelCache().startExp() + "",
         };
         string = StringUtils.replaceEach(string, keys, values);
 
         if (!expRequirement) {
             String[] keys1 = {"{requiredEXP}", "{percent}", "{progressBar}"};
             String[] values1 = {
-                    roundStringDecimal(main.levelCache().playerLevels().get(player).nextExpRequirement()),
+                    roundStringDecimal(main.getLevelCache().playerLevels().get(player).nextExpRequirement()),
                     getPercent(
-                            main.levelCache().playerLevels().get(player).getExp(),
-                            main.levelCache().playerLevels().get(player).nextExpRequirement()
+                            main.getLevelCache().playerLevels().get(player).getExp(),
+                            main.getLevelCache().playerLevels().get(player).nextExpRequirement()
                     ),
                     progressBar(
-                            main.levelCache().playerLevels().get(player).getExp(),
-                            main.levelCache().playerLevels().get(player).nextExpRequirement()
+                            main.getLevelCache().playerLevels().get(player).getExp(),
+                            main.getLevelCache().playerLevels().get(player).nextExpRequirement()
                     )
             };
             string = StringUtils.replaceEach(string, keys1, values1);
@@ -136,7 +140,4 @@ public class LevelUtils {
         return (int) (100 * (exp / requiredExp)) + "";
     }
 
-    public int getDecimals() {
-        return decimals;
-    }
 }

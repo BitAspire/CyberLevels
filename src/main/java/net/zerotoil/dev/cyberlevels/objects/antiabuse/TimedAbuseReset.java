@@ -1,5 +1,7 @@
 package net.zerotoil.dev.cyberlevels.objects.antiabuse;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -12,21 +14,22 @@ import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class TimedAbuseReset {
 
-    private final CyberLevels main;
-    private final AntiAbuse antiAbuse;
+    final CyberLevels main;
+    final AntiAbuse antiAbuse;
 
-    private String unformatted;
-    private String[] dateTimeInterval;
-    private Timer timer = new Timer();
+    String unformatted;
+    String[] dateTimeInterval;
+    Timer timer = new Timer();
 
-    private String[] date;
-    private String[] time;
-    private String unformattedInterval = null;
-    private long intervalSeconds;
+    String[] date;
+    String[] time;
+    String unformattedInterval = null;
+    long intervalSeconds;
 
-    private long resetTime;
+    long resetTime;
 
     public TimedAbuseReset(CyberLevels main, AntiAbuse antiAbuse, String time) {
 

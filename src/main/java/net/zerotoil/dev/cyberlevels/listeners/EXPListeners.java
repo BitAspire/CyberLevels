@@ -60,7 +60,7 @@ public class EXPListeners implements Listener {
                 || (target instanceof WaterMob)) eventType = "damaging-monsters";
         else return;
 
-        sendExp(player, main.expCache().expEarnEvents().get(eventType), (target instanceof Player) ? target.getName() : target.getType().toString());
+        sendExp(player, main.getExpCache().expEarnEvents().get(eventType), (target instanceof Player) ? target.getName() : target.getType().toString());
     }
 
     // Works 1.7.10 - latest
@@ -90,14 +90,14 @@ public class EXPListeners implements Listener {
                 || (target instanceof WaterMob)) eventType = "killing-monsters";
         else return;
 
-        sendExp(player, main.expCache().expEarnEvents().get(eventType), (target instanceof Player) ? target.getName() : target.getType().toString());
+        sendExp(player, main.getExpCache().expEarnEvents().get(eventType), (target instanceof Player) ? target.getName() : target.getType().toString());
     }
 
     @EventHandler (priority = EventPriority.HIGH)
     private void onPlayerDeath(PlayerDeathEvent event) {
         if (event.getEntity().getLastDamageCause() == null) return;
         Player player = event.getEntity();
-        sendPermissionExp(player, main.expCache().expEarnEvents().get("dying"));
+        sendPermissionExp(player, main.getExpCache().expEarnEvents().get("dying"));
     }
 
     // Works 1.7.10 - latest
@@ -105,10 +105,10 @@ public class EXPListeners implements Listener {
     private void onPlacing(BlockPlaceEvent event) {
         if (event.isCancelled()) return;
 
-        if (main.expCache().isOnlyNaturalBlocks())
+        if (main.getExpCache().isOnlyNaturalBlocks())
             event.getBlock().setMetadata("CLV_PLACED", new FixedMetadataValue(main, true));
 
-        sendExp(event.getPlayer(), main.expCache().expEarnEvents().get("placing"), event.getBlock().getType().toString());
+        sendExp(event.getPlayer(), main.getExpCache().expEarnEvents().get("placing"), event.getBlock().getType().toString());
     }
 
     // Works 1.7.10 - latest
@@ -119,7 +119,7 @@ public class EXPListeners implements Listener {
         final int version = main.serverVersion();
 
         // silk touch abuse
-        if (main.expCache().isPreventSilkTouchAbuse()) {
+        if (main.getExpCache().isPreventSilkTouchAbuse()) {
 
             if (version > 8 && event.getPlayer().getInventory()
                     .getItemInMainHand().containsEnchantment(Enchantment.SILK_TOUCH)) return;
@@ -128,11 +128,11 @@ public class EXPListeners implements Listener {
                     .containsEnchantment(Enchantment.SILK_TOUCH)) return;
 
         }
-        if (main.expCache().isOnlyNaturalBlocks() &&
+        if (main.getExpCache().isOnlyNaturalBlocks() &&
                 event.getBlock().hasMetadata("CLV_PLACED")) {
             if (version > 12 ? !(event.getBlock().getBlockData() instanceof Ageable)
                     : !(event.getBlock().getState().getData() instanceof Ageable) ||
-                    main.expCache().isIncludeNaturalCrops()) return;
+                    main.getExpCache().isIncludeNaturalCrops()) return;
             else {
                 final Ageable ageable = (Ageable) (version > 12 ? event.getBlock().getBlockData()
                         : event.getBlock().getState().getData());
@@ -140,7 +140,7 @@ public class EXPListeners implements Listener {
             }
         }
 
-        sendExp(event.getPlayer(), main.expCache().expEarnEvents().get("breaking"), event.getBlock().getType().toString());
+        sendExp(event.getPlayer(), main.getExpCache().expEarnEvents().get("breaking"), event.getBlock().getType().toString());
     }
 
     // Works 1.7.10 - latest
@@ -148,7 +148,7 @@ public class EXPListeners implements Listener {
     private void onConsumption(PlayerItemConsumeEvent event) {
         if (event.isCancelled()) return;
 
-        sendExp(event.getPlayer(), main.expCache().expEarnEvents().get("consuming"), event.getItem().getType().toString());
+        sendExp(event.getPlayer(), main.getExpCache().expEarnEvents().get("consuming"), event.getItem().getType().toString());
     }
 
     // Works 1.7.10 - latest
@@ -160,7 +160,7 @@ public class EXPListeners implements Listener {
         if (to == null) return;
         if (from.getBlockX() == to.getBlockX() && from.getBlockY() == to.getBlockY() && from.getBlockZ() == to.getBlockZ()) return;
 
-        sendPermissionExp(event.getPlayer(), main.expCache().expEarnEvents().get("moving"));
+        sendPermissionExp(event.getPlayer(), main.getExpCache().expEarnEvents().get("moving"));
     }
 
     // Works 1.7.10 - latest
@@ -170,7 +170,7 @@ public class EXPListeners implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
         if (event.getCurrentItem() == null) return;
 
-        sendExp((Player) event.getWhoClicked(), main.expCache().expEarnEvents().get("crafting"), event.getCurrentItem().getType().toString());
+        sendExp((Player) event.getWhoClicked(), main.getExpCache().expEarnEvents().get("crafting"), event.getCurrentItem().getType().toString());
     }
 
     // Works 1.7.10 - latest
@@ -214,7 +214,7 @@ public class EXPListeners implements Listener {
                     if (prePotion[i] == null || meta.getBasePotionData().getType() != prePotion[i])
                         data = meta.getBasePotionData().getType().toString();
 
-                    EXPEarnEvent expEarnEvent = main.expCache().expEarnEvents().get("brewing");
+                    EXPEarnEvent expEarnEvent = main.getExpCache().expEarnEvents().get("brewing");
 
                     if (checkAbuse(player, expEarnEvent)) return;
 
@@ -223,8 +223,8 @@ public class EXPListeners implements Listener {
 
                 }
 
-                if (counter > 0) main.levelCache().playerLevels().get(player).addExp(counter, main.levelCache().doEventMultiplier());
-                else if (counter < 0) main.levelCache().playerLevels().get(player).removeExp(Math.abs(counter));
+                if (counter > 0) main.getLevelCache().playerLevels().get(player).addExp(counter, main.getLevelCache().doEventMultiplier());
+                else if (counter < 0) main.getLevelCache().playerLevels().get(player).removeExp(Math.abs(counter));
             }
         }).runTaskLater(main, 1L);
 
@@ -239,7 +239,7 @@ public class EXPListeners implements Listener {
         for (Enchantment enchantment : event.getEnchantsToAdd().keySet())
             data += enchantment.getKey().getKey() + "-" + event.getEnchantsToAdd().get(enchantment) + " ";
 
-        EXPEarnEvent expEarnEvent = main.expCache().expEarnEvents().get("enchanting");
+        EXPEarnEvent expEarnEvent = main.getExpCache().expEarnEvents().get("enchanting");
 
         if (checkAbuse(event.getEnchanter(), expEarnEvent)) return;
 
@@ -247,8 +247,8 @@ public class EXPListeners implements Listener {
         if (expEarnEvent.isEnabled() || expEarnEvent.isSpecificEnabled())
             counter += expEarnEvent.getPartialMatchesExp(data);
 
-        if (counter > 0) main.levelCache().playerLevels().get(event.getEnchanter()).addExp(counter, main.levelCache().doEventMultiplier());
-        else if (counter < 0) main.levelCache().playerLevels().get(event.getEnchanter()).removeExp(Math.abs(counter));
+        if (counter > 0) main.getLevelCache().playerLevels().get(event.getEnchanter()).addExp(counter, main.getLevelCache().doEventMultiplier());
+        else if (counter < 0) main.getLevelCache().playerLevels().get(event.getEnchanter()).removeExp(Math.abs(counter));
 
     }
 
@@ -259,7 +259,7 @@ public class EXPListeners implements Listener {
         if (event.getCaught() == null) return;
         if (!(event.getCaught() instanceof Item)) return;
 
-        sendExp(event.getPlayer(), main.expCache().expEarnEvents().get("fishing"), ((Item) event.getCaught()).getItemStack().getType().toString());
+        sendExp(event.getPlayer(), main.getExpCache().expEarnEvents().get("fishing"), ((Item) event.getCaught()).getItemStack().getType().toString());
 
     }
 
@@ -268,7 +268,7 @@ public class EXPListeners implements Listener {
     private void onChat(AsyncPlayerChatEvent event) {
         if (event.isCancelled()) return;
 
-        EXPEarnEvent expEarnEvent = main.expCache().expEarnEvents().get("chatting");
+        EXPEarnEvent expEarnEvent = main.getExpCache().expEarnEvents().get("chatting");
         Player player = event.getPlayer();
         String item = event.getMessage().toUpperCase();
         double counter = 0;
@@ -280,8 +280,8 @@ public class EXPListeners implements Listener {
 
         final double finalCounter = counter;
         Bukkit.getScheduler().runTask(main, () -> {
-            if (finalCounter > 0) main.levelCache().playerLevels().get(player).addExp(finalCounter, main.levelCache().doEventMultiplier());
-            else if (finalCounter < 0) main.levelCache().playerLevels().get(player).removeExp(Math.abs(finalCounter));
+            if (finalCounter > 0) main.getLevelCache().playerLevels().get(player).addExp(finalCounter, main.getLevelCache().doEventMultiplier());
+            else if (finalCounter < 0) main.getLevelCache().playerLevels().get(player).removeExp(Math.abs(finalCounter));
         });
     }
 
@@ -290,7 +290,7 @@ public class EXPListeners implements Listener {
     private void onExperience(PlayerExpChangeEvent event) {
         if (event.getAmount() <= 0) return;
 
-        sendExp(event.getPlayer(), main.expCache().expEarnEvents().get("vanilla-exp-gain"), event.getAmount() + "");
+        sendExp(event.getPlayer(), main.getExpCache().expEarnEvents().get("vanilla-exp-gain"), event.getAmount() + "");
 
     }
 
@@ -312,8 +312,8 @@ public class EXPListeners implements Listener {
         if (expEarnEvent.isSpecificEnabled() && expEarnEvent.isInSpecificList(item))
             counter += expEarnEvent.getSpecificExp(item);
 
-        if (counter > 0) main.levelCache().playerLevels().get(player).addExp(counter, main.levelCache().doEventMultiplier());
-        else if (counter < 0) main.levelCache().playerLevels().get(player).removeExp(Math.abs(counter));
+        if (counter > 0) main.getLevelCache().playerLevels().get(player).addExp(counter, main.getLevelCache().doEventMultiplier());
+        else if (counter < 0) main.getLevelCache().playerLevels().get(player).removeExp(Math.abs(counter));
     }
 
     public void sendPermissionExp(Player player, EXPEarnEvent expEarnEvent) {
@@ -329,12 +329,12 @@ public class EXPListeners implements Listener {
             for (String s : expEarnEvent.getSpecificMin().keySet())
                 if (player.hasPermission(s)) counter += expEarnEvent.getSpecificExp(s);
 
-        if (counter > 0) main.levelCache().playerLevels().get(player).addExp(counter, main.levelCache().doEventMultiplier());
-        else if (counter < 0) main.levelCache().playerLevels().get(player).removeExp(Math.abs(counter));
+        if (counter > 0) main.getLevelCache().playerLevels().get(player).addExp(counter, main.getLevelCache().doEventMultiplier());
+        else if (counter < 0) main.getLevelCache().playerLevels().get(player).removeExp(Math.abs(counter));
     }
 
     public boolean checkAbuse(Player player, EXPEarnEvent event) {
-        return (main.expCache().isAntiAbuse(player, event.getCategory()));
+        return (main.getExpCache().isAntiAbuse(player, event.getCategory()));
     }
 
 }

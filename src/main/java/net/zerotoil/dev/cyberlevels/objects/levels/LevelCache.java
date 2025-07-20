@@ -1,5 +1,8 @@
 package net.zerotoil.dev.cyberlevels.objects.levels;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import net.zerotoil.dev.cyberlevels.objects.MySQL;
 import net.zerotoil.dev.cyberlevels.objects.RewardObject;
@@ -17,44 +20,48 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class LevelCache {
 
-    private final CyberLevels main;
+    final CyberLevels main;
 
-    private final Long startLevel;
-    private final Double startExp;
-    private final Long maxLevel;
+    final Long startLevel;
+    final Double startExp;
+    final Long maxLevel;
 
-    private BukkitTask autoSave;
+    BukkitTask autoSave;
 
-    private final Map<Player, PlayerData> playerLevels;
-    private Map<Long, LevelData> levelData;
-    private Leaderboard leaderboard;
+    final Map<Player, PlayerData> playerLevels;
+    Map<Long, LevelData> levelData;
 
-    private final boolean doCommandMultiplier;
-    private final boolean doEventMultiplier;
+    @Getter
+    Leaderboard leaderboard;
 
-    private final boolean addLevelReward;
+    final boolean doCommandMultiplier;
+    final boolean doEventMultiplier;
 
-    private final boolean leaderboardEnabled;
-    private final boolean syncLeaderboardAutoSave;
-    private final boolean leaderboardInstantUpdate;
+    final boolean addLevelReward;
 
-    private final boolean preventDuplicateRewards;
-    private final boolean stackComboExp;
+    @Getter final boolean leaderboardEnabled;
+    final boolean syncLeaderboardAutoSave;
+    @Getter final boolean leaderboardInstantUpdate;
 
-    private final boolean messageAutoSave;
-    private final boolean messageConsole;
+    @Getter final boolean preventDuplicateRewards;
+    @Getter final boolean stackComboExp;
 
-    private MySQL mySQL;
+    final boolean messageAutoSave;
+    @Getter final boolean messageConsole;
+
+    @Getter
+    MySQL mySQL;
 
     public LevelCache(CyberLevels main) {
         this.main = main;
-        Configuration levelsYML = main.levelUtils().levelsYML();
+        Configuration levelsYML = main.getLevelUtils().levelsYML();
         startLevel = levelsYML.getLong("levels.starting.level");
         startExp = levelsYML.getDouble("levels.starting.experience");
         maxLevel = levelsYML.getLong("levels.maximum.level");
-        Configuration config = main.files().getConfig("config");
+        Configuration config = main.getFiles().getConfig("config");
         doCommandMultiplier = config.getBoolean("config.multipliers.commands", false);
         doEventMultiplier = config.getBoolean("config.multipliers.events", true);
         addLevelReward = config.getBoolean("config.add-level-reward", false);
@@ -91,7 +98,7 @@ public class LevelCache {
         main.logger("&dLoading level data...");
         long startTime = System.currentTimeMillis();
 
-        ConfigurationSection levelSection = main.files().getConfig("levels").getConfigurationSection("levels.experience.level");
+        ConfigurationSection levelSection = main.getFiles().getConfig("levels").getConfigurationSection("levels.experience.level");
         Set<String> levels = new HashSet<>();
         if (levelSection != null) levels = levelSection.getKeys(false);
 
@@ -119,10 +126,10 @@ public class LevelCache {
     }
 
     public void loadRewards() {
-        if (!main.files().getConfig("rewards").isConfigurationSection("rewards")) return;
+        if (!main.getFiles().getConfig("rewards").isConfigurationSection("rewards")) return;
         main.logger("&dLoading reward data...");
         long startTime = System.currentTimeMillis(), counter = 0;
-        for (String s : main.files().getConfig("rewards").getConfigurationSection("rewards").getKeys(false)) {
+        for (String s : main.getFiles().getConfig("rewards").getConfigurationSection("rewards").getKeys(false)) {
             new RewardObject(main, s);
             counter++;
         }
@@ -137,7 +144,7 @@ public class LevelCache {
     }
 
     public void startAutoSave() {
-        if (!main.files().getConfig("config").getBoolean("config.auto-save.enabled")) return;
+        if (!main.getFiles().getConfig("config").getBoolean("config.auto-save.enabled")) return;
         autoSave = (new BukkitRunnable() {
             @Override
             public void run() {
@@ -145,13 +152,13 @@ public class LevelCache {
                 saveOnlinePlayers(false);
                 Bukkit.getScheduler().runTaskAsynchronously(main, () -> {
                     if (syncLeaderboardAutoSave) leaderboard.updateLeaderboard();
-                    if (messageAutoSave) main.langUtils().sendMixed(null, main.files().getConfig("lang")
+                    if (messageAutoSave) main.getLangUtils().sendMixed(null, main.getFiles().getConfig("lang")
                             .getString("messages.auto-save")
                             .replace("{ms}", (System.currentTimeMillis() - startTime) + ""));
                     startAutoSave();
                 });
             }
-        }).runTaskLater(main, 20L * Math.max(1, main.files().getConfig("config").getLong("config.auto-save.interval")));
+        }).runTaskLater(main, 20L * Math.max(1, main.getFiles().getConfig("config").getLong("config.auto-save.interval")));
     }
 
     public void clearLevelData() {
@@ -168,7 +175,7 @@ public class LevelCache {
             try {
                 if (!playerFile.exists()) {
                     playerFile.createNewFile();
-                    String content = playerData.getLevel() + "\n" + main.levelUtils().roundStringDecimal(playerData.getExp()) + "\n" + playerData.getMaxLevel();
+                    String content = playerData.getLevel() + "\n" + main.getLevelUtils().roundStringDecimal(playerData.getExp()) + "\n" + playerData.getMaxLevel();
                     BufferedWriter writer = Files.newBufferedWriter(Paths.get(main.getDataFolder().getAbsolutePath() + File.separator + "player_data" + File.separator + uuid + ".clv"));
                     writer.write(content);
                     writer.close();
@@ -194,7 +201,7 @@ public class LevelCache {
         String uuid = player.getUniqueId().toString();
         if (mySQL == null) {
             try {
-                String content = playerData.getLevel() + "\n" + main.levelUtils().roundStringDecimal(playerData.getExp()) + "\n" + playerData.getMaxLevel();
+                String content = playerData.getLevel() + "\n" + main.getLevelUtils().roundStringDecimal(playerData.getExp()) + "\n" + playerData.getMaxLevel();
                 BufferedWriter writer = Files.newBufferedWriter(Paths.get(main.getDataFolder().getAbsolutePath() + File.separator + "player_data" + File.separator + uuid + ".clv"));
                 writer.write(content);
                 writer.close();
@@ -241,10 +248,6 @@ public class LevelCache {
         return levelData;
     }
 
-    public MySQL getMySQL() {
-        return mySQL;
-    }
-
     public boolean doCommandMultiplier() {
         return doCommandMultiplier;
     }
@@ -255,30 +258,6 @@ public class LevelCache {
 
     public boolean addLevelReward() {
         return addLevelReward;
-    }
-
-    public Leaderboard getLeaderboard() {
-        return leaderboard;
-    }
-
-    public boolean isLeaderboardEnabled() {
-        return leaderboardEnabled;
-    }
-
-    public boolean isLeaderboardInstantUpdate() {
-        return leaderboardInstantUpdate;
-    }
-
-    public boolean isStackComboExp() {
-        return stackComboExp;
-    }
-
-    public boolean isPreventDuplicateRewards() {
-        return preventDuplicateRewards;
-    }
-
-    public boolean isMessageConsole() {
-        return messageConsole;
     }
 
 }

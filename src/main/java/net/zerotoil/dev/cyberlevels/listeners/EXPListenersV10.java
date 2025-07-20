@@ -25,7 +25,7 @@ public class EXPListenersV10 implements Listener {
         if (event.isCancelled()) return;
         if (!(event.getBreeder() instanceof Player)) return;
 
-        expListeners.sendExp((Player) event.getBreeder(), main.expCache().expEarnEvents().get("breeding"), event.getEntity().getType().toString());
+        expListeners.sendExp((Player) event.getBreeder(), main.getExpCache().expEarnEvents().get("breeding"), event.getEntity().getType().toString());
     }
 
 }

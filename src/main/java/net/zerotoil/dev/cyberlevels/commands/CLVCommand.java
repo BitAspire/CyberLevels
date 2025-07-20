@@ -43,7 +43,7 @@ public class CLVCommand implements CommandExecutor {
 
         if (args.length == 0) {
             if (noPlayerPerm(player, "player.info")) return true;
-            main.langUtils().sendMessage(player, "level-info", false);
+            main.getLangUtils().sendMessage(player, "level-info", false);
             return true;
         }
 
@@ -53,14 +53,14 @@ public class CLVCommand implements CommandExecutor {
                 case "about":
 
                     if (noPlayerPerm(player, "player.about")) return true;
-                    main.langUtils().sendMixed(player, " &d&lCyber&f&lLevels &fv" + main.getDescription().getVersion() + " &7(&7&nhttps://bit.ly/2YSlqYq&7).");
-                    main.langUtils().sendMixed(player, " &fDeveloped by &d" + main.getAuthors() + "&f.");
-                    main.langUtils().sendMixed(player, " A leveling system plugin with MySQL support and custom events.");
+                    main.getLangUtils().sendMixed(player, " &d&lCyber&f&lLevels &fv" + main.getDescription().getVersion() + " &7(&7&nhttps://bit.ly/2YSlqYq&7).");
+                    main.getLangUtils().sendMixed(player, " &fDeveloped by &d" + main.getAuthors() + "&f.");
+                    main.getLangUtils().sendMixed(player, " A leveling system plugin with MySQL support and custom events.");
                     return true;
 
                 case "reload":
                     if (noPlayerPerm(player, "admin.reload")) return true;
-                    main.langUtils().sendMessage(player, "reloading", true, false);
+                    main.getLangUtils().sendMessage(player, "reloading", true, false);
 
                     // unload
                     main.onDisable();
@@ -68,29 +68,29 @@ public class CLVCommand implements CommandExecutor {
                     // load
                     main.reloadClasses(true);
 
-                    main.langUtils().sendMessage(player, "reloaded", true, false);
+                    main.getLangUtils().sendMessage(player, "reloaded", true, false);
                     return true;
 
                 case "info":
                     if (noPlayerPerm(player, "player.info")) return true;
-                    main.langUtils().sendMessage(player, "level-info", false);
+                    main.getLangUtils().sendMessage(player, "level-info", false);
                     return true;
 
                 case "top":
                     if (noPlayerPerm(player, "player.top")) return true;
-                    main.langUtils().sendMessage(player, "top-header", false);
+                    main.getLangUtils().sendMessage(player, "top-header", false);
                     int i = 1;
-                    for (final LeaderboardPlayer lPlayer : main.levelCache().getLeaderboard().getTopTenPlayers()) {
+                    for (final LeaderboardPlayer lPlayer : main.getLevelCache().getLeaderboard().getTopTenPlayers()) {
                         final OfflinePlayer p = lPlayer.getPlayer();
                         if (p != null) {
-                            main.langUtils().sendMessage(player, player, "top-content", false, false,
+                            main.getLangUtils().sendMessage(player, player, "top-content", false, false,
                                     new String[]{"{position}", "{player}", "{level}", "{exp}"},
-                                    new String[]{i + "", p.getName(), lPlayer.getLevel() + "", main.levelUtils().roundStringDecimal(lPlayer.getExp())}
+                                    new String[]{i + "", p.getName(), lPlayer.getLevel() + "", main.getLevelUtils().roundStringDecimal(lPlayer.getExp())}
                             );
                             i++;
                         }
                     }
-                    main.langUtils().sendMessage(player, "top-footer", false);
+                    main.getLangUtils().sendMessage(player, "top-footer", false);
                     return true;
 
             }
@@ -101,11 +101,11 @@ public class CLVCommand implements CommandExecutor {
                 case "info":
                     Player target = getPlayer(args[1]);
                     if (target == null) {
-                        main.langUtils().sendMessage(player, player, "player-offline", true, false, new String[]{"{player}"}, new String[]{args[1]});
+                        main.getLangUtils().sendMessage(player, player, "player-offline", true, false, new String[]{"{player}"}, new String[]{args[1]});
                         return true;
                     }
                     if (noPlayerPerm(player, "admin.info")) return true;
-                    main.langUtils().sendMessage(player, target, "level-info", false, true, null, null);
+                    main.getLangUtils().sendMessage(player, target, "level-info", false, true, null, null);
                     return true;
             }
         }
@@ -120,7 +120,7 @@ public class CLVCommand implements CommandExecutor {
             if (args.length == 3) {
                 target = getPlayer(args[2]);
                 if (target == null) {
-                    main.langUtils().sendMessage(player, player, "player-offline", true, false, new String[]{"{player}"}, new String[]{args[2]});
+                    main.getLangUtils().sendMessage(player, player, "player-offline", true, false, new String[]{"{player}"}, new String[]{args[2]});
                     return true;
                 }
             } else target = player;
@@ -129,43 +129,43 @@ public class CLVCommand implements CommandExecutor {
                 case "addexp":
                     if (noPlayerPerm(player, "admin.levels.exp.add")) return true;
                     if (notDouble(player, args[1])) return true;
-                    main.levelCache().playerLevels().get(target).addExp(Math.abs(Double.parseDouble(args[1])), main.levelCache().doCommandMultiplier());
-                    main.langUtils().sendMessage(player, target,"added-exp", true, true, new String[]{"{addedEXP}"}, new String[]{args[1]});
+                    main.getLevelCache().playerLevels().get(target).addExp(Math.abs(Double.parseDouble(args[1])), main.getLevelCache().doCommandMultiplier());
+                    main.getLangUtils().sendMessage(player, target,"added-exp", true, true, new String[]{"{addedEXP}"}, new String[]{args[1]});
                     return true;
 
                 case "setexp":
                     if (noPlayerPerm(player, "admin.levels.exp.set")) return true;
                     if (notDouble(player, args[1])) return true;
-                    main.levelCache().playerLevels().get(target).setExp(Math.abs(Double.parseDouble(args[1])), true, true);
-                    main.langUtils().sendMessage(player, target, "set-exp", true, true, new String[]{"{setEXP}"}, new String[]{args[1]});
+                    main.getLevelCache().playerLevels().get(target).setExp(Math.abs(Double.parseDouble(args[1])), true, true);
+                    main.getLangUtils().sendMessage(player, target, "set-exp", true, true, new String[]{"{setEXP}"}, new String[]{args[1]});
                     return true;
 
                 case "removeexp":
                     if (noPlayerPerm(player, "admin.levels.exp.remove")) return true;
                     if (notDouble(player, args[1])) return true;
-                    main.levelCache().playerLevels().get(target).removeExp(Math.abs(Double.parseDouble(args[1])));
-                    main.langUtils().sendMessage(player, target, "removed-exp", true, true, new String[]{"{removedEXP}"}, new String[]{args[1]});
+                    main.getLevelCache().playerLevels().get(target).removeExp(Math.abs(Double.parseDouble(args[1])));
+                    main.getLangUtils().sendMessage(player, target, "removed-exp", true, true, new String[]{"{removedEXP}"}, new String[]{args[1]});
                     return true;
 
                 case "addlevel":
                     if (noPlayerPerm(player, "admin.levels.level.add")) return true;
                     if (notLong(player, args[1])) return true;
-                    main.levelCache().playerLevels().get(target).addLevel(Math.abs(Long.parseLong(args[1])));
-                    main.langUtils().sendMessage(player, target, "added-levels", true, true, new String[]{"{addedLevels}"}, new String[]{args[1]});
+                    main.getLevelCache().playerLevels().get(target).addLevel(Math.abs(Long.parseLong(args[1])));
+                    main.getLangUtils().sendMessage(player, target, "added-levels", true, true, new String[]{"{addedLevels}"}, new String[]{args[1]});
                     return true;
 
                 case "setlevel":
                     if (noPlayerPerm(player, "admin.levels.level.set")) return true;
                     if (notLong(player, args[1])) return true;
-                    main.levelCache().playerLevels().get(target).setLevel(Math.abs(Long.parseLong(args[1])), true);
-                    main.langUtils().sendMessage(player, target, "set-level", true, true, new String[]{"{setLevel}"}, new String[]{args[1]});
+                    main.getLevelCache().playerLevels().get(target).setLevel(Math.abs(Long.parseLong(args[1])), true);
+                    main.getLangUtils().sendMessage(player, target, "set-level", true, true, new String[]{"{setLevel}"}, new String[]{args[1]});
                     return true;
 
                 case "removelevel":
                     if (noPlayerPerm(player, "admin.levels.level.remove")) return true;
                     if (notLong(player, args[1])) return true;
-                    main.levelCache().playerLevels().get(target).removeLevel(Math.abs(Long.parseLong(args[1])));
-                    main.langUtils().sendMessage(player, target, "removed-levels", true, true, new String[]{"{removedLevels}"}, new String[]{args[1]});
+                    main.getLevelCache().playerLevels().get(target).removeLevel(Math.abs(Long.parseLong(args[1])));
+                    main.getLangUtils().sendMessage(player, target, "removed-levels", true, true, new String[]{"{removedLevels}"}, new String[]{args[1]});
                     return true;
 
             }
@@ -173,9 +173,9 @@ public class CLVCommand implements CommandExecutor {
         }
 
         // final outcome, if command does not exist:
-        if (player.hasPermission("CyberLevels.admin.help")) main.langUtils().sendHelp(player, true);
-        else if (player.hasPermission("CyberLevels.player.help")) main.langUtils().sendHelp(player, false);
-        else main.langUtils().sendMessage(player, "no-permission", true, false);
+        if (player.hasPermission("CyberLevels.admin.help")) main.getLangUtils().sendHelp(player, true);
+        else if (player.hasPermission("CyberLevels.player.help")) main.getLangUtils().sendHelp(player, false);
+        else main.getLangUtils().sendMessage(player, "no-permission", true, false);
         return true;
 
 
@@ -184,7 +184,7 @@ public class CLVCommand implements CommandExecutor {
     private boolean noPlayerPerm(Player player, String permissionKey) {
         if (player == null) return false;
         if (!player.hasPermission("CyberLevels." + permissionKey)) {
-            main.langUtils().sendMessage(player, "no-permission", true, false);
+            main.getLangUtils().sendMessage(player, "no-permission", true, false);
             return true;
         }
         return false;
@@ -200,7 +200,7 @@ public class CLVCommand implements CommandExecutor {
             Long.parseLong(arg);
             return false;
         } catch (Exception e) {
-            main.langUtils().sendMessage(player, "not-number");
+            main.getLangUtils().sendMessage(player, "not-number");
             return true;
         }
     }
@@ -209,7 +209,7 @@ public class CLVCommand implements CommandExecutor {
             Double.parseDouble(arg);
             return false;
         } catch (Exception e) {
-            main.langUtils().sendMessage(player, "not-number");
+            main.getLangUtils().sendMessage(player, "not-number");
             return true;
         }
     }

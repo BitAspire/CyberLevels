@@ -13,7 +13,7 @@ public class Leaderboard {
 
     private final CyberLevels main;
     private List<LeaderboardPlayer> topTenPlayers;
-    final private List<LeaderboardPlayer> loadingList = new ArrayList<>();
+    private final List<LeaderboardPlayer> loadingList = new ArrayList<>();
 
     private boolean updating = false;
 
@@ -32,8 +32,8 @@ public class Leaderboard {
         updating = true;
 
         List<LeaderboardPlayer> allPlayers;
-        if (main.levelCache().getMySQL() != null && main.levelCache().getMySQL().isConnected()) {
-            allPlayers = main.levelCache().getMySQL().getAllPlayers();
+        if (main.getLevelCache().getMySQL() != null && main.getLevelCache().getMySQL().isConnected()) {
+            allPlayers = main.getLevelCache().getMySQL().getAllPlayers();
         } else {
             allPlayers = getFlatFileLeaderboard();
         }
@@ -66,7 +66,7 @@ public class Leaderboard {
 
     private List<LeaderboardPlayer> generateLeaderboard(List<LeaderboardPlayer> allPlayers) {
         List<LeaderboardPlayer> topPlayers = new ArrayList<>();
-        for (int i = 0; i < 10; i++) topPlayers.add(new LeaderboardPlayer(main, null, main.levelCache().startLevel(), main.levelCache().startExp()));
+        for (int i = 0; i < 10; i++) topPlayers.add(new LeaderboardPlayer(main, null, main.getLevelCache().startLevel(), main.getLevelCache().startExp()));
 
         for (LeaderboardPlayer player : allPlayers) {
 

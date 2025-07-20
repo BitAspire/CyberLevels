@@ -1,5 +1,7 @@
 package net.zerotoil.dev.cyberlevels.objects.levels;
 
+import lombok.Getter;
+import lombok.Setter;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import net.zerotoil.dev.cyberlevels.objects.RewardObject;
@@ -13,6 +15,9 @@ public class LevelData {
     private final CyberLevels main;
     private Long level;
     private String expFormula;
+
+    @Getter
+    @Setter
     private List<RewardObject> rewards;
 
     public LevelData(CyberLevels main, Long level) {
@@ -22,14 +27,10 @@ public class LevelData {
 
     public void setLevel(Long level) {
         this.level = level;
-        String formula = main.levelUtils().levelFormula(level);
-        if (formula == null) formula = main.levelUtils().generalFormula();
+        String formula = main.getLevelUtils().levelFormula(level);
+        if (formula == null) formula = main.getLevelUtils().generalFormula();
         expFormula = formula;
         clearRewards();
-    }
-
-    public void setRewards(List<RewardObject> rewards) {
-        this.rewards = rewards;
     }
 
     public void addReward(RewardObject reward) {
@@ -42,11 +43,8 @@ public class LevelData {
 
     public Double getRequiredExp(Player player) {
         String formula = expFormula;
-        formula = main.levelUtils().getPlaceholders(formula, player, false, true);
+        formula = main.getLevelUtils().getPlaceholders(formula, player, false, true);
         return (new ExpressionBuilder(formula).build().evaluate());
     }
 
-    public List<RewardObject> getRewards() {
-        return rewards;
-    }
 }

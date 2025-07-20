@@ -1,5 +1,8 @@
 package net.zerotoil.dev.cyberlevels.objects.exp;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import net.zerotoil.dev.cyberlevels.objects.antiabuse.AntiAbuse;
 import org.bukkit.Bukkit;
@@ -10,25 +13,29 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.HashMap;
 import java.util.Map;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class EXPCache {
 
-    private final CyberLevels main;
-    private final Map<String, EXPEarnEvent> expEarnEvents = new HashMap<>();
-    private final Map<String, AntiAbuse> antiAbuse = new HashMap<>();
-    private final boolean useDouble, roundExp;
+    final CyberLevels main;
+    final Map<String, EXPEarnEvent> expEarnEvents = new HashMap<>();
+    final Map<String, AntiAbuse> antiAbuse = new HashMap<>();
+    final boolean useDouble, roundExp;
 
-    private boolean preventSilkTouchAbuse;
-    private boolean onlyNaturalBlocks;
-    private boolean includeNaturalCrops;
+    @Getter
+    boolean preventSilkTouchAbuse;
+    @Getter
+    boolean onlyNaturalBlocks;
+    @Getter
+    boolean includeNaturalCrops;
 
-    private BukkitTask timedEXP;
+    BukkitTask timedEXP;
 
     public EXPCache(CyberLevels main) {
         cancelTimedEXP();
         cancelAntiAbuseTimers();
         this.main = main;
-        useDouble = main.files().getConfig("config").getBoolean("config.earn-exp.integer-only");
-        roundExp = main.files().getConfig("config").getBoolean("config.round-evaluation.round-earn-exp");
+        useDouble = main.getFiles().getConfig("config").getBoolean("config.earn-exp.integer-only");
+        roundExp = main.getFiles().getConfig("config").getBoolean("config.round-evaluation.round-earn-exp");
         loadExpEvents();
         loadAntiAbuse();
         startTimedEXP();
@@ -72,14 +79,14 @@ public class EXPCache {
 
     public void loadAntiAbuse() {
         main.logger("&dLoading anti-abuse...");
-        preventSilkTouchAbuse = !main.files().getConfig("anti-abuse").getBoolean("anti-abuse.general.silk-touch-reward", true);
-        onlyNaturalBlocks = main.files().getConfig("anti-abuse").getBoolean("anti-abuse.general.only-natural-blocks", false);
-        includeNaturalCrops = main.files().getConfig("anti-abuse").getBoolean("anti-abuse.general.include-natural-crops", false);
+        preventSilkTouchAbuse = !main.getFiles().getConfig("anti-abuse").getBoolean("anti-abuse.general.silk-touch-reward", true);
+        onlyNaturalBlocks = main.getFiles().getConfig("anti-abuse").getBoolean("anti-abuse.general.only-natural-blocks", false);
+        includeNaturalCrops = main.getFiles().getConfig("anti-abuse").getBoolean("anti-abuse.general.include-natural-crops", false);
         if (!antiAbuse.isEmpty()) antiAbuse.clear();
         long startTime = System.currentTimeMillis();
         long counter = 0;
-        if (main.files().getConfig("anti-abuse").isConfigurationSection("anti-abuse")) {
-            for (String s : main.files().getConfig("anti-abuse").getConfigurationSection("anti-abuse").getKeys(false)) {
+        if (main.getFiles().getConfig("anti-abuse").isConfigurationSection("anti-abuse")) {
+            for (String s : main.getFiles().getConfig("anti-abuse").getConfigurationSection("anti-abuse").getKeys(false)) {
                 if (s.equalsIgnoreCase("general")) continue;
                 antiAbuse.put(s, new AntiAbuse(main, s));
                 counter++;
@@ -109,15 +116,15 @@ public class EXPCache {
     }
 
     public void startTimedEXP() {
-        if (!main.files().getConfig("earn-exp").getBoolean("earn-exp.timed-giving.general.enabled", false) &&
-                !main.files().getConfig("earn-exp").getBoolean("earn-exp.timed-giving.specific-permissions.enabled", false)) return;
+        if (!main.getFiles().getConfig("earn-exp").getBoolean("earn-exp.timed-giving.general.enabled", false) &&
+                !main.getFiles().getConfig("earn-exp").getBoolean("earn-exp.timed-giving.specific-permissions.enabled", false)) return;
         //if (timedEXP != null && !timedEXP.isCancelled()) return;
-        long interval = Math.max(20L * Math.max(1, main.files().getConfig("earn-exp").getLong("earn-exp.timed-giving.general.interval")), 1);
+        long interval = Math.max(20L * Math.max(1, main.getFiles().getConfig("earn-exp").getLong("earn-exp.timed-giving.general.interval")), 1);
         timedEXP = (new BukkitRunnable() {
             @Override
             public void run() {
 
-                for (Player p : Bukkit.getOnlinePlayers()) main.expListeners().sendPermissionExp(p, expEarnEvents.get("timed-giving"));
+                for (Player p : Bukkit.getOnlinePlayers()) main.getExpListeners().sendPermissionExp(p, expEarnEvents.get("timed-giving"));
 
             }
         }).runTaskTimer(main, interval, interval);
@@ -136,16 +143,6 @@ public class EXPCache {
     }
     public boolean roundExp() {
         return roundExp;
-    }
-
-    public boolean isPreventSilkTouchAbuse() {
-        return preventSilkTouchAbuse;
-    }
-    public boolean isOnlyNaturalBlocks() {
-        return onlyNaturalBlocks;
-    }
-    public boolean isIncludeNaturalCrops() {
-        return includeNaturalCrops;
     }
 
 }

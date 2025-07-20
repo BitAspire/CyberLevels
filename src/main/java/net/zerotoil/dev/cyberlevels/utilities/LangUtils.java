@@ -1,6 +1,8 @@
 package net.zerotoil.dev.cyberlevels.utilities;
 
 import com.google.common.collect.Lists;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import net.zerotoil.dev.cyberlevels.objects.ActionBar;
@@ -14,18 +16,19 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.List;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class LangUtils {
 
-    private final CyberLevels main;
-    private final ActionBar actionBar;
-    private final Title title;
-    private final String prefix;
+    final CyberLevels main;
+    final ActionBar actionBar;
+    final Title title;
+    final String prefix;
 
     public LangUtils(CyberLevels main) {
         this.main = main;
         actionBar = new ActionBar(main);
         title = new Title(main);
-        prefix = main.files().getConfig("lang").getString("messages.prefix");
+        prefix = main.getFiles().getConfig("lang").getString("messages.prefix");
     }
 
     public String parsePAPI(Player player, String message) {
@@ -91,7 +94,7 @@ public class LangUtils {
     }
 
     public void actionBar(Player player, String message) {
-        actionBar.getMethod().send(player, message);
+        actionBar.getActionBar().send(player, message);
     }
 
     private boolean checkInts(String[] array) {
@@ -137,10 +140,10 @@ public class LangUtils {
 
     // add extra placeholders
     public void sendMessage(Player player, Player target, String location, boolean addPrefix, boolean getPlaceholders, String[] placeholders, String[] replacements) {
-        List<String> message = convertList(main.files().getConfig("lang"), "messages." + location);
+        List<String> message = convertList(main.getFiles().getConfig("lang"), "messages." + location);
         if (message == null || message.isEmpty()) return; // if message does not exist or is empty
 
-        if (getPlaceholders) message.replaceAll(string -> main.levelUtils().getPlaceholders(string, target, true));
+        if (getPlaceholders) message.replaceAll(string -> main.getLevelUtils().getPlaceholders(string, target, true));
         if ((placeholders != null) && (placeholders.length == replacements.length))
             message.replaceAll(text -> StringUtils.replaceEach(text, placeholders, replacements));
 
@@ -154,16 +157,16 @@ public class LangUtils {
 
     public void sendHelp(Player player, boolean adminHelp) {
         String location = "help-player";
-        if (!adminHelp && main.files().getConfig("lang").getString("messages.help-player") == null) return;
+        if (!adminHelp && main.getFiles().getConfig("lang").getString("messages.help-player") == null) return;
         if (adminHelp) {
             location = "help-admin";
-            if (main.files().getConfig("lang").getString("messages.help-admin") == null) return;
+            if (main.getFiles().getConfig("lang").getString("messages.help-admin") == null) return;
         }
         sendMessage(player, location, false, false);
     }
 
     public void typeMessage(Player player, String line) {
-        if (player == null && !main.levelCache().isMessageConsole()) return;
+        if (player == null && !main.getLevelCache().isMessageConsole()) return;
         if (line.toLowerCase().startsWith("[actionbar]"))
             actionBar(player, colorize(player, parseFormat("[actionbar]", line)));
         else if (line.toLowerCase().startsWith("[title]")) {

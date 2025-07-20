@@ -1,5 +1,8 @@
 package net.zerotoil.dev.cyberlevels.objects.leaderboard;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -7,19 +10,14 @@ import org.bukkit.entity.Player;
 
 import java.util.UUID;
 
+@AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class LeaderboardPlayer implements Comparable {
 
-    private final CyberLevels main;
-    private final String uuid;
-    private long level;
-    private double exp;
-
-    public LeaderboardPlayer(CyberLevels main, String uuid, long level, double exp) {
-        this.main = main;
-        this.uuid = uuid;
-        this.level = level;
-        this.exp = exp;
-    }
+    final CyberLevels main;
+    final String uuid;
+    long level;
+    double exp;
 
     public OfflinePlayer getPlayer() {
         if (uuid == null) return null;
@@ -39,12 +37,12 @@ public class LeaderboardPlayer implements Comparable {
 
     public long getLevel() {
         OfflinePlayer player = getPlayer();
-        if (player != null && player.isOnline()) return main.levelCache().playerLevels().get((Player) player).getLevel();
+        if (player != null && player.isOnline()) return main.getLevelCache().playerLevels().get((Player) player).getLevel();
         return level;
     }
     public double getExp() {
         OfflinePlayer player = getPlayer();
-        if (player != null && player.isOnline()) return main.levelCache().playerLevels().get((Player) player).getExp();
+        if (player != null && player.isOnline()) return main.getLevelCache().playerLevels().get((Player) player).getExp();
         return exp;
     }
 

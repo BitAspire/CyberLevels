@@ -145,17 +145,17 @@ public class MySQL {
 
         try {
             PreparedStatement statement = connection.prepareStatement("UPDATE " + table + " SET LEVEL=? WHERE UUID=?");
-            statement.setString(1, main.levelCache().playerLevels().get(player).getLevel() + "");
+            statement.setString(1, main.getLevelCache().playerLevels().get(player).getLevel() + "");
             statement.setString(2, player.getUniqueId().toString());
             statement.executeUpdate();
 
             statement = connection.prepareStatement("UPDATE " + table + " SET EXP=? WHERE UUID=?");
-            statement.setString(1, main.levelUtils().roundDecimal(main.levelCache().playerLevels().get(player).getExp()) + "");
+            statement.setString(1, main.getLevelUtils().roundDecimal(main.getLevelCache().playerLevels().get(player).getExp()) + "");
             statement.setString(2, player.getUniqueId().toString());
             statement.executeUpdate();
 
             statement = connection.prepareStatement("UPDATE " + table + " SET MAX_LEVEL=? WHERE UUID=?");
-            statement.setString(1, main.levelCache().playerLevels().get(player).getMaxLevel() + "");
+            statement.setString(1, main.getLevelCache().playerLevels().get(player).getMaxLevel() + "");
             statement.setString(2, player.getUniqueId().toString());
             statement.executeUpdate();
 
@@ -210,11 +210,11 @@ public class MySQL {
     private void addPlayer(Player player, boolean defaultValues) {
         if (playerInTable(player)) return;
 
-        String level = main.levelCache().startLevel() + "";
-        String exp = main.levelCache().startExp() + "";
+        String level = main.getLevelCache().startLevel() + "";
+        String exp = main.getLevelCache().startExp() + "";
         if (!defaultValues) {
-            level = main.levelCache().playerLevels().get(player).getLevel() + "";
-            exp = main.levelUtils().roundDecimal(main.levelCache().playerLevels().get(player).getExp()) + "";
+            level = main.getLevelCache().playerLevels().get(player).getLevel() + "";
+            exp = main.getLevelUtils().roundDecimal(main.getLevelCache().playerLevels().get(player).getExp()) + "";
         }
 
         try {

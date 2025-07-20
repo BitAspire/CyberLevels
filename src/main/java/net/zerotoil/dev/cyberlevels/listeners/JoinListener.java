@@ -18,12 +18,12 @@ public class JoinListener implements Listener {
 
     @EventHandler
     private void onJoin(PlayerJoinEvent event) {
-        main.levelCache().loadPlayer(event.getPlayer());
+        main.getLevelCache().loadPlayer(event.getPlayer());
     }
 
     @EventHandler
     private void onLeave(PlayerQuitEvent event) {
-        main.levelCache().savePlayer(event.getPlayer(), true);
+        main.getLevelCache().savePlayer(event.getPlayer(), true);
     }
 
 }

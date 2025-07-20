@@ -1,5 +1,8 @@
 package net.zerotoil.dev.cyberlevels.objects.exp;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import org.bukkit.configuration.ConfigurationSection;
@@ -7,19 +10,26 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class EXPEarnEvent {
 
-    private final CyberLevels main;
-    private Boolean enabled = false;
-    private String category, name;
-    private double minEXP, maxEXP;
-    private boolean includedEnabled = false, whitelist = false;
-    private List<String> list = new ArrayList<>();
+    @Getter(AccessLevel.NONE)
+    final CyberLevels main;
+    Boolean enabled = false;
+    String category;
+    String name;
+    double minEXP;
+    double maxEXP;
+    boolean includedEnabled = false;
+    boolean whitelist = false;
+    List<String> list = new ArrayList<>();
 
-    private boolean specificEnabled = false;
-    private HashMap<String, Double> specificMin = new HashMap<>(), specificMax = new HashMap<>();
+    boolean specificEnabled = false;
+    HashMap<String, Double> specificMin = new HashMap<>();
+    HashMap<String, Double> specificMax = new HashMap<>();
 
-    private static Random random = new Random();
+    static Random random = new Random();
 
     protected EXPEarnEvent(CyberLevels main) {
         this.main = main;
@@ -29,7 +39,7 @@ public class EXPEarnEvent {
         this.main = main;
         this.category = category;
         this.name = name;
-        ConfigurationSection config = main.files().getConfig("earn-exp").getConfigurationSection("earn-exp." + category);
+        ConfigurationSection config = main.getFiles().getConfig("earn-exp").getConfigurationSection("earn-exp." + category);
         loadGeneral(config);
         loadSpecific(config);
     }
@@ -94,7 +104,7 @@ public class EXPEarnEvent {
 
         if (config.get(name) == null) return;
 
-        for (String s : main.langUtils().convertList(main.files().getConfig("earn-exp"), "earn-exp." + category + ".specific-" + name + "." + name)) {
+        for (String s : main.getLangUtils().convertList(main.getFiles().getConfig("earn-exp"), "earn-exp." + category + ".specific-" + name + "." + name)) {
             s = s.replace(" ", "");
             String val = s.split(":", 2)[1];
             s = s.split(":", 2)[0];
@@ -113,28 +123,21 @@ public class EXPEarnEvent {
     }
 
     private double doFormula(Player player, String val) {
-        return (new ExpressionBuilder(main.levelUtils().getPlaceholders(val, player, false, true))).build().evaluate();
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-    public boolean isSpecificEnabled() {
-        return specificEnabled;
+        return (new ExpressionBuilder(main.getLevelUtils().getPlaceholders(val, player, false, true))).build().evaluate();
     }
 
     public double getGeneralExp() {
         double tempExp = minEXP + (maxEXP - minEXP) * random.nextDouble();
-        if (main.expCache().roundExp()) tempExp = main.levelUtils().roundDecimal(tempExp);
-        if (main.expCache().useDouble()) tempExp = Math.round(tempExp);
+        if (main.getExpCache().roundExp()) tempExp = main.getLevelUtils().roundDecimal(tempExp);
+        if (main.getExpCache().useDouble()) tempExp = Math.round(tempExp);
         return tempExp;
     }
 
     public double getSpecificExp(String string) {
         if (!isInSpecificList(string)) return 0.0;
         double tempExp = specificMin.get(string.toUpperCase()) + (specificMax.get(string.toUpperCase()) - specificMin.get(string.toUpperCase())) * random.nextDouble();
-        if (main.expCache().roundExp()) tempExp = main.levelUtils().roundDecimal(tempExp);
-        if (main.expCache().useDouble()) tempExp = Math.round(tempExp);
+        if (main.getExpCache().roundExp()) tempExp = main.getLevelUtils().roundDecimal(tempExp);
+        if (main.getExpCache().useDouble()) tempExp = Math.round(tempExp);
         return tempExp;
 
     }
@@ -249,37 +252,7 @@ public class EXPEarnEvent {
         EXPEarnEvent.random = random;
     }
 
-    public Boolean getEnabled() {
+    public boolean isEnabled() {
         return enabled;
-    }
-    public String getCategory() {
-        return category;
-    }
-    public String getName() {
-        return name;
-    }
-    public double getMinEXP() {
-        return minEXP;
-    }
-    public double getMaxEXP() {
-        return maxEXP;
-    }
-    public boolean isIncludedEnabled() {
-        return includedEnabled;
-    }
-    public boolean isWhitelist() {
-        return whitelist;
-    }
-    public List<String> getList() {
-        return list;
-    }
-    public HashMap<String, Double> getSpecificMin() {
-        return specificMin;
-    }
-    public HashMap<String, Double> getSpecificMax() {
-        return specificMax;
-    }
-    public static Random getRandom() {
-        return random;
     }
 }

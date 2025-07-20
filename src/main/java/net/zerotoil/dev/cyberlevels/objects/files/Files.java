@@ -19,7 +19,7 @@ public class Files {
 
     public void loadFiles() {
         if (!files.isEmpty()) files.clear();
-        main.logger("&dLoading YAML files...");
+        main.logger("&dLoading YAML getFiles...");
         long startTime = System.currentTimeMillis();
 
         // front end
@@ -42,7 +42,7 @@ public class Files {
         File playerData = new File(main.getDataFolder(),"player_data");
         if (!playerData.exists()) playerData.mkdirs();
 
-        main.logger("&7Loaded &e" + counter + "&7 files in &a" +
+        main.logger("&7Loaded &e" + counter + "&7 getFiles in &a" +
                 (System.currentTimeMillis() - startTime) + "ms&7.", ""
         );
     }

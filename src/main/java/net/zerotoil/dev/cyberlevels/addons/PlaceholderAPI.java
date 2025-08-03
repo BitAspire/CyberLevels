@@ -1,10 +1,10 @@
 package net.zerotoil.dev.cyberlevels.addons;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import me.croabeast.beanslib.Beans;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import net.zerotoil.dev.cyberlevels.objects.leaderboard.LeaderboardPlayer;
 import net.zerotoil.dev.cyberlevels.objects.levels.PlayerData;
-import net.zerotoil.dev.iridiumapi.IridiumAPI;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -84,7 +84,7 @@ public class PlaceholderAPI extends PlaceholderExpansion {
                     playerLevel.getExp());
 
         if (identifier.equalsIgnoreCase("player_exp_progress_bar"))
-            return IridiumAPI.process(main.getLevelUtils().progressBar(playerLevel.getExp(),
+            return Beans.colorize(main.getLevelUtils().progressBar(playerLevel.getExp(),
                     playerLevel.nextExpRequirement()));
 
         if (identifier.equalsIgnoreCase("player_exp_percent"))
@@ -105,10 +105,10 @@ public class PlaceholderAPI extends PlaceholderExpansion {
         }
         if (place > 10 || place < 1) return null;
         LeaderboardPlayer lPlayer = main.getLevelCache().getLeaderboard().getTopPlayer(place);
-        if (lPlayer == null) return ChatColor.translateAlternateColorCodes('&', main.getFiles().getConfig("lang")
+        if (lPlayer == null) return Beans.colorize(main.getConfig("lang")
                 .getString("leaderboard-placeholders.loading-" + type.replace("display", ""), "&c-"));
 
-        String value = main.getFiles().getConfig("lang").getString("leaderboard-placeholders.no-player-" + type.replace("display", ""), "&c-");
+        String value = main.getConfig("lang").getString("leaderboard-placeholders.no-player-" + type.replace("display", ""), "&c-");
         if (lPlayer.getPlayer() != null) {
             if (type.equalsIgnoreCase("name")) value = lPlayer.getPlayer().getName();
             else if (type.equalsIgnoreCase("displayname")) {

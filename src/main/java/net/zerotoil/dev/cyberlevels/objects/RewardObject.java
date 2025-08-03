@@ -86,7 +86,7 @@ public class RewardObject {
     }
 
     private Configuration rewardsYML() {
-        return main.getFiles().getConfig("rewards");
+        return main.getConfig("rewards");
     }
 
     public void giveReward(Player player) {

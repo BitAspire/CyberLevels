@@ -4,10 +4,10 @@ import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import me.clip.placeholderapi.PlaceholderAPI;
+import me.croabeast.beanslib.Beans;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import net.zerotoil.dev.cyberlevels.objects.ActionBar;
 import net.zerotoil.dev.cyberlevels.objects.Title;
-import net.zerotoil.dev.iridiumapi.IridiumAPI;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
@@ -28,7 +28,7 @@ public class LangUtils {
         this.main = main;
         actionBar = new ActionBar(main);
         title = new Title(main);
-        prefix = main.getFiles().getConfig("lang").getString("messages.prefix");
+        prefix = main.getConfig("lang").getString("messages.prefix");
     }
 
     public String parsePAPI(Player player, String message) {
@@ -45,7 +45,7 @@ public class LangUtils {
     }
 
     public String colorize(Player player, String message) {
-        return IridiumAPI.process(parsePAPI(player, message));
+        return Beans.colorize(parsePAPI(player, message));
     }
 
     public void sendCentered(Player player, String message) {
@@ -140,7 +140,7 @@ public class LangUtils {
 
     // add extra placeholders
     public void sendMessage(Player player, Player target, String location, boolean addPrefix, boolean getPlaceholders, String[] placeholders, String[] replacements) {
-        List<String> message = convertList(main.getFiles().getConfig("lang"), "messages." + location);
+        List<String> message = convertList(main.getConfig("lang"), "messages." + location);
         if (message == null || message.isEmpty()) return; // if message does not exist or is empty
 
         if (getPlaceholders) message.replaceAll(string -> main.getLevelUtils().getPlaceholders(string, target, true));
@@ -157,10 +157,10 @@ public class LangUtils {
 
     public void sendHelp(Player player, boolean adminHelp) {
         String location = "help-player";
-        if (!adminHelp && main.getFiles().getConfig("lang").getString("messages.help-player") == null) return;
+        if (!adminHelp && main.getConfig("lang").getString("messages.help-player") == null) return;
         if (adminHelp) {
             location = "help-admin";
-            if (main.getFiles().getConfig("lang").getString("messages.help-admin") == null) return;
+            if (main.getConfig("lang").getString("messages.help-admin") == null) return;
         }
         sendMessage(player, location, false, false);
     }

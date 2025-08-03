@@ -27,11 +27,25 @@ repositories {
     maven {
         url = uri('https://repo.maven.apache.org/maven2/')
     }
+
+    maven {
+        url = uri('https://jitpack.io')
+    }
 }
 
 dependencies {
     // Spigot API
     compileOnly "org.spigotmc:spigot-api:1.13.2-R0.1-SNAPSHOT"
+
+    // CyberCore
+//        <!-- CyberCore -->
+//        <dependency>
+//            <groupId>com.github.Kihsomray</groupId>
+//            <artifactId>CyberCore</artifactId>
+//            <version>1.3.32</version>
+//        </dependency>
+
+    implementation 'com.github.Kihsomray:CyberCore:1.3.32'
 
     // Lombok
     compileOnly("org.projectlombok:lombok:1.18.38")

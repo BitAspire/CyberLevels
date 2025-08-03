@@ -4,10 +4,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import me.croabeast.beanslib.Beans;
 import net.zerotoil.dev.cyberlevels.CyberLevels;
 import net.zerotoil.dev.cyberlevels.objects.RewardObject;
 import net.zerotoil.dev.cyberlevels.objects.leaderboard.LeaderboardPlayer;
-import net.zerotoil.dev.iridiumapi.IridiumAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -45,8 +45,7 @@ public class PlayerData {
         else level = newLevel;
 
         levelCounter = level - levelCounter;
-        if (levelCounter > 0)
-            main.getLangUtils().sendMessage(player, player,"gained-levels", true, true, new String[]{"{gainedLevels}"}, new String[]{levelCounter + ""});
+        if (levelCounter > 0) main.core().sendMessage(player, "gained-levels", new String[]{"{gainedLevels}"}, levelCounter + "");
         checkLeaderboard();
     }
 
@@ -62,8 +61,8 @@ public class PlayerData {
             // nothing, too lazy to exclude the startup setLevel error lol
         }
         if (!sendMessage) return;
-        if (levelCounter > 0) main.getLangUtils().sendMessage(player, player,"lost-levels", true, true, new String[]{"{lostLevels}"}, new String[]{Math.abs(levelCounter) + ""});
-        else if (levelCounter < 0) main.getLangUtils().sendMessage(player, player,"gained-levels", true, true, new String[]{"{gainedLevels}"}, new String[]{Math.abs(levelCounter) + ""});
+        if (levelCounter > 0) main.core().sendMessage(player, "lost-levels", new String[]{"{lostLevels}"}, Math.abs(levelCounter) + "");
+        else if (levelCounter < 0) main.core().sendMessage(player,"gained-levels", new String[]{"{gainedLevels}"}, Math.abs(levelCounter) + "");
         checkLeaderboard();
     }
 
@@ -73,7 +72,7 @@ public class PlayerData {
         level = Math.max(level - Math.max(amount, 0), main.getLevelCache().startLevel());
         levelCounter -= level;
         if (levelCounter > 0)
-            main.getLangUtils().sendMessage(player, player,"lost-levels", true, true, new String[]{"{lostLevels}"}, new String[]{levelCounter + ""});
+            main.core().sendMessage(player, "lost-levels", new String[]{"{lostLevels}"}, levelCounter + "");
         checkLeaderboard();
     }
 
@@ -106,16 +105,18 @@ public class PlayerData {
         if (main.getLevelCache().isStackComboExp() && System.currentTimeMillis() - lastTime <= 650) displayTotal += lastAmount;
 
         if (sendMessage && (displayTotal - difference) > 0)
-            main.getLangUtils().sendMessage(player, player,"gained-exp", true, true, new String[]{"{gainedEXP}", "{totalGainedEXP}"},
-                    new String[]{main.getLevelUtils().roundStringDecimal(displayTotal - difference), main.getLevelUtils().roundStringDecimal(totalAmount)});
+            main.core().sendMessage(player, "gained-exp", new String[]{"{gainedEXP}", "{totalGainedEXP}"},
+                    main.getLevelUtils().roundStringDecimal(displayTotal - difference), main.getLevelUtils().roundStringDecimal(totalAmount));
 
         else if (sendMessage && (displayTotal - difference) < 0)
-            main.getLangUtils().sendMessage(player, player,"lost-exp", true, true, new String[]{"{lostEXP}", "{totalLostEXP}"},
-                    new String[]{main.getLevelUtils().roundStringDecimal(difference - displayTotal), main.getLevelUtils().roundStringDecimal(totalAmount)});
+            main.core().sendMessage(player, "lost-exp", new String[]{"{lostEXP}", "{totalLostEXP}"},
+                    main.getLevelUtils().roundStringDecimal(difference - displayTotal), main.getLevelUtils().roundStringDecimal(totalAmount));
+
+
 
         if (sendMessage && levelCounter > 0)
-            main.getLangUtils().sendMessage(player, player,"gained-levels", true, true,
-                    new String[]{"{gainedLevels}"}, new String[]{levelCounter + ""});
+            main.core().sendMessage(player, "gained-levels",
+                    new String[]{"{gainedLevels}"}, levelCounter + "");
 
         lastAmount = displayTotal;
         lastTime = System.currentTimeMillis();
@@ -171,14 +172,14 @@ public class PlayerData {
         double displayTotal = 0 - amount;
         if (main.getLevelCache().isStackComboExp() && System.currentTimeMillis() - lastTime <= 650) displayTotal += lastAmount;
 
-        if (displayTotal < 0) main.getLangUtils().sendMessage(player, player,"lost-exp", true, true,
-                new String[]{"{lostEXP}", "{totalLostEXP}"}, new String[]{main.getLevelUtils().roundStringDecimal(Math.abs(displayTotal)), main.getLevelUtils().roundStringDecimal(totalAmount)});
+        if (displayTotal < 0) main.core().sendMessage(player, "lost-exp",
+                new String[]{"{lostEXP}", "{totalLostEXP}"}, main.getLevelUtils().roundStringDecimal(Math.abs(displayTotal)), main.getLevelUtils().roundStringDecimal(totalAmount));
 
-        else if (displayTotal > 0) main.getLangUtils().sendMessage(player, player,"gained-exp", true, true,
-                new String[]{"{gainedEXP}", "{totalGainedEXP}"}, new String[]{main.getLevelUtils().roundStringDecimal(displayTotal), main.getLevelUtils().roundStringDecimal(totalAmount)});
+        else if (displayTotal > 0) main.core().sendMessage(player, "gained-exp",
+                new String[]{"{gainedEXP}", "{totalGainedEXP}"}, main.getLevelUtils().roundStringDecimal(displayTotal), main.getLevelUtils().roundStringDecimal(totalAmount));
 
-        if (levelsLost > 0) main.getLangUtils().sendMessage(player, player,"lost-levels", true, true,
-                new String[]{"{lostLevels}"}, new String[]{levelsLost + ""});
+        if (levelsLost > 0) main.core().sendMessage(player, "lost-levels",
+                new String[]{"{lostLevels}"}, levelsLost + "");
 
         lastAmount = displayTotal;
         lastTime = System.currentTimeMillis();
@@ -192,7 +193,7 @@ public class PlayerData {
     @Override
     public String toString() {
         return "level: " + level + ", exp: " + exp + ", progress: " +
-                IridiumAPI.process(main.getLevelUtils().progressBar(exp, nextExpRequirement())) +
+                Beans.colorize(main.getLevelUtils().progressBar(exp, nextExpRequirement())) +
                 " [" + (int) (100 * (exp / nextExpRequirement())) + "%]";
     }
 

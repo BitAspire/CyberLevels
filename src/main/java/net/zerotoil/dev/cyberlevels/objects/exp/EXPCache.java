@@ -34,8 +34,8 @@ public class EXPCache {
         cancelTimedEXP();
         cancelAntiAbuseTimers();
         this.main = main;
-        useDouble = main.getFiles().getConfig("config").getBoolean("config.earn-exp.integer-only");
-        roundExp = main.getFiles().getConfig("config").getBoolean("config.round-evaluation.round-earn-exp");
+        useDouble = main.getConfig("config").getBoolean("config.earn-exp.integer-only");
+        roundExp = main.getConfig("config").getBoolean("config.round-evaluation.round-earn-exp");
         loadExpEvents();
         loadAntiAbuse();
         startTimedEXP();
@@ -79,14 +79,14 @@ public class EXPCache {
 
     public void loadAntiAbuse() {
         main.logger("&dLoading anti-abuse...");
-        preventSilkTouchAbuse = !main.getFiles().getConfig("anti-abuse").getBoolean("anti-abuse.general.silk-touch-reward", true);
-        onlyNaturalBlocks = main.getFiles().getConfig("anti-abuse").getBoolean("anti-abuse.general.only-natural-blocks", false);
-        includeNaturalCrops = main.getFiles().getConfig("anti-abuse").getBoolean("anti-abuse.general.include-natural-crops", false);
+        preventSilkTouchAbuse = !main.getConfig("anti-abuse").getBoolean("anti-abuse.general.silk-touch-reward", true);
+        onlyNaturalBlocks = main.getConfig("anti-abuse").getBoolean("anti-abuse.general.only-natural-blocks", false);
+        includeNaturalCrops = main.getConfig("anti-abuse").getBoolean("anti-abuse.general.include-natural-crops", false);
         if (!antiAbuse.isEmpty()) antiAbuse.clear();
         long startTime = System.currentTimeMillis();
         long counter = 0;
-        if (main.getFiles().getConfig("anti-abuse").isConfigurationSection("anti-abuse")) {
-            for (String s : main.getFiles().getConfig("anti-abuse").getConfigurationSection("anti-abuse").getKeys(false)) {
+        if (main.getConfig("anti-abuse").isConfigurationSection("anti-abuse")) {
+            for (String s : main.getConfig("anti-abuse").getConfigurationSection("anti-abuse").getKeys(false)) {
                 if (s.equalsIgnoreCase("general")) continue;
                 antiAbuse.put(s, new AntiAbuse(main, s));
                 counter++;
@@ -116,10 +116,10 @@ public class EXPCache {
     }
 
     public void startTimedEXP() {
-        if (!main.getFiles().getConfig("earn-exp").getBoolean("earn-exp.timed-giving.general.enabled", false) &&
-                !main.getFiles().getConfig("earn-exp").getBoolean("earn-exp.timed-giving.specific-permissions.enabled", false)) return;
+        if (!main.getConfig("earn-exp").getBoolean("earn-exp.timed-giving.general.enabled", false) &&
+                !main.getConfig("earn-exp").getBoolean("earn-exp.timed-giving.specific-permissions.enabled", false)) return;
         //if (timedEXP != null && !timedEXP.isCancelled()) return;
-        long interval = Math.max(20L * Math.max(1, main.getFiles().getConfig("earn-exp").getLong("earn-exp.timed-giving.general.interval")), 1);
+        long interval = Math.max(20L * Math.max(1, main.getConfig("earn-exp").getLong("earn-exp.timed-giving.general.interval")), 1);
         timedEXP = (new BukkitRunnable() {
             @Override
             public void run() {

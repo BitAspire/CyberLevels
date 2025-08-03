@@ -39,7 +39,7 @@ public class EXPEarnEvent {
         this.main = main;
         this.category = category;
         this.name = name;
-        ConfigurationSection config = main.getFiles().getConfig("earn-exp").getConfigurationSection("earn-exp." + category);
+        ConfigurationSection config = main.getConfig("earn-exp").getConfigurationSection("earn-exp." + category);
         loadGeneral(config);
         loadSpecific(config);
     }
@@ -104,7 +104,7 @@ public class EXPEarnEvent {
 
         if (config.get(name) == null) return;
 
-        for (String s : main.getLangUtils().convertList(main.getFiles().getConfig("earn-exp"), "earn-exp." + category + ".specific-" + name + "." + name)) {
+        for (String s : main.getLangUtils().convertList(main.getConfig("earn-exp"), "earn-exp." + category + ".specific-" + name + "." + name)) {
             s = s.replace(" ", "");
             String val = s.split(":", 2)[1];
             s = s.split(":", 2)[0];

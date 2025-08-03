@@ -13,8 +13,8 @@ public class RivalHarvesterHoesHook implements Listener {
 
     private final CyberLevels plugin;
 
-    public RivalHarvesterHoesHook(final CyberLevels plugin) {
-        this.plugin = plugin;
+    public RivalHarvesterHoesHook() {
+        this.plugin = CyberLevels.instance();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 

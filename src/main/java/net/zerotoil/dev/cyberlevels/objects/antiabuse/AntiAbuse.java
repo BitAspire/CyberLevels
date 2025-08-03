@@ -41,7 +41,7 @@ public class AntiAbuse {
 
     private void initiateAntiAbuse() {
 
-        ConfigurationSection section = main.getFiles().getConfig("anti-abuse").getConfigurationSection("anti-abuse." + location);
+        ConfigurationSection section = main.getConfig("anti-abuse").getConfigurationSection("anti-abuse." + location);
         if (section == null) return;
 
         expEvents = section.getStringList("exp-events");

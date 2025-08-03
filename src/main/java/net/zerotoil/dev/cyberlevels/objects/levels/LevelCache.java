@@ -61,7 +61,7 @@ public class LevelCache {
         startLevel = levelsYML.getLong("levels.starting.level");
         startExp = levelsYML.getDouble("levels.starting.experience");
         maxLevel = levelsYML.getLong("levels.maximum.level");
-        Configuration config = main.getFiles().getConfig("config");
+        Configuration config = main.getConfig("config");
         doCommandMultiplier = config.getBoolean("config.multipliers.commands", false);
         doEventMultiplier = config.getBoolean("config.multipliers.events", true);
         addLevelReward = config.getBoolean("config.add-level-reward", false);
@@ -98,7 +98,7 @@ public class LevelCache {
         main.logger("&dLoading level data...");
         long startTime = System.currentTimeMillis();
 
-        ConfigurationSection levelSection = main.getFiles().getConfig("levels").getConfigurationSection("levels.experience.level");
+        ConfigurationSection levelSection = main.getConfig("levels").getConfigurationSection("levels.experience.level");
         Set<String> levels = new HashSet<>();
         if (levelSection != null) levels = levelSection.getKeys(false);
 
@@ -126,10 +126,10 @@ public class LevelCache {
     }
 
     public void loadRewards() {
-        if (!main.getFiles().getConfig("rewards").isConfigurationSection("rewards")) return;
+        if (!main.getConfig("rewards").isConfigurationSection("rewards")) return;
         main.logger("&dLoading reward data...");
         long startTime = System.currentTimeMillis(), counter = 0;
-        for (String s : main.getFiles().getConfig("rewards").getConfigurationSection("rewards").getKeys(false)) {
+        for (String s : main.getConfig("rewards").getConfigurationSection("rewards").getKeys(false)) {
             new RewardObject(main, s);
             counter++;
         }
@@ -144,7 +144,7 @@ public class LevelCache {
     }
 
     public void startAutoSave() {
-        if (!main.getFiles().getConfig("config").getBoolean("config.auto-save.enabled")) return;
+        if (!main.getConfig("config").getBoolean("config.auto-save.enabled")) return;
         autoSave = (new BukkitRunnable() {
             @Override
             public void run() {
@@ -152,13 +152,13 @@ public class LevelCache {
                 saveOnlinePlayers(false);
                 Bukkit.getScheduler().runTaskAsynchronously(main, () -> {
                     if (syncLeaderboardAutoSave) leaderboard.updateLeaderboard();
-                    if (messageAutoSave) main.getLangUtils().sendMixed(null, main.getFiles().getConfig("lang")
+                    if (messageAutoSave) main.getLangUtils().sendMixed(null, main.getConfig("lang")
                             .getString("messages.auto-save")
                             .replace("{ms}", (System.currentTimeMillis() - startTime) + ""));
                     startAutoSave();
                 });
             }
-        }).runTaskLater(main, 20L * Math.max(1, main.getFiles().getConfig("config").getLong("config.auto-save.interval")));
+        }).runTaskLater(main, 20L * Math.max(1, main.getConfig("config").getLong("config.auto-save.interval")));
     }
 
     public void clearLevelData() {

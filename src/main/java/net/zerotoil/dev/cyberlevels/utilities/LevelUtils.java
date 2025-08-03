@@ -32,16 +32,16 @@ public class LevelUtils {
     }
 
     private void loadUtility() {
-        if (main.getFiles().getConfig("config").isConfigurationSection("config.round-evaluation") &&
-                main.getFiles().getConfig("config").getBoolean("config.round-evaluation.enabled")) {
+        if (main.getConfig("config").isConfigurationSection("config.round-evaluation") &&
+                main.getConfig("config").getBoolean("config.round-evaluation.enabled")) {
 
             StringBuilder decimalFormat = new StringBuilder("#");
-            int roundDigits = main.getFiles().getConfig("config").getInt("config.round-evaluation.digits", 2);
+            int roundDigits = main.getConfig("config").getInt("config.round-evaluation.digits", 2);
             if (roundDigits > 0) decimalFormat.append(".");
             for (int i = 0; i < roundDigits; i++)
                 decimalFormat.append("#");
 
-            this.decimals = main.getFiles().getConfig("config").getInt("config.round-evaluation.digits");
+            this.decimals = main.getConfig("config").getInt("config.round-evaluation.digits");
             this.decimalFormat = new DecimalFormat(decimalFormat.toString());
             this.decimalFormat.setRoundingMode(RoundingMode.CEILING);
             this.decimalFormat.setMinimumFractionDigits(roundDigits);
@@ -56,11 +56,11 @@ public class LevelUtils {
     }
 
     public Configuration levelsYML() {
-        return main.getFiles().getConfig("levels");
+        return main.getConfig("levels");
     }
 
     public Configuration langYML() {
-        return main.getFiles().getConfig("lang");
+        return main.getConfig("lang");
     }
 
     public String generalFormula() {

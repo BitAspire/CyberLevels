@@ -18,7 +18,6 @@ anti-abuse:
     # to be added, make sure to mention them on our
     # Discord: https://discord.gg/DC4Gqj3y5V
 
-
   # Custom anti-abuse setups:
   module-1:
     # What events should be included in this module?
@@ -42,7 +41,7 @@ anti-abuse:
       amount: 250
 
       # A reset will occur for the first time at
-      # the mentioned date and time. Afterwards,
+      # the mentioned date and time. Afterward,
       # it will reset using the interval specified.
       #
       # In our case, it will reset the first time
@@ -51,7 +50,7 @@ anti-abuse:
       # These timers are REBOOT IMMUNE! This means
       # that even if you reboot, it will recalculate
       # and continue the exact same pattern. For
-      # more details visit dev.zerotoil.net
+      # more details visit https://wiki.bitaspire.com/en/docs/cyberlevels
       timer: '2022-01-15 00:00 6h'
 
     worlds:
@@ -67,7 +66,6 @@ anti-abuse:
         - 'world'
         - 'world_nether'
         - 'world_the_end'
-
 
   any-name-you-want:
     # What events should be included in this module?

@@ -1,10 +1,9 @@
 config:
-
   # Should data be stored in MySQL?
   # Tested on MySQL 10.4 and MariaDB 10.6.
-  # Other versions may not work yet!
   mysql:
-    enabled: false
+    enabled: true
+    type: SQLITE # Can also be MARIADB, SQLITE, POSTGRES, POSTGRESQL
     host: 'localhost'
     port: '3306'
     database: 'cyberlevels'
@@ -12,6 +11,9 @@ config:
     password: 'password'
     table: 'levels'
     ssl: true
+    sqlite-file: "plugins/CyberLevels/data.db"
+
+  use-big-decimal-system: false
 
   # Should numbers be rounded?
   round-evaluation:
@@ -28,7 +30,6 @@ config:
     integer-only: false
 
   leaderboard:
-
     # This feature has been shown to be stable. Please
     # continue using at your own discretion.
     enabled: true

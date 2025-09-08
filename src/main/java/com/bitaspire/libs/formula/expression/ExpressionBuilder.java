@@ -1,0 +1,174 @@
+/**
+ * Copyright 2023 Pratanu Mandal
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ */
+
+package com.bitaspire.libs.formula.expression;
+
+import com.bitaspire.libs.formula.exception.Expr4jException;
+import com.bitaspire.libs.formula.token.Function;
+import com.bitaspire.libs.formula.token.Operator;
+import com.bitaspire.libs.formula.token.OperatorType;
+import com.bitaspire.libs.formula.token.Token;
+import lombok.Getter;
+
+import java.util.List;
+import java.util.Stack;
+
+/**
+ * The <code>ExpressionBuilder&lt;T&gt;</code> class provides a partial implementation to build expressions independent of the type of operand.<br>
+ * An expression is created from the postfix (or RPN) expression. The expression can then be evaluated.<br><br>
+ * 
+ * @author Pratanu Mandal
+ * @since 1.0
+ *
+ * @param <T> The type of operand
+ */
+public class ExpressionBuilder<T> {
+	
+	/**
+	 * Instance of expression.
+	 */
+	private Expression<T> expression;
+	
+	/**
+	 * Expression dictionary.
+     * -- GETTER --
+     *  Get the expression dictionary.
+     *
+     * @return The expression dictionary
+
+     */
+	@Getter
+    private ExpressionDictionary<T> expressionDictionary;
+
+	/**
+	 * Expression configuration.
+     * -- GETTER --
+     *  Get the expression configuration.
+     *
+     * @return The expression configuration
+
+     */
+	@Getter
+    private final ExpressionConfig<T> expressionConfig;
+
+	/**
+	 * Parameterized constructor
+	 *
+	 * @param expressionConfig The expression configuration
+	 */
+	public ExpressionBuilder(ExpressionConfig<T> expressionConfig) {
+		this.expressionConfig = expressionConfig;
+		this.reset();
+	}
+
+	/**
+	 * Reset the parser.
+	 */
+	public void reset() {
+		expressionDictionary = new ExpressionDictionary<>();
+	}
+
+	/**
+	 * Method to form the expression tree recursively.
+	 *
+	 * @param node Current node of the expression tree
+	 * @param token Token to be inserted
+	 * @return true if token could be inserted, otherwise false
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean formTree(ExpressionNode node, Token token) {
+		if (node.token instanceof Function) {
+			Function<T> function = (Function<T>) node.token;
+
+			int operandCount = function.parameters;
+
+			if (!node.children.isEmpty() && formTree(node.children.get(0), token)) {
+				return true;
+			}
+			else if (node.children.size() < operandCount) {
+				node.children.add(0, new ExpressionNode(token));
+				return true;
+			}
+		}
+		else if (node.token instanceof Operator) {
+			Operator<T> operator = (Operator<T>) node.token;
+
+			int operandCount = (operator.type == OperatorType.INFIX || operator.type == OperatorType.INFIX_RTL) ? 2 : 1;
+
+			if (!node.children.isEmpty() && formTree(node.children.get(0), token)) {
+				return true;
+			}
+			else if (node.children.size() < operandCount) {
+				node.children.add(0, new ExpressionNode(token));
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Method to form the expression tree.
+	 */
+	private void formTree(Stack<Token> postfix) {
+		while (!postfix.isEmpty()) {
+			Token token = postfix.pop();
+
+			if (expression.root == null) {
+                expression.root = new ExpressionNode(token);
+			}
+			else {
+				boolean flag = formTree(expression.root, token);
+
+				if (!flag) {
+					throw new Expr4jException("Invalid expression");
+				}
+			}
+		}
+	}
+
+	/**
+	 * Method to parse an expression.<br>
+	 * This method acts as the single point of access for expression parsing.
+	 *
+	 * @param expr Expression string
+	 * @return The parsed expression
+	 */
+	public Expression<T> build(String expr) {
+		try {
+			// initialize expression
+			this.expression = new Expression<T>(expressionDictionary, expressionConfig);
+
+			// tokenize the expression
+			ExpressionTokenizer<T> tokenizer = new ExpressionTokenizer<T>(expressionDictionary, expressionConfig);
+			List<Token> tokenList = tokenizer.tokenize(expr);
+
+			// form the postfix expression
+			ExpressionParser<T> parser = new ExpressionParser<T>();
+			Stack<Token> postfix = parser.parse(tokenList);
+
+			// form the tree
+			this.formTree(postfix);
+			
+			return this.expression;
+		}
+		finally {
+			// clean up - expression evaluation can be a memory intensive process
+			this.expression = null;
+		}
+	}
+}

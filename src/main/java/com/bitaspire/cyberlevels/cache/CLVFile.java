@@ -7,7 +7,7 @@ import java.io.IOException;
 
 final class CLVFile extends ConfigurableFile {
 
-    <T> CLVFile(CyberLevels loader, String name) throws IOException {
+    CLVFile(CyberLevels loader, String name) throws IOException {
         super(loader, name);
 
         setLoggerAction(loader::logger);

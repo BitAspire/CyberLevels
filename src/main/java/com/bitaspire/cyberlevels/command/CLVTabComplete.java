@@ -1,6 +1,7 @@
 package com.bitaspire.cyberlevels.command;
 
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -53,12 +54,12 @@ public class CLVTabComplete implements TabCompleter {
             switch (args[0].toLowerCase()) {
                 case "info":
                     if (player.hasPermission(ADMIN_PREFIX + "list"))
-                        return partialMatch(args[1], getOnlinePlayers());
+                        return partialMatch(args[1], getPlayerNames());
                     break;
 
                 case "purge":
                     if (player.hasPermission(ADMIN_PREFIX + "purge"))
-                        return partialMatch(args[1], getOnlinePlayers());
+                        return partialMatch(args[1], getPlayerNames());
                     break;
 
                 case "addexp": case "setexp": case "removeexp":
@@ -69,24 +70,25 @@ public class CLVTabComplete implements TabCompleter {
             }
         }
 
-        if (args.length == 3) {
-            if (Arrays.asList("addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel")
-                    .contains(args[0].toLowerCase()))
-            {
-                List<String> suggestions = new ArrayList<>();
-                suggestions.add("[<player>]");
-                suggestions.addAll(getOnlinePlayers());
-                return partialMatch(args[2], suggestions);
-            }
+        if (args.length == 3 &&
+                Arrays.asList("addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel")
+                        .contains(args[0].toLowerCase()))
+        {
+            List<String> suggestions = new ArrayList<>();
+            suggestions.add("[<player>]");
+            suggestions.addAll(getPlayerNames());
+            return partialMatch(args[2], suggestions);
         }
 
         return Collections.emptyList();
     }
 
-    private List<String> getOnlinePlayers() {
+    private List<String> getPlayerNames() {
         List<String> players = new ArrayList<>();
-        for (Player p : Bukkit.getOnlinePlayers())
+
+        for (OfflinePlayer p : Bukkit.getOfflinePlayers())
             players.add(p.getName());
+
         return players;
     }
 

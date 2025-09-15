@@ -3,7 +3,6 @@ package com.bitaspire.cyberlevels.cache;
 import com.bitaspire.cyberlevels.CyberLevels;
 import lombok.AccessLevel;
 import lombok.Getter;
-import me.croabeast.file.ConfigurableFile;
 import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,7 +24,7 @@ public class Levels {
 
     Levels(CyberLevels main) {
         try {
-            ConfigurableFile file = new CLVFile(main, "levels");
+            CLVFile file = new CLVFile(main, "levels");
 
             startLevel = Long.parseLong(file.get("levels.starting.level", 1) + "");
             startExp = file.get("levels.starting.experience", 0);
@@ -33,11 +32,11 @@ public class Levels {
             maxLevel = Long.parseLong(file.get("levels.maximum.level", 25) + "");
 
             formula = file.get("levels.experience.general-formula", formula);
-            for (String key : file.getKeys("levels.experience.level"))
+            for (String key : file.getKeys("levels.experience.level", false))
                 try {
                     Long parsed = Long.parseLong(key);
 
-                    String value = file.get("levels.experience.level." + key, "");
+                    String value = file.get("levels.experience.level." + key, new Object()).toString();
                     if (StringUtils.isBlank(value)) continue;
 
                     customFormulas.put(parsed, value);

@@ -6,7 +6,6 @@ import com.bitaspire.cyberlevels.level.Reward;
 import me.clip.placeholderapi.PlaceholderAPI;
 import me.croabeast.beanslib.message.MessageSender;
 import me.croabeast.file.Configurable;
-import me.croabeast.file.ConfigurableFile;
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
@@ -29,7 +28,7 @@ final class Rewards {
             long start = System.currentTimeMillis();
             main.logger("&dLoading rewards...");
 
-            ConfigurableFile file = new CLVFile(main, "rewards");
+            CLVFile file = new CLVFile(main, "rewards");
             for (String key : file.getKeys("rewards")) {
                 ConfigurationSection section = file.getSection("rewards." + key);
                 if (section != null) new RewardImpl(section);
@@ -55,6 +54,8 @@ final class Rewards {
             this.soundName = section.getString("sound.sound-effect");
             this.volume = (float) section.getDouble("sound.volume", 1.0);
             this.pitch = (float) section.getDouble("sound.pitch", 1.0);
+
+            messages.replaceAll(s -> s.replaceAll("(?i)\\[actionbar]", "[action-bar]"));
 
             for (String level : Configurable.toStringList(section, "levels")) {
                 level = level.replace(" ", "");

@@ -6,7 +6,6 @@ import com.bitaspire.cyberlevels.level.Formula;
 import com.bitaspire.cyberlevels.level.Operator;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.RoundingMode;
@@ -105,12 +104,6 @@ final class DoubleLevelSystem extends BaseSystem<Double> {
         };
     }
 
-    class DoubleFormula extends BaseFormula<Double> {
-        DoubleFormula(Long custom) {
-            super(DoubleLevelSystem.this, custom, new DoubleExpressionBuilder());
-        }
-    }
-
     class DoubleLeaderboard extends BaseLeaderboard<Double> {
 
         DoubleLeaderboard(UserManager<Double> manager) {
@@ -120,7 +113,7 @@ final class DoubleLevelSystem extends BaseSystem<Double> {
         @Override
         Entry<Double> toEntry(LevelUser<Double> user) {
             return new Entry<Double>(
-                    user.getUuid(), user.getPlayer().getName(),
+                    user.getUuid(), user.getName(),
                     user.getLevel(), user.getExp(), user
             ) {
                 @Override
@@ -136,25 +129,6 @@ final class DoubleLevelSystem extends BaseSystem<Double> {
 
     @Override
     Formula<Double> createFormula(Long level) {
-        return new DoubleFormula(level);
-    }
-
-    @NotNull
-    LevelUser<Double> createUser(Player player) {
-        return new DoubleUser(player);
-    }
-
-    @Getter
-    class DoubleUser extends BaseUser<Double> {
-
-        DoubleUser(Player player) {
-            super(DoubleLevelSystem.this, player);
-        }
-
-        @Override
-        void checkLeaderboard() {
-            if (cache.config().leaderboardInstantUpdate() && !leaderboard.isUpdating())
-                leaderboard.updateInstant(this);
-        }
+        return new BaseFormula<>(this, level, new DoubleExpressionBuilder());
     }
 }

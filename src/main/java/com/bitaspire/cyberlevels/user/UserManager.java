@@ -1,5 +1,6 @@
 package com.bitaspire.cyberlevels.user;
 
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -42,12 +43,20 @@ public interface UserManager<N extends Number> {
         return getUser(player.getUniqueId());
     }
 
+    LevelUser<N> getUser(String name);
+
     /**
      * Gets the database associated with this UserManager, if any.
      * @return the Database object, or null if no database is used
      */
     @Nullable
     Database<N> getDatabase();
+
+    /**
+     * Loads the player data into the system.
+     * @param offline the UUID object to load
+     */
+    void loadPlayer(OfflinePlayer offline);
 
     /**
      * Loads the player data into the system.

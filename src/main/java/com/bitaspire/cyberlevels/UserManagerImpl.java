@@ -9,14 +9,17 @@ import com.bitaspire.cyberlevels.user.UserManager;
 import lombok.Getter;
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 final class UserManagerImpl<N extends Number> implements UserManager<N> {
@@ -50,41 +53,24 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     @Override
     public LevelUser<N> getUser(UUID uuid) {
         LevelUser<N> user = users.get(uuid);
-        if (user == null) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null)
-                loadPlayer(player);
 
+        if (user == null) {
+            OfflinePlayer player = Bukkit.getPlayer(uuid);
+            if (player == null)
+                player = Bukkit.getOfflinePlayer(uuid);
+
+            loadUser(player);
             return users.get(uuid);
         }
 
         return user;
     }
 
-    private LevelUser<N> loadFromFlatFile(Player player) {
-        final LevelUser<N> user = system.createUser(player);
-        UUID uuid = user.getUuid();
-
-        String basePath = File.separator + "player_data";
-        String uuidPath = uuid + ".clv";
-
-        File file = new File(main.getDataFolder() + basePath, uuidPath);
-        try {
-            if (file.exists()) {
-                final Scanner scanner = new Scanner(file);
-
-                user.setLevel(Long.parseLong(scanner.nextLine()), false);
-                user.setExp(scanner.nextLine(), false, false);
-
-                if (scanner.hasNext())
-                    user.setMaxLevel(Long.parseLong(scanner.nextLine()));
-
-                scanner.close();
+    @Override
+    public LevelUser<N> getUser(String name) {
+        for (LevelUser<N> user : users.values()) {
+            if (user.getName().equalsIgnoreCase(name))
                 return user;
-            }
-        } catch (Exception e) {
-            main.logger("&cFailed to load flat-file data for " + player.getName() + ".");
-            e.printStackTrace();
         }
         return null;
     }
@@ -123,40 +109,99 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         }
     }
 
-    @Override
-    public void loadPlayer(Player player) {
-        UUID uuid = player.getUniqueId();
-        LevelUser<N> user;
+    private LevelUser<N> loadFromFlatFile(UUID uuid) {
+        LevelUser<N> user = system.createUser(uuid);
+
+        Path file = new File(main.getDataFolder(), "player_data" + File.separator + uuid + ".clv").toPath();
+        if (!Files.exists(file)) return null;
+
+        try (BufferedReader reader = Files.newBufferedReader(file)) {
+            String line;
+
+            line = reader.readLine(); // level
+            if (line == null) return null;
+            user.setLevel(Long.parseLong(line.trim()), false);
+
+            line = reader.readLine(); // exp
+            if (line == null) return null;
+            user.setExp(line.trim(), false, false, false);
+
+            line = reader.readLine(); // maxLevel (optional)
+            if (line != null && !line.trim().isEmpty()) {
+                try {
+                    user.setMaxLevel(Long.parseLong(line.trim()));
+                } catch (NumberFormatException ignored) {}
+            }
+
+            return user;
+        } catch (Exception e) {
+            main.logger("&cFailed to load flat-file data for " + uuid + ".");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private void loadUser(OfflinePlayer offline) {
+        Player player = offline instanceof Player ? (Player) offline : null;
+
+        UUID uuid = offline.getUniqueId();
+        LevelUser<N> user = users.get(uuid);
+
+        if (user != null && player != null && !user.isOnline()) {
+            LevelUser<N> newUser = system.createUser(uuid);
+
+            newUser.setLevel(user.getLevel(), false);
+            newUser.setExp(user.getExp() + "", true, false, false);
+            newUser.setMaxLevel(user.getMaxLevel());
+            user = newUser;
+
+            users.put(uuid, user);
+            return;
+        }
 
         String migrationMessage = "";
 
         if (database != null) {
-            user = database.getUser(player);
+            user = (player != null) ? database.getUser(player) : database.getUser(uuid);
 
             if (user == null) {
-                user = loadFromFlatFile(player);
-
-                if (user != null) {
+                if ((user = loadFromFlatFile(uuid)) != null) {
                     migrationMessage = " from flat-file to " + database.getClass().getSimpleName();
-                    database.addUser(user, false);
+                    try {
+                        database.addUser(user, false);
+                    } catch (Exception e) {
+                        main.logger("&cFailed to migrate user to database: " + uuid);
+                    }
                 }
-                else user = system.createUser(player);
+                else user = system.createUser(uuid);
             }
         } else {
-            user = loadFromFlatFile(player);
+            user = loadFromFlatFile(uuid);
 
-            if (database != null) {
+            if (user == null && database != null &&
+                    (user = (player != null) ? database.getUser(player) : database.getUser(uuid)) != null)
+            {
                 migrationMessage = " from " + database.getClass().getSimpleName() + " to flat-file";
-                if (user == null && (user = database.getUser(player)) != null) saveUser(user);
+                saveUser(user);
             }
 
-            if (user == null) user = system.createUser(player);
+            if (user == null) user = system.createUser(uuid);
         }
 
         if (StringUtils.isNotBlank(migrationMessage))
-            main.logger("Migrated " + player.getName() + " " + migrationMessage);
+            main.logger("Migrated " + (player != null ? player.getName() : uuid) + migrationMessage);
 
         users.put(uuid, user);
+    }
+
+    @Override
+    public void loadPlayer(OfflinePlayer offline) {
+        loadUser(offline);
+    }
+
+    @Override
+    public void loadPlayer(Player player) {
+        loadUser(player);
     }
 
     @Override
@@ -181,9 +226,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             return;
         }
 
-        File file = new File(folder, user.getUuid() + ".clv");
+        Path file = new File(folder, user.getUuid() + ".clv").toPath();
 
-        try (BufferedWriter writer = Files.newBufferedWriter(file.toPath())) {
+        try (BufferedWriter writer = Files.newBufferedWriter(file)) {
             writer.write(user.getLevel() + "\n");
             writer.write(user.getRoundedExp() + "\n");
             writer.write(user.getMaxLevel() + "");
@@ -208,6 +253,26 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (!file.delete()) main.logger("&cFailed to delete flat-file for user " + uuid);
     }
 
+    void loadOfflinePlayers() {
+        if (Bukkit.getOfflinePlayers().length < 1) return;
+
+        long l = System.currentTimeMillis();
+        main.logger("&dLoading data for offline players...");
+
+        int counter = 0;
+        for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+            loadPlayer(player);
+            counter++;
+        }
+
+        if (counter < 1) return;
+
+        main.logger("&7Loaded data for &e" + counter +
+                " &7offline player(s) in &a" +
+                (System.currentTimeMillis() - l) +
+                "ms&7.", "");
+    }
+
     @Override
     public void loadOnlinePlayers() {
         if (Bukkit.getOnlinePlayers().isEmpty()) return;
@@ -221,11 +286,12 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             counter++;
         }
 
+        if (counter < 1) return;
+
         main.logger("&7Loaded data for &e" + counter +
                 " &7online player(s) in &a" +
                 (System.currentTimeMillis() - l) +
-                "ms&7.", ""
-        );
+                "ms&7.", "");
     }
 
     @Override
@@ -234,10 +300,6 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     }
 
     void updateMaxLevelToAll() {
-        int count = 0;
-        for (LevelUser<?> user : users.values()) {
-
-        }
         users.values().forEach(u -> u.setMaxLevel(system.getMaxLevel()));
         saveOnlinePlayers(false);
     }
@@ -259,7 +321,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                 if (config.isMessagesOnAutoSave())
                     cache.lang().sendMessage(
                             null, Lang::getAutoSave, "ms",
-                            start - System.currentTimeMillis()
+                            System.currentTimeMillis() - start
                     );
 
                 startAutoSave();

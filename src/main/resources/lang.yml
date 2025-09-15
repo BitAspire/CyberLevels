@@ -36,7 +36,7 @@ messages:
   added-levels: '&aAdded {addedLevels} to {player}''s level(s). They are now level {level} with {playerEXP} experience.'
   set-level: '&aSet {player}''s level to {setLevel}. They are now level {level} with {playerEXP} experience.'
   removed-levels: '&aRemoved {removedLevels} from {player}''s level(s). They are now level {level} with {playerEXP} experience.'
-  player-offline: '&cThe player {player} is not online!'
+  player-not-found: '&cThe player {player} is not found in the database!'
   purge-player: '&cThe player {player} was removed from CLV''s data.'
   not-number: '&cThat is not a number!'
   level-info:

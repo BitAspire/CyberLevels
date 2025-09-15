@@ -105,7 +105,7 @@ tasks {
         )
 
         relocate('org.bstats', 'com.bitaspire.libs.bstats')
-        relocate('net.zerotoil.dev.cybercore', 'com.bitaspire.libs.cybercore')
+        relocate('net.zerotoil.dev', 'com.bitaspire.libs')
         relocate('me.croabeast', 'com.bitaspire.libs')
         relocate('me.croabeast.common', 'com.bitaspire.libs.file')
     }

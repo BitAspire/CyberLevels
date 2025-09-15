@@ -11,7 +11,6 @@ build/
 
 # Gradle
 .gradle
-libs/
 
 # Compiled class file
 *.class
@@ -116,3 +115,4 @@ buildNumber.properties
 
 # Common working directory
 run/
+/libs/

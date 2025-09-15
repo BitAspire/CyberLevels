@@ -80,8 +80,7 @@ public final class CyberLevels extends JavaPlugin {
             cache.earnExp().unregister();
         }
 
-        if (hookManager != null)
-            hookManager.unregister();
+        if (hookManager != null) hookManager.unregister();
 
         (listeners = new Listeners(this)).register();
         cache = new Cache(this);
@@ -105,17 +104,20 @@ public final class CyberLevels extends JavaPlugin {
         manager.checkMigration();
 
         database = (userManager = manager).getDatabase();
-        userManager.startAutoSave();
 
+        manager.loadOfflinePlayers();
         userManager.loadOnlinePlayers();
-        manager.updateMaxLevelToAll();
 
+        manager.updateMaxLevelToAll();
         cache.loadSecondaryFiles();
 
         cache.earnExp().register();
         cache.antiAbuse().register();
 
         (hookManager = new HookManager(this)).register();
+        userManager.startAutoSave();
+
+        levelSystem.getLeaderboard().update();
     }
 
     @Override

@@ -6,7 +6,6 @@ import com.bitaspire.cyberlevels.level.Formula;
 import com.bitaspire.cyberlevels.level.Operator;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;

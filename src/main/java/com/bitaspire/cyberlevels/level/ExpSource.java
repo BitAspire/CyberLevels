@@ -122,9 +122,8 @@ public interface ExpSource {
      * Gets a specific range of experience points based on a given value.
      *
      * @param value the value to determine the specific range
-     * @return a non-null Range object representing the specific experience range
+     * @return a Range object representing the specific experience range
      */
-    @NotNull
     Range getSpecificRange(String value);
 
     /**

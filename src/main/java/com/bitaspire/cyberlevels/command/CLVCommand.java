@@ -82,6 +82,7 @@ public class CLVCommand implements CommandExecutor {
             LevelUser<?> target = main.userManager().getUser(args[1]);
             if (target != null) {
                 main.userManager().removeUser(target.getUuid());
+                main.levelSystem().getLeaderboard().update();
                 return main.cache().lang().sendMessage(player, Lang::getPurgePlayer, "player", args[1]);
             }
 

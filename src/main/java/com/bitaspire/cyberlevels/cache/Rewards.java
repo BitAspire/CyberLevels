@@ -60,13 +60,13 @@ final class Rewards {
             for (String level : Configurable.toStringList(section, "levels")) {
                 level = level.replace(" ", "");
 
-                if (level.contains("-")) {
-                    String[] split = level.split("-");
+                if (level.contains(",")) {
+                    String[] split = level.split(",");
                     addLevels(Long.parseLong(split[0]), Long.parseLong(split[1]));
                     continue;
                 }
 
-                Arrays.stream(level.split(",")).map(Long::parseLong).forEach(this::addLevel);
+                addLevel(Long.parseLong(level));
             }
 
             count++;

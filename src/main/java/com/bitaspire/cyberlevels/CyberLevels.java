@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import me.croabeast.beanslib.utility.LibUtils;
+import me.croabeast.scheduler.GlobalScheduler;
 import net.zerotoil.dev.cybercore.CoreSettings;
 import net.zerotoil.dev.cybercore.CyberCore;
 import org.bukkit.Bukkit;
@@ -25,6 +26,8 @@ public final class CyberLevels extends JavaPlugin {
     @Accessors(fluent = true)
     @Getter
     static CyberLevels instance;
+
+    GlobalScheduler scheduler;
 
     CyberCore core;
     Cache cache;
@@ -47,6 +50,7 @@ public final class CyberLevels extends JavaPlugin {
             return;
 
         instance = this;
+        scheduler = GlobalScheduler.getScheduler(this);
         core = new CyberCore(this);
 
         CoreSettings settings = core.coreSettings();

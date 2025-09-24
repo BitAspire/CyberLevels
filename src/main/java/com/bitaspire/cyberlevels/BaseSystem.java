@@ -252,21 +252,23 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     @Getter
-    static class BaseLevel<T extends Number> implements Level<T> {
+    class BaseLevel<T extends Number> implements Level<T> {
 
         private final long level;
-        private final Formula<T> formula;
+        private Formula<T> formula;
 
         BaseLevel(BaseSystem<T> system, long level) {
             this.level = level;
 
-            Formula<T> custom = system.createFormula(level);
-            if (custom != null) {
-                system.formulas.put(level, formula = custom);
-                return;
-            }
+            main.scheduler.runTaskAsynchronously(() -> {
+                Formula<T> custom = system.createFormula(level);
+                if (custom != null) {
+                    system.formulas.put(level, formula = custom);
+                    return;
+                }
 
-            formula = system.getFormula();
+                formula = system.getFormula();
+            });
         }
 
         private final List<Reward> rewards = new ArrayList<>();

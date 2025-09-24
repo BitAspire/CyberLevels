@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -183,11 +184,16 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     @NotNull
-    abstract LevelUser<N> createUser(Player player);
+    LevelUser<N> createUser(UUID uuid) {
+        Player player = Bukkit.getPlayer(uuid);
+        return player == null ?
+                new OfflineUser<>(this, Bukkit.getOfflinePlayer(uuid)) :
+                new OnlineUser<>(this, player);
+    }
 
     @NotNull
     LevelUser<N> createUser(LevelUser<?> user) {
-        LevelUser<N> newUser = createUser(user.getPlayer());
+        LevelUser<N> newUser = createUser(user.getUuid());
 
         newUser.setLevel(user.getLevel(), false);
         newUser.setExp(user.getExp() + "", true, false, false);
@@ -246,21 +252,23 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     @Getter
-    static class BaseLevel<T extends Number> implements Level<T> {
+    class BaseLevel<T extends Number> implements Level<T> {
 
         private final long level;
-        private final Formula<T> formula;
+        private Formula<T> formula;
 
         BaseLevel(BaseSystem<T> system, long level) {
             this.level = level;
 
-            Formula<T> custom = system.createFormula(level);
-            if (custom != null) {
-                system.formulas.put(level, formula = custom);
-                return;
-            }
+            main.scheduler.runTaskAsynchronously(() -> {
+                Formula<T> custom = system.createFormula(level);
+                if (custom != null) {
+                    system.formulas.put(level, formula = custom);
+                    return;
+                }
 
-            formula = system.getFormula();
+                formula = system.getFormula();
+            });
         }
 
         private final List<Reward> rewards = new ArrayList<>();
@@ -292,7 +300,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         private final UserManager<T> userManager;
 
         private boolean updating = false;
-        private final List<Entry<T>> topTenPlayers = new ArrayList<>();
+        protected final List<Entry<T>> topTenPlayers = new CopyOnWriteArrayList<>();
 
         BaseLeaderboard(UserManager<T> manager) {
             this.userManager = manager;
@@ -323,31 +331,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             });
         }
 
-        public void updateInstant(LevelUser<T> user) {
-            Entry<T> entry = toEntry(user);
-
-            Bukkit.getScheduler().runTaskAsynchronously(main, () -> {
-                synchronized (topTenPlayers) {
-                    topTenPlayers.removeIf(e -> e.getUuid().equals(entry.getUuid()));
-
-                    int i = 0;
-                    while (i < topTenPlayers.size() && entry.compareTo(topTenPlayers.get(i)) > 0) {
-                        i++;
-                    }
-
-                    if (i >= 10) return;
-
-                    topTenPlayers.add(i, entry);
-                    if (topTenPlayers.size() > 10) topTenPlayers.remove(10);
-                }
-            });
-        }
-
-        @Override
-        public void updateInstant(Player player) {
-            updateInstant(userManager.getUser(player));
-        }
-
         @Override
         public LevelUser<T> getTopPlayer(int position) {
             return updating || position < 1 || position > 10 ? null : userManager.getUser(topTenPlayers.get(position - 1).getUuid());
@@ -356,11 +339,11 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         @Override
         public int checkPosition(Player player) {
             UUID uuid = player.getUniqueId();
-            for (int i = 0; i < topTenPlayers.size(); i++) {
-                if (uuid.equals(topTenPlayers.get(i).getUuid())) {
+
+            for (int i = 0; i < topTenPlayers.size(); i++)
+                if (uuid.equals(topTenPlayers.get(i).getUuid()))
                     return i + 1;
-                }
-            }
+
             return -1;
         }
 
@@ -390,41 +373,43 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
     }
 
-    @Getter
+    void updateLeaderboard() {
+        if (cache.config().leaderboardInstantUpdate() && !leaderboard.isUpdating())
+            leaderboard.update();
+    }
+
     abstract class BaseUser<T extends Number> implements LevelUser<T> {
 
         private final BaseSystem<T> system;
         private final Operator<T> operator;
 
-        private final Player player;
+        @Getter
         private final UUID uuid;
 
-        transient OfflinePlayer offline;
-
-        long level;
-        @Setter
+        @Getter @Setter
         long maxLevel;
+        @Getter
+        long level;
 
-        T exp, lastAmount;
+        @Getter
+        T exp;
+
         long lastTime = 0L;
+        T lastAmount;
 
-        BaseUser(BaseSystem<T> system, Player player) {
-            uuid = (this.player = player).getUniqueId();
+        BaseUser(BaseSystem<T> system, UUID uuid) {
+            this.uuid = uuid;
             exp = (this.operator = (this.system = system).getOperator()).fromDouble(getStartExp());
             level = system.getStartLevel();
             maxLevel = system.getMaxLevel();
             lastAmount = operator.zero();
         }
 
-        abstract void checkLeaderboard();
-
         void sendLevelReward(long level) {
-            if (cache.config().preventDuplicateRewards() && level <= maxLevel)
-                return;
-
-            BaseSystem.this.getLevel(level)
-                    .getRewards()
-                    .forEach(reward -> reward.giveAll(getPlayer()));
+            if (!cache.config().preventDuplicateRewards() || level > maxLevel)
+                BaseSystem.this.getLevel(level)
+                        .getRewards()
+                        .forEach(reward -> reward.giveAll(getPlayer()));
         }
 
         void updateLevel(long newLevel, boolean sendMessage, boolean giveRewards) {
@@ -454,7 +439,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 }
             }
 
-            checkLeaderboard();
+            system.updateLeaderboard();
         }
 
         public void addLevel(long amount) {
@@ -475,7 +460,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             updateLevel(target, true, false);
         }
 
-        private void changeExp(T amount, T difference, boolean sendMessage, boolean doMultiplier) {
+        private void changeExp(T amount, T difference, boolean sendMessage, boolean doMultiplier, boolean checkLeaderboard) {
             if (operator.compare(amount, operator.zero()) == 0) return;
 
             if (doMultiplier && operator.compare(amount, operator.zero()) > 0 && hasParentPerm("CyberLevels.player.multiplier.", false)) {
@@ -524,14 +509,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (sendMessage) {
                 T diff = operator.subtract(Objects.equals(displayTotal, operator.zero()) ? operator.zero() : displayTotal, difference);
 
-                if (operator.compare(diff, operator.zero()) > 0) {
+                if (operator.compare(totalAmount, operator.zero()) > 0) {
                     cache.lang().sendMessage(
-                            getPlayer(), Lang::getGainedExp, new String[]{"gainedEXP", "totalGainedEXP"},
+                            getPlayer(), Lang::getGainedExp, new String[] {"gainedEXP", "totalGainedEXP"},
                             system.roundDecimalAsString(diff), system.roundDecimalAsString(totalAmount)
                     );
-                } else if (operator.compare(diff, operator.zero()) < 0) {
+                } else if (operator.compare(totalAmount, operator.zero()) < 0) {
                     cache.lang().sendMessage(
-                            getPlayer(), Lang::getLostExp, new String[]{"lostEXP", "totalLostEXP"},
+                            getPlayer(), Lang::getLostExp, new String[] {"lostEXP", "totalLostEXP"},
                             system.roundDecimalAsString(operator.abs(diff)), system.roundDecimalAsString(operator.abs(totalAmount))
                     );
                 }
@@ -549,11 +534,11 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             level = Math.max(getStartLevel(), Math.min(level, getMaxLevel()));
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
 
-            if (sendMessage) checkLeaderboard();
+            if (checkLeaderboard) system.updateLeaderboard();
         }
 
         public void addExp(T amount, boolean doMultiplier) {
-            changeExp(amount, operator.zero(), true, doMultiplier);
+            changeExp(amount, operator.zero(), true, doMultiplier, true);
         }
 
         @Override
@@ -563,14 +548,15 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         public void setExp(T amount, boolean checkLevel, boolean sendMessage, boolean checkLeaderboard) {
             amount = operator.abs(amount);
+
             if (checkLevel) {
                 T oldExp = this.exp;
                 exp = operator.zero();
-                changeExp(amount, oldExp, sendMessage, false);
-            } else {
-                this.exp = amount;
+                changeExp(amount, oldExp, sendMessage, false, checkLeaderboard);
             }
-            if (checkLeaderboard) checkLeaderboard();
+            else this.exp = amount;
+
+            if (checkLeaderboard) system.updateLeaderboard();
         }
 
         @Override
@@ -581,7 +567,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         public void removeExp(T amount) {
             T positive = operator.max(amount, operator.zero());
             T negative = operator.negate(positive);
-            changeExp(negative, operator.zero(), true, false);
+            changeExp(negative, operator.zero(), true, false, true);
         }
 
         @Override
@@ -626,15 +612,10 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         @Override
-        public OfflinePlayer getOffline() {
-            return offline == null ? (offline = Bukkit.getOfflinePlayer(uuid)) : offline;
-        }
-
-        @Override
         public boolean hasParentPerm(String permission, boolean checkOp) {
-            if (checkOp && player.isOp()) return true;
+            if (checkOp && getPlayer().isOp()) return true;
 
-            for (PermissionAttachmentInfo node : player.getEffectivePermissions()) {
+            for (PermissionAttachmentInfo node : getPlayer().getEffectivePermissions()) {
                 if (!node.getValue()) continue;
                 if (node.getPermission().toLowerCase().startsWith(permission.toLowerCase()))
                     return true;
@@ -647,7 +628,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         public double getMultiplier() {
             double multiplier = 0;
 
-            for (PermissionAttachmentInfo perm : player.getEffectivePermissions()) {
+            for (PermissionAttachmentInfo perm : getPlayer().getEffectivePermissions()) {
                 if (!perm.getValue()) continue;
 
                 String s = perm.getPermission().toLowerCase(Locale.ENGLISH);
@@ -671,12 +652,56 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         @Override
         public String toString() {
             return "LevelUser{" +
-                    "player=" + player.getName() +
+                    "player=" + getName() +
                     ", uuid=" + uuid +
                     ", level=" + level +
                     ", exp=" + getRoundedExp() +
                     ", progress=" + getPercent() + "%" +
                     '}';
+        }
+    }
+
+    @Getter
+    class OnlineUser<T extends Number> extends BaseUser<T> {
+
+        private final Player player;
+        private final String name;
+
+        transient OfflinePlayer offline;
+
+        OnlineUser(BaseSystem<T> system, Player player) {
+            super(system, player.getUniqueId());
+            this.name = (this.player = player).getName();
+            offline = Bukkit.getOfflinePlayer(getUuid());
+        }
+
+        @Override
+        public boolean isOnline() {
+            return true;
+        }
+    }
+
+    @Getter
+    class OfflineUser<T extends Number> extends BaseUser<T> {
+
+        transient OfflinePlayer offline;
+
+        private Player player;
+        private final String name;
+
+        OfflineUser(BaseSystem<T> system, OfflinePlayer offline) {
+            super(system, offline.getUniqueId());
+            this.name = (this.offline = offline).getName();
+        }
+
+        @Override
+        public boolean isOnline() {
+            return false;
+        }
+
+        @NotNull
+        public Player getPlayer() {
+            return Objects.requireNonNull(player != null ? player : (player = Bukkit.getPlayer(getUuid())));
         }
     }
 }

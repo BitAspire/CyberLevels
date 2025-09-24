@@ -6,7 +6,6 @@ import com.bitaspire.cyberlevels.level.Formula;
 import com.bitaspire.cyberlevels.level.Operator;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
@@ -94,12 +93,6 @@ final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
         };
     }
 
-    class BigDecimalFormula extends BaseFormula<BigDecimal> {
-        BigDecimalFormula(Long custom) {
-            super(BigDecimalLevelSystem.this, custom, new BigDecimalExpressionBuilder());
-        }
-    }
-
     class BigDecimalLeaderboard extends BaseLeaderboard<BigDecimal> {
 
         BigDecimalLeaderboard(UserManager<BigDecimal> manager) {
@@ -109,7 +102,7 @@ final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
         @Override
         Entry<BigDecimal> toEntry(LevelUser<BigDecimal> user) {
             return new Entry<BigDecimal>(
-                    user.getUuid(), user.getPlayer().getName(),
+                    user.getUuid(), user.getName(),
                     user.getLevel(), user.getExp(), user
             ) {
                 @Override
@@ -125,25 +118,6 @@ final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
 
     @Override
     Formula<BigDecimal> createFormula(Long level) {
-        return new BigDecimalFormula(level);
-    }
-
-    @NotNull
-    LevelUser<BigDecimal> createUser(Player player) {
-        return new BigDecimalUser(player);
-    }
-
-    @Getter
-    class BigDecimalUser extends BaseUser<BigDecimal> {
-
-        BigDecimalUser(Player player) {
-            super(BigDecimalLevelSystem.this, player);
-        }
-
-        @Override
-        void checkLeaderboard() {
-            if (cache.config().leaderboardInstantUpdate() && !leaderboard.isUpdating())
-                leaderboard.updateInstant(this);
-        }
+        return new BaseFormula<>(this, level, new BigDecimalExpressionBuilder());
     }
 }

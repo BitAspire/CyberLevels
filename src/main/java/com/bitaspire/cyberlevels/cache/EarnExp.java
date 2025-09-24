@@ -7,7 +7,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import me.croabeast.file.ConfigurableFile;
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -46,7 +45,7 @@ public class EarnExp {
     private final CyberLevels main;
     private final Map<String, SourceImpl> events = new HashMap<>();
 
-    private ConfigurableFile file;
+    private CLVFile file;
 
     EarnExp(CyberLevels main) {
         this.main = main;
@@ -74,6 +73,10 @@ public class EarnExp {
         catch (IOException ignored) {}
 
         setDefaultEvents();
+    }
+
+    public void update() {
+        if (file != null) file.update();
     }
 
     void setDefaultEvents() {
@@ -116,13 +119,25 @@ public class EarnExp {
         events.get("damaging-animals").setListener(s -> createDamageListener(e -> e instanceof Animals, s));
 
         events.get("damaging-monsters").setListener(s -> createDamageListener(
-                e -> e instanceof Monster || (main.serverVersion() > 12 && e instanceof Mob) || e instanceof WaterMob, s));
+                e -> {
+                    if (main.serverVersion() <= 12) {
+                        return e instanceof Monster;
+                    } else {
+                        return (e instanceof Monster || e instanceof WaterMob) && !(e instanceof Animals);
+                    }
+                }, s));
 
         events.get("killing-players").setListener(s -> createDeathListener(e -> e instanceof Player, s));
         events.get("killing-animals").setListener(s -> createDeathListener(e -> e instanceof Animals, s));
 
         events.get("killing-monsters").setListener(s -> createDeathListener(
-                e -> e instanceof Monster || (main.serverVersion() > 12 && e instanceof Mob) || e instanceof WaterMob, s));
+                e -> {
+                    if (main.serverVersion() <= 12) {
+                        return e instanceof Monster;
+                    } else {
+                        return (e instanceof Monster || e instanceof WaterMob) && !(e instanceof Animals);
+                    }
+                }, s));
 
         events.get("placing").setListener(s -> new Listener() {
             @EventHandler (priority = EventPriority.HIGHEST)
@@ -360,40 +375,25 @@ public class EarnExp {
         });
     }
 
-    void doDamageEvent(EntityDamageByEntityEvent event, ExpSource s) {
-        if (event.isCancelled()) return;
-
-        Entity attacker = event.getDamager();
-        if ((attacker instanceof Projectile) && (((Projectile) attacker).getShooter() instanceof Player))
-            attacker = (Entity) ((Projectile) attacker).getShooter();
-
-        else if ((attacker instanceof TNTPrimed) && (((TNTPrimed) attacker).getSource() instanceof Player))
-            attacker = ((TNTPrimed) attacker).getSource();
-
-        if (!(attacker instanceof Player)) return;
-
-        Entity target = event.getEntity();
-        sendExp(((Player) attacker), s, (target instanceof Player) ?
-                target.getName() :
-                target.getType().toString());
-    }
-
-    void doDeathEvent(EntityDeathEvent event, ExpSource s) {
-        if (event.getEntity().getLastDamageCause() == null) return;
-
-        EntityDamageEvent damageEvent = event.getEntity().getLastDamageCause();
-        if (damageEvent instanceof EntityDamageByEntityEvent)
-            doDamageEvent((EntityDamageByEntityEvent) damageEvent, s);
-    }
-
     private Listener createDamageListener(Predicate<Entity> filter, ExpSource source) {
         return new Listener() {
             @EventHandler(priority = EventPriority.HIGHEST)
             public void onDamage(EntityDamageByEntityEvent event) {
-                if (event.isCancelled()) return;
-                if (filter.test(event.getEntity())) {
-                    doDamageEvent(event, source);
-                }
+                if (!source.isEnabled() || !filter.test(event.getEntity()) || event.isCancelled()) return;
+
+                Entity attacker = event.getDamager();
+                if ((attacker instanceof Projectile) && (((Projectile) attacker).getShooter() instanceof Player))
+                    attacker = (Entity) ((Projectile) attacker).getShooter();
+
+                else if ((attacker instanceof TNTPrimed) && (((TNTPrimed) attacker).getSource() instanceof Player))
+                    attacker = ((TNTPrimed) attacker).getSource();
+
+                if (!(attacker instanceof Player)) return;
+
+                Entity target = event.getEntity();
+                sendExp(((Player) attacker), source, (target instanceof Player) ?
+                        target.getName() :
+                        target.getType().toString());
             }
         };
     }
@@ -402,7 +402,24 @@ public class EarnExp {
         return new Listener() {
             @EventHandler(priority = EventPriority.HIGHEST)
             public void onDeath(EntityDeathEvent event) {
-                if (filter.test(event.getEntity())) doDeathEvent(event, source);
+                if (!source.isEnabled() || !filter.test(event.getEntity())) return;
+
+                EntityDamageEvent cause = event.getEntity().getLastDamageCause();
+                if (!(cause instanceof EntityDamageByEntityEvent)) return;
+
+                Entity damager = ((EntityDamageByEntityEvent) cause).getDamager();
+                if (damager instanceof Projectile && ((Projectile) damager).getShooter() instanceof Player) {
+                    damager = (Entity) ((Projectile) damager).getShooter();
+                } else if (damager instanceof TNTPrimed && ((TNTPrimed) damager).getSource() instanceof Player) {
+                    damager = ((TNTPrimed) damager).getSource();
+                }
+
+                if (!(damager instanceof Player)) return;
+
+                Player killer = (Player) damager;
+                Entity victim = event.getEntity();
+
+                sendExp(killer, source, (victim instanceof Player) ? victim.getName() : victim.getType().toString());
             }
         };
     }
@@ -411,10 +428,12 @@ public class EarnExp {
         if (main.levelSystem().checkAntiAbuse(player, source)) return;
         double counter = 0;
 
-        if (source.isEnabled() && source.isInList(value))
-            counter += source.getRange().getRandom();
-        if (source.useSpecifics() && source.isInList(value, true))
-            counter += source.getSpecificRange(value).getRandom();
+        if (source.useSpecifics()) {
+            if (source.isInList(value, true)) counter = source.getSpecificRange(value).getRandom();
+        }
+        else if (source.isEnabled()) {
+            if (source.isInList(value)) counter = source.getRange().getRandom();
+        }
 
         if (counter == 0) return;
 
@@ -433,22 +452,26 @@ public class EarnExp {
 
         double counter = 0;
 
-        if (source.isEnabled() && source.hasPermission(player))
-            counter += source.getRange().getRandom();
-
-        if (source.useSpecifics() && source.hasPermission(player, true))
-            for (String s : source.getSpecificList())
-                if (player.hasPermission(s))
+        if (source.useSpecifics()) {
+            if (source.hasPermission(player, true))
+                for (String s : source.getSpecificList()) {
+                    if (!player.hasPermission(s)) continue;
                     counter += source.getSpecificRange(s).getRandom();
+                }
+        }
+        else if (source.isEnabled()) {
+            if (source.hasPermission(player)) counter = source.getRange().getRandom();
+        }
+
+        if (counter == 0) return;
 
         LevelUser<?> user = main.userManager().getUser(player);
-
         if (counter > 0) {
             user.addExp(counter + "", main.cache().config().isMultiplierEvents());
             return;
         }
 
-        if (counter < 0) user.removeExp(Math.abs(counter) + "");
+        user.removeExp(Math.abs(counter) + "");
     }
 
     @NotNull
@@ -501,14 +524,15 @@ public class EarnExp {
             list = getList("general.includes.list");
 
             specific = get("specific-" + specificName + ".enabled", false);
+            if (specific) {
+                for (String key : getList("specific-" + specificName + "." + specificName)) {
+                    String[] array = key.split(":", 2);
 
-            for (String key : getList("specific-" + specificName + "." + specificName)) {
-                String[] array = key.split(":", 2);
+                    key = array[0].trim();
+                    String value = array[1].trim();
 
-                key = array[0].trim();
-                String value = array[1].trim();
-
-                specifics.put(key, new RangeImpl(null, value));
+                    specifics.put(key, new RangeImpl(null, value));
+                }
             }
 
             registrable = new Registrable() {
@@ -575,44 +599,43 @@ public class EarnExp {
             return !whitelist;
         }
 
-        @NotNull
+        @Override
         public Range getSpecificRange(String value) {
             return specifics.get(value);
         }
 
         public double getPartialMatchesExp(String string) {
-            double amount = 0.0;
             String upper = string.toUpperCase(Locale.ENGLISH);
+            if (!enabled) return 0.0;
 
-            if (specific) {
+            if (specific && !specifics.isEmpty()) {
+                double amount = 0.0;
+
                 for (String s : specifics.keySet())
                     if (upper.contains(s.toUpperCase(Locale.ENGLISH)))
                         amount += getSpecificRange(s).getRandom();
+
+                return amount;
             }
 
-            if (enabled) {
-                if (!includes) {
-                    amount += getRange().getRandom();
-                }
-                else {
-                    boolean giveExp = true;
-                    for (String s : list) {
-                        if (!upper.contains(s.toUpperCase(Locale.ENGLISH)))
-                            continue;
+            if (includes) return getRange().getRandom();
 
-                        if (whitelist) {
-                            amount += getRange().getRandom();
-                            return amount;
-                        }
+            boolean giveExp = true;
+            double amount = 0.0;
 
-                        giveExp = false;
-                        break;
-                    }
+            for (String s : list) {
+                if (!upper.contains(s.toUpperCase(Locale.ENGLISH)))
+                    continue;
 
-                    if (!whitelist && giveExp)
-                        amount += getRange().getRandom();
-                }
+                if (whitelist)
+                    return getRange().getRandom();
+
+                giveExp = false;
+                break;
             }
+
+            if (!whitelist && giveExp)
+                amount += getRange().getRandom();
 
             return amount;
         }
@@ -637,8 +660,11 @@ public class EarnExp {
         class RangeImpl implements Range {
 
             private double min = 0, max = 0;
+            SourceImpl parent;
 
             RangeImpl(SourceImpl parent, String exp) {
+                this.parent = parent;
+
                 if (StringUtils.isBlank(exp)) {
                     if (parent != null) parent.enabled = false;
                     return;
@@ -655,10 +681,12 @@ public class EarnExp {
             }
 
             public double getRandom() {
-                double tempExp = min + (max - min) * random.nextDouble();
-                if (main.cache().config().isExpIntegerOnly())
-                    tempExp = Math.round(tempExp);
-                return tempExp;
+                boolean round = main.cache().config().isExpIntegerOnly();
+                if (min == max)
+                    return round ? Math.round(min) : min;
+
+                double d = min + (max - min) * random.nextDouble();
+                return round ? Math.round(d) : d;
             }
 
             @Override

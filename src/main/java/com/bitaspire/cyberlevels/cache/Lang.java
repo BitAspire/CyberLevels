@@ -5,7 +5,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import me.croabeast.file.Configurable;
-import me.croabeast.file.ConfigurableFile;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
@@ -15,6 +14,8 @@ import java.util.function.Function;
 
 @Getter
 public class Lang {
+
+    private CLVFile file;
 
     private String prefix = "&d&lCyber&f&lLevels &8»&r";
     private List<String> noPermission = Collections.singletonList("&cYou don't have permission to do that!");
@@ -59,7 +60,7 @@ public class Lang {
     private List<String> setLevel = Collections.singletonList("&aSet {player}'s level to {setLevel}. They are now level {level} with {playerEXP} experience.");
     private List<String> removedLevels = Collections.singletonList("&aRemoved {removedLevels} from {player}'s level(s). They are now level {level} with {playerEXP} experience.");
 
-    private List<String> playerOffline = Collections.singletonList("&cThe player {player} is not online!");
+    private List<String> playerNotFound = Collections.singletonList("&cThe player {player} is not found in the database!");
     private List<String> notNumber = Collections.singletonList("&cThat is not a number!");
     private List<String> purgePlayer = Collections.singletonList("&cThe player {player} was removed from CLV''s data.");
 
@@ -90,9 +91,7 @@ public class Lang {
     Lang(CyberLevels main) {
         this.main = main;
         try {
-            ConfigurableFile file = new CLVFile(main, "lang");
-
-            prefix = file.get("messages.prefix", prefix);
+            prefix = (file = new CLVFile(main, "lang")).get("messages.prefix", prefix);
             noPermission = Configurable.toStringList(file.getConfiguration(), "messages.no-permission", noPermission);
 
             helpPlayer = Configurable.toStringList(file.getConfiguration(), "messages.help-player", helpPlayer);
@@ -115,7 +114,7 @@ public class Lang {
             setLevel = Configurable.toStringList(file.getConfiguration(), "messages.set-level", setLevel);
             removedLevels = Configurable.toStringList(file.getConfiguration(), "messages.removed-levels", removedLevels);
 
-            playerOffline = Configurable.toStringList(file.getConfiguration(), "messages.player-offline", playerOffline);
+            playerNotFound = Configurable.toStringList(file.getConfiguration(), "messages.player-not-found", playerNotFound);
             notNumber = Configurable.toStringList(file.getConfiguration(), "messages.not-number", notNumber);
             purgePlayer = Configurable.toStringList(file.getConfiguration(), "messages.purge-player", purgePlayer);
 
@@ -135,16 +134,26 @@ public class Lang {
         catch (IOException ignored) {}
     }
 
+    public void update() {
+        if (file != null) file.update();
+    }
+
     public boolean sendMessage(Player player, Function<Lang, List<String>> function, String[] keys, Object... values) {
-        return main.core().sendMessage(player, function.apply(this), keys, Arrays.stream(values).map(Object::toString).toArray(String[]::new));
+        List<String> list = new ArrayList<>(function.apply(this));
+        list.replaceAll(s -> s.replaceAll("(?i)\\[actionbar]", "[action-bar]"));
+
+        return main.core().sendMessage(
+                player, list, keys,
+                Arrays.stream(values).map(Object::toString).toArray(String[]::new)
+        );
     }
 
     public boolean sendMessage(Player player, Function<Lang, List<String>> function, String key, Object value) {
-        return main.core().sendMessage(player, function.apply(this), new String[] {key}, value.toString());
+        return sendMessage(player, function, new String[] {key}, value.toString());
     }
 
     public boolean sendMessage(Player player, Function<Lang, List<String>> function) {
-        return main.core().sendMessage(player, function.apply(this), null);
+        return sendMessage(player, function, null);
     }
 
     @Getter

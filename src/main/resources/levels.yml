@@ -23,8 +23,7 @@ levels:
     # will follow the general formula.
     level:
       1: 250
-      2: '{level} * 25'
-
+      2: '{level} * 20'
       # This is an example to show you what you can do with CLV,
       # please adjust it to your standards as it may produce a
       # weird output.

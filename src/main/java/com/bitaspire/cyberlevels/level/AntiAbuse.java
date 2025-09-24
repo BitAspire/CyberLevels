@@ -214,7 +214,7 @@ public interface AntiAbuse {
 
                     if (dateSplitter.length == 3) year = dateSplitter[0];
 
-                    date = new String[]{
+                    date = new String[] {
                             year,
                             dateSplitter[dateSplitter.length - 2],
                             dateSplitter[dateSplitter.length - 1]
@@ -236,7 +236,7 @@ public interface AntiAbuse {
                         hour = (h != 12 ? h + 12 : h) + "";
                     }
 
-                    time = new String[]{hour, minute};
+                    time = new String[] {hour, minute};
                     continue;
                 }
 
@@ -268,11 +268,11 @@ public interface AntiAbuse {
                     currentDay = 1;
                 }
 
-                date = new String[]{currentYear + "", currentMonth + "", currentDay + ""};
+                date = new String[] {currentYear + "", currentMonth + "", currentDay + ""};
                 if (intervals.isEmpty()) intervals.add("1d");
             }
 
-            if (time == null) time = new String[]{"00", "00"};
+            if (time == null) time = new String[] {"00", "00"};
 
             if (date.length == 3 && date[0].equals("****")) date[0] = yearNow() + "";
             if (date[date.length - 2].equals("**")) date[date.length - 2] = monthNow() + "";
@@ -285,7 +285,7 @@ public interface AntiAbuse {
         }
 
         private long parseNextScheduler() throws ParseException {
-            if (time.length == 2) time = new String[]{time[0], time[1], "00"};
+            if (time.length == 2) time = new String[] {time[0], time[1], "00"};
 
             SimpleDateFormat format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
@@ -345,8 +345,8 @@ public interface AntiAbuse {
                             ZoneId.systemDefault().getRules().getOffset(Instant.now())
                     );
 
-                    date = new String[]{ltd.getYear() + "", ltd.getMonth().getValue() + "", ltd.getDayOfMonth() + ""};
-                    time = new String[]{ltd.getHour() + "", ltd.getMinute() + "", ltd.getSecond() + ""};
+                    date = new String[] {ltd.getYear() + "", ltd.getMonth().getValue() + "", ltd.getDayOfMonth() + ""};
+                    time = new String[] {ltd.getHour() + "", ltd.getMinute() + "", ltd.getSecond() + ""};
                 }
             }
 

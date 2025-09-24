@@ -29,12 +29,21 @@ public class Cache {
         lang = new Lang(main);
         levels = new Levels(main);
 
+        if (config.autoUpdateConfig())
+            config.update();
+
+        if (config.autoUpdateLang())
+            lang.update();
+
         main.logger("&7Loaded &e3 &7main files in &a" + (System.currentTimeMillis() - start) + "ms&7.", "");
     }
 
     public void loadSecondaryFiles() {
         new Rewards(main);
         antiAbuse = new AntiAbuse(main);
+
         earnExp = new EarnExp(main);
+        if (config.autoUpdateEarnExp())
+            earnExp.update();
     }
 }

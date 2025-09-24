@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import me.croabeast.beanslib.utility.LibUtils;
+import me.croabeast.scheduler.GlobalScheduler;
 import net.zerotoil.dev.cybercore.CoreSettings;
 import net.zerotoil.dev.cybercore.CyberCore;
 import org.bukkit.Bukkit;
@@ -25,6 +26,8 @@ public final class CyberLevels extends JavaPlugin {
     @Accessors(fluent = true)
     @Getter
     static CyberLevels instance;
+
+    GlobalScheduler scheduler;
 
     CyberCore core;
     Cache cache;
@@ -47,6 +50,7 @@ public final class CyberLevels extends JavaPlugin {
             return;
 
         instance = this;
+        scheduler = GlobalScheduler.getScheduler(this);
         core = new CyberCore(this);
 
         CoreSettings settings = core.coreSettings();
@@ -80,8 +84,7 @@ public final class CyberLevels extends JavaPlugin {
             cache.earnExp().unregister();
         }
 
-        if (hookManager != null)
-            hookManager.unregister();
+        if (hookManager != null) hookManager.unregister();
 
         (listeners = new Listeners(this)).register();
         cache = new Cache(this);
@@ -105,17 +108,20 @@ public final class CyberLevels extends JavaPlugin {
         manager.checkMigration();
 
         database = (userManager = manager).getDatabase();
-        userManager.startAutoSave();
 
+        manager.loadOfflinePlayers();
         userManager.loadOnlinePlayers();
-        manager.updateMaxLevelToAll();
 
+        manager.updateMaxLevelToAll();
         cache.loadSecondaryFiles();
 
         cache.earnExp().register();
         cache.antiAbuse().register();
 
         (hookManager = new HookManager(this)).register();
+        userManager.startAutoSave();
+
+        levelSystem.getLeaderboard().update();
     }
 
     @Override

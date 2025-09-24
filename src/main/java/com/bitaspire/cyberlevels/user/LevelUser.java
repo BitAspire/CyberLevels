@@ -17,13 +17,6 @@ import java.util.UUID;
 public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
 
     /**
-     * Gets the Player object associated with this user.
-     * @return the Player object
-     */
-    @NotNull
-    Player getPlayer();
-
-    /**
      * Gets the UUID of the user.
      * @return the UUID
      */
@@ -35,6 +28,18 @@ public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
      * @return the OfflinePlayer object
      */
     OfflinePlayer getOffline();
+
+    /**
+     * Gets the Player object associated with this user.
+     * @return the Player object
+     */
+    @NotNull
+    Player getPlayer();
+
+    @NotNull
+    String getName();
+
+    boolean isOnline();
 
     /**
      * Gets the current level of the user.

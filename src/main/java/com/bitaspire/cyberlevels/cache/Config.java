@@ -3,11 +3,12 @@ package com.bitaspire.cyberlevels.cache;
 import com.bitaspire.cyberlevels.CyberLevels;
 import lombok.Getter;
 import lombok.experimental.Accessors;
-import me.croabeast.file.ConfigurableFile;
 import org.bukkit.configuration.ConfigurationSection;
 
 @Getter
 public class Config {
+
+    private CLVFile file;
 
     @Accessors(fluent = true)
     private Database database = new Database();
@@ -48,10 +49,7 @@ public class Config {
 
     Config(CyberLevels main) {
         try {
-            ConfigurableFile file = new CLVFile(main, "config");
-
-            database = new Database(file.getSection("config.mysql"));
-
+            database = new Database((file = new CLVFile(main, "config")).getSection("config.mysql"));
             useBigDecimalSystem = file.get("config.use-big-decimal-system", false);
 
             roundingEnabled = file.get("config.round-evaluation.enabled", true);
@@ -82,6 +80,10 @@ public class Config {
             messagesOnConsole = file.get("config.messages.message-console", true);
         }
         catch (Exception ignored) {}
+    }
+
+    public void update() {
+        if (file != null) file.update();
     }
 
     @Accessors(fluent = false)

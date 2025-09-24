@@ -28,18 +28,6 @@ public interface Leaderboard<N extends Number> {
     void update();
 
     /**
-     * Updates the leaderboard instantly for a specific user.
-     * @param user the user for whom to update the leaderboard
-     */
-    void updateInstant(LevelUser<N> user);
-
-    /**
-     * Updates the leaderboard instantly for a specific player.
-     * @param player the player for whom to update the leaderboard
-     */
-    void updateInstant(Player player);
-
-    /**
      * Retrieves a list of the top ten players on the leaderboard.
      * @return a list of the top ten LevelUser objects
      */

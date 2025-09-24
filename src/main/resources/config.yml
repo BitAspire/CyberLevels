@@ -38,6 +38,8 @@ config:
     # system when the auto-save is called?
     sync-on-auto-save: true
 
+    instant-update: true
+
   # Should player data be auto-saved?
   auto-save:
     enabled: true

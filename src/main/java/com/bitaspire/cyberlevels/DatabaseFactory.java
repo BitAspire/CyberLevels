@@ -6,7 +6,6 @@ import com.bitaspire.cyberlevels.user.LevelUser;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.experimental.UtilityClass;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
@@ -33,6 +32,39 @@ class DatabaseFactory {
         @Override
         public boolean isConnected() {
             return dataSource != null && !dataSource.isClosed();
+        }
+
+        abstract String checkExpColumn(Connection conn) throws SQLException;
+
+        abstract void migrateExpColumn(Connection conn, boolean toDecimal) throws SQLException;
+
+        void ensureExpColumnType() {
+            if (dataSource == null) return;
+            boolean wantDecimal = main.cache().config().useBigDecimalSystem();
+
+            try (Connection conn = dataSource.getConnection()) {
+                String current = checkExpColumn(conn);
+                if (current == null) {
+                    main.logger("&cCould not detect EXP column type for " + getTable());
+                    return;
+                }
+
+                String cur = current.toLowerCase(Locale.ENGLISH);
+                boolean curIsDecimal = cur.contains("decimal") || cur.contains("numeric");
+                boolean curIsDouble  = cur.contains("double") || cur.contains("real") || cur.contains("float") || cur.contains("double precision");
+
+                if ((wantDecimal && curIsDecimal) || (!wantDecimal && curIsDouble)) return;
+
+                main.logger("&eEXP column type mismatch (current=" + current + ") — migrating to " +
+                        (wantDecimal ? "DECIMAL/NUMERIC" : "DOUBLE/REAL") + " ...");
+
+                migrateExpColumn(conn, wantDecimal);
+                main.logger("&aEXP column migration finished for " + getTable());
+            }
+            catch (Exception e) {
+                main.logger("&cFailed ensureExpColumnType for " + getTable() + ": " + e.getMessage());
+                e.printStackTrace();
+            }
         }
 
         abstract String getTable();
@@ -66,6 +98,14 @@ class DatabaseFactory {
             try {
                 dataSource = new HikariDataSource(createConfig());
                 makeTable();
+
+                try {
+                    ensureExpColumnType();
+                } catch (Exception e) {
+                    main.logger("&cFailed to ensure EXP column type for " + type + ": " + e.getMessage());
+                    e.printStackTrace();
+                }
+
                 main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.", "");
             } catch (Exception e) {
                 main.logger("&cThere was an issue connecting to " + type + " Database.", "");
@@ -124,7 +164,7 @@ class DatabaseFactory {
                 statement.setString(4, level);
                 statement.executeUpdate();
             } catch (Exception e) {
-                main.logger("&cFailed to add user " + user.getPlayer().getName() + ".");
+                main.logger("&cFailed to add user " + user.getName() + ".");
                 e.printStackTrace();
             }
         }
@@ -154,7 +194,7 @@ class DatabaseFactory {
                     st.executeUpdate();
                 }
             } catch (Exception e) {
-                main.logger("&cFailed to update user " + user.getPlayer().getName() + ".");
+                main.logger("&cFailed to update user " + user.getName() + ".");
                 e.printStackTrace();
             }
         }
@@ -185,7 +225,7 @@ class DatabaseFactory {
                 ResultSet results = statement.executeQuery();
                 if (!results.next()) return null;
 
-                LevelUser<N> user = system.createUser(player);
+                LevelUser<N> user = system.createUser(uuid);
                 user.setLevel(results.getLong("LEVEL"), false);
 
                 Number exp = !main.cache().config().useBigDecimalSystem() ?
@@ -206,7 +246,33 @@ class DatabaseFactory {
 
         @Override
         public LevelUser<N> getUser(UUID uuid) {
-            return getUser(Bukkit.getPlayer(uuid));
+            if (uuid == null) return null;
+
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM " + getTable() + " WHERE UUID=?"))
+            {
+                statement.setString(1, uuid.toString());
+
+                ResultSet results = statement.executeQuery();
+                if (!results.next()) return null;
+
+                LevelUser<N> user = system.createUser(uuid);
+                user.setLevel(results.getLong("LEVEL"), false);
+
+                Number exp = !main.cache().config().useBigDecimalSystem() ?
+                        results.getDouble("EXP") :
+                        results.getBigDecimal("EXP");
+                user.setExp(exp + "", false, false, false);
+
+                long maxLevel = results.getLong("MAX_LEVEL");
+                if (maxLevel != 0) user.setMaxLevel(maxLevel);
+
+                return user;
+            } catch (Exception e) {
+                main.logger("&cFailed to get player data for " + uuid + ".", "");
+                e.printStackTrace();
+                return null;
+            }
         }
 
         @NotNull
@@ -265,6 +331,48 @@ class DatabaseFactory {
             config.setPoolName("CLV-MySQL");
             return config;
         }
+
+        @Override
+        protected String checkExpColumn(Connection conn) throws SQLException {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COLUMN_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'EXP'")) {
+                ps.setString(1, getTable());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) return rs.getString("COLUMN_TYPE");
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void migrateExpColumn(Connection conn, boolean toDecimal) throws SQLException {
+            String newType = toDecimal ? "DECIMAL(20,10)" : "DOUBLE";
+            String backup = getTable() + "_backup_" + System.currentTimeMillis();
+
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("CREATE TABLE `" + backup + "` AS SELECT * FROM `" + getTable() + "`"); // backup
+            }
+
+            conn.setAutoCommit(false);
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("ALTER TABLE `" + getTable() + "` MODIFY COLUMN `EXP` " + newType + " NULL");
+                conn.commit();
+            }
+            catch (SQLException ex) {
+                conn.rollback();
+                try (Statement st = conn.createStatement()) {
+                    st.executeUpdate("DROP TABLE IF EXISTS `" + getTable() + "`");
+                    st.executeUpdate("ALTER TABLE `" + backup + "` RENAME TO `" + getTable() + "`");
+                }
+                catch (SQLException re) {
+                    re.printStackTrace();
+                }
+                throw ex;
+            }
+            finally {
+                conn.setAutoCommit(true);
+            }
+        }
     }
 
     class SQLite<N extends Number> extends DatabaseImpl<N> {
@@ -307,6 +415,58 @@ class DatabaseFactory {
             } catch (SQLException e) {
                 main.logger("&cFailed to create a SQLite table.");
                 e.printStackTrace();
+            }
+        }
+
+        @Override
+        protected String checkExpColumn(Connection conn) throws SQLException {
+            String sql = "PRAGMA table_info('" + getTable() + "')";
+            try (PreparedStatement ps = conn.prepareStatement(sql);
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next())
+                    if ("EXP".equalsIgnoreCase(rs.getString("name")))
+                        return rs.getString("type");
+            }
+            return null;
+        }
+
+        @Override
+        protected void migrateExpColumn(Connection conn, boolean toDecimal) throws SQLException {
+            String backup = getTable() + "_backup_" + System.currentTimeMillis();
+            String newType = toDecimal ? "NUMERIC" : "REAL"; // REAL ~ double
+            main.logger("&eSQLite: migrating EXP column, creating backup table " + backup + "...");
+
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("PRAGMA foreign_keys = OFF");
+                st.executeUpdate("BEGIN TRANSACTION");
+
+                st.executeUpdate("ALTER TABLE \"" + getTable() + "\" RENAME TO \"" + backup + "\"");
+
+                st.executeUpdate("CREATE TABLE \"" + getTable() + "\" (\"UUID\" TEXT, \"LEVEL\" INTEGER, \"EXP\" " + newType + ", \"MAX_LEVEL\" INTEGER)");
+
+                st.executeUpdate("INSERT INTO \"" + getTable() + "\" (UUID, LEVEL, EXP, MAX_LEVEL) SELECT UUID, LEVEL, EXP, MAX_LEVEL FROM \"" + backup + "\"");
+
+                st.executeUpdate("DROP TABLE IF EXISTS \"" + backup + "\"");
+                st.executeUpdate("COMMIT");
+                st.executeUpdate("PRAGMA foreign_keys = ON");
+
+                main.logger("&aSQLite: EXP column migrated to " + newType + " successfully for " + getTable());
+            }
+            catch (SQLException ex) {
+                main.logger("&cSQLite migration failed, attempting restore...");
+
+                try (Statement st2 = conn.createStatement()) {
+                    st2.executeUpdate("ROLLBACK");
+                    st2.executeUpdate("DROP TABLE IF EXISTS \"" + getTable() + "\"");
+                    st2.executeUpdate("ALTER TABLE \"" + backup + "\" RENAME TO \"" + getTable() + "\"");
+                    st2.executeUpdate("PRAGMA foreign_keys = ON");
+                    main.logger("&aSQLite: restored original table from backup.");
+                }
+                catch (SQLException restoreEx) {
+                    main.logger("&cSQLite: failed to restore: " + restoreEx.getMessage());
+                    restoreEx.printStackTrace();
+                }
+                throw ex;
             }
         }
     }
@@ -394,6 +554,71 @@ class DatabaseFactory {
             }
 
             return uuids;
+        }
+
+        @Override
+        protected String checkExpColumn(Connection conn) throws SQLException {
+            String sql = "SELECT udt_name, data_type " +
+                    "FROM information_schema.columns " +
+                    "WHERE table_schema = current_schema() AND table_name = ? AND column_name = 'exp'";
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, getTable());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String udt = rs.getString("udt_name");
+                        return udt != null ? udt : rs.getString("data_type");
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void migrateExpColumn(Connection conn, boolean toDecimal) throws SQLException {
+            String backup = getTable() + "_backup_" + System.currentTimeMillis();
+            main.logger("&ePostgres: creating backup table " + backup + "...");
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("CREATE TABLE \"" + backup + "\" AS SELECT * FROM \"" + getTable() + "\"");
+            }
+
+            conn.setAutoCommit(false);
+            try {
+                try (Statement st = conn.createStatement()) {
+                    if (toDecimal) {
+                        st.executeUpdate("ALTER TABLE \"" + getTable() + "\" ALTER COLUMN \"EXP\" TYPE NUMERIC(20,10) USING (\"EXP\"::numeric)");
+                    } else {
+                        st.executeUpdate("ALTER TABLE \"" + getTable() + "\" ALTER COLUMN \"EXP\" TYPE double precision USING (\"EXP\"::double precision)");
+                    }
+                }
+
+                conn.commit();
+                main.logger("&aPostgres: EXP column migrated successfully on " + getTable());
+
+                try (Statement st = conn.createStatement()) {
+                    st.executeUpdate("DROP TABLE IF EXISTS \"" + backup + "\"");
+                }
+            }
+            catch (SQLException ex) {
+                conn.rollback();
+                main.logger("&cPostgres migration failed, attempting restore from " + backup + "...");
+
+                try (Statement st = conn.createStatement()) {
+                    st.executeUpdate("DROP TABLE IF EXISTS \"" + getTable() + "\"");
+                    st.executeUpdate("ALTER TABLE \"" + backup + "\" RENAME TO \"" + getTable() + "\"");
+
+                    main.logger("&aPostgres: restore from backup complete.");
+                }
+                catch (SQLException restoreEx) {
+                    main.logger("&cPostgres: failed to restore backup: " + restoreEx.getMessage());
+                    restoreEx.printStackTrace();
+                }
+                throw ex;
+            }
+            finally {
+                conn.setAutoCommit(true);
+            }
         }
     }
 

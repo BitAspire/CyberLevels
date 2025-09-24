@@ -58,7 +58,7 @@ final class PlaceholderAPI implements Hook {
                 if (user != null) {
                     switch (type.toLowerCase()) {
                         case "name":
-                            value = user.getPlayer().getName();
+                            value = user.getName();
                             break;
                         case "displayname":
                             value = user.getPlayer().getDisplayName();

@@ -5,7 +5,6 @@ import com.bitaspire.cyberlevels.level.ExpSource;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import me.croabeast.file.Configurable;
-import me.croabeast.file.ConfigurableFile;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -34,7 +33,7 @@ public class AntiAbuse {
             long start = System.currentTimeMillis();
             main.logger("&dLoading anti-abuse...");
 
-            ConfigurableFile file = new CLVFile(main, "anti-abuse");
+            CLVFile file = new CLVFile(main, "anti-abuse");
 
             silkTouchEnabled = file.get("anti-abuse.general.silk-touch-reward", false);
             onlyNaturalBlocks = file.get("anti-abuse.general.only-natural-blocks", false);

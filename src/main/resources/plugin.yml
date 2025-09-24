@@ -3,7 +3,7 @@ version: '${version}'
 main: com.bitaspire.cyberlevels.CyberLevels
 api-version: 1.13
 prefix: CLV
-softdepend: [ PlaceholderAPI, Vault, CyberWorldReset, RivalHarvesterHoes ]
+softdepend: [ PlaceholderAPI, Vault, CyberWorldReset, RivalHarvesterHoes, RivalPickaxes ]
 authors: [ Kihsomray, CroaBeast ]
 description: A leveling system plugin
 website: bitaspire.com
@@ -26,3 +26,4 @@ libraries:
   - mysql:mysql-connector-java:8.0.21
   - org.xerial:sqlite-jdbc:3.36.0.3
   - org.postgresql:postgresql:42.7.7
+  - org.apache.commons:commons-lang3:3.18.0

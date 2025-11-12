@@ -90,10 +90,13 @@ public class CLVCommand implements CommandExecutor {
         }
 
         if (args.length == 2 && sub.equals("info")) {
+            if (isRestricted(player, "admin.info")) return true;
+
             LevelUser<?> target = main.userManager().getUser(args[1]);
-            return target != null ?
-                    main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", args[1]) :
-                    (isRestricted(player, "admin.info") || sendLevelInfo(player));
+            if (target == null)
+                return main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", args[1]);
+
+            return sendLevelInfo(player, target);
         }
 
         if (args.length >= 2) {
@@ -120,7 +123,7 @@ public class CLVCommand implements CommandExecutor {
                     return handleExp(player, user, value, "exp.set", true, ExpAction.SET);
 
                 case "removeexp":
-                    return handleExp(player, user, value, "remove", false, ExpAction.REMOVE);
+                    return handleExp(player, user, value, "exp.remove", false, ExpAction.REMOVE);
 
                 case "addlevel":
                     return handleLevel(player, user, value, "level.add", LevelAction.ADD);
@@ -150,11 +153,25 @@ public class CLVCommand implements CommandExecutor {
                 player, Lang::getLevelInfo,
                 new String[] {"player", "level", "maxLevel", "playerEXP", "requiredEXP", "percent", "progressBar"},
                 user.getName(), user.getLevel(),
-                user.getMaxLevel(),
-                user.getRoundedExp(),
-                user.getRoundedRequiredExp(),
+                main.cache().levels().getMaxLevel(),
+                user.getExp(),
+                user.getRequiredExp(),
                 user.getPercent(),
                 user.getProgressBar()
+        );
+    }
+
+    private boolean sendLevelInfo(Player viewer, LevelUser<?> target) {
+        return main.cache().lang().sendMessage(
+                viewer, Lang::getLevelInfo,
+                new String[]{"player","level","maxLevel","playerEXP","requiredEXP","percent","progressBar"},
+                target.getName(),
+                target.getLevel(),
+                main.cache().levels().getMaxLevel(),
+                target.getExp(),
+                target.getRequiredExp(),
+                target.getPercent(),
+                target.getProgressBar()
         );
     }
 
@@ -179,7 +196,7 @@ public class CLVCommand implements CommandExecutor {
         return main.cache().lang().sendMessage(
                 player, action.getMessage(),
                 new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), user.getRoundedExp()
+                user.getName(), arg, user.getLevel(), user.getExp()
         );
     }
 
@@ -202,7 +219,7 @@ public class CLVCommand implements CommandExecutor {
         return main.cache().lang().sendMessage(
                 player, action.getMessage(),
                 new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), user.getRoundedExp()
+                user.getName(), arg, user.getLevel(), user.getExp()
         );
     }
 

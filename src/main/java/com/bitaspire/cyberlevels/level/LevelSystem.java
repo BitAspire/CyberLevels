@@ -3,6 +3,7 @@ package com.bitaspire.cyberlevels.level;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -42,20 +43,6 @@ public interface LevelSystem<N extends Number> {
     Operator<N> getOperator();
 
     /**
-     * Gets a set of all levels defined in the level system.
-     * @return a set of levels
-     */
-    @NotNull
-    Set<Level<N>> getLevels();
-
-    /**
-     * Gets the level corresponding to the specified level number.
-     * @param level the level number
-     * @return the corresponding Level object
-     */
-    Level<N> getLevel(long level);
-
-    /**
      * Gets the default formula used for experience calculations.
      * @return the default formula
      */
@@ -69,6 +56,12 @@ public interface LevelSystem<N extends Number> {
      * @return the custom formula for the specified level, or null if no custom formula is defined
      */
     Formula<N> getCustomFormula(long level);
+
+    @NotNull
+    N getRequiredExp(long level, Player player);
+
+    @NotNull
+    List<Reward> getRewards(long level);
 
     /**
      * Gets the leaderboard associated with the level system.

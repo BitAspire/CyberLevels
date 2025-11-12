@@ -112,7 +112,6 @@ public final class CyberLevels extends JavaPlugin {
         manager.loadOfflinePlayers();
         userManager.loadOnlinePlayers();
 
-        manager.updateMaxLevelToAll();
         cache.loadSecondaryFiles();
 
         cache.earnExp().register();

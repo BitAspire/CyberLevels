@@ -15,6 +15,7 @@ public class Cache {
     private final Config config;
     private final Lang lang;
     private final Levels levels;
+    private final Rewards rewards;
 
     private AntiAbuse antiAbuse;
     private EarnExp earnExp;
@@ -28,6 +29,7 @@ public class Cache {
         config = new Config(main);
         lang = new Lang(main);
         levels = new Levels(main);
+        rewards = new Rewards(main);
 
         if (config.autoUpdateConfig())
             config.update();
@@ -35,11 +37,10 @@ public class Cache {
         if (config.autoUpdateLang())
             lang.update();
 
-        main.logger("&7Loaded &e3 &7main files in &a" + (System.currentTimeMillis() - start) + "ms&7.", "");
+        main.logger("&7Loaded &e4 &7main files in &a" + (System.currentTimeMillis() - start) + "ms&7.", "");
     }
 
     public void loadSecondaryFiles() {
-        new Rewards(main);
         antiAbuse = new AntiAbuse(main);
 
         earnExp = new EarnExp(main);

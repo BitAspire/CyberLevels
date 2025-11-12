@@ -1,8 +1,8 @@
 package com.bitaspire.cyberlevels.cache;
 
 import com.bitaspire.cyberlevels.CyberLevels;
-import com.bitaspire.cyberlevels.level.Level;
 import com.bitaspire.cyberlevels.level.Reward;
+import lombok.Getter;
 import me.clip.placeholderapi.PlaceholderAPI;
 import me.croabeast.beanslib.message.MessageSender;
 import me.croabeast.file.Configurable;
@@ -16,22 +16,31 @@ import org.bukkit.permissions.PermissionAttachmentInfo;
 import java.io.IOException;
 import java.util.*;
 
-final class Rewards {
+public final class Rewards {
 
     private final CyberLevels main;
     private int count = 0;
+
+    @Getter
+    private final Map<Long, List<Reward>> rewards = new LinkedHashMap<>();
 
     Rewards(CyberLevels main) {
         this.main = main;
 
         try {
             long start = System.currentTimeMillis();
-            main.logger("&dLoading rewards...");
 
             CLVFile file = new CLVFile(main, "rewards");
             for (String key : file.getKeys("rewards")) {
                 ConfigurationSection section = file.getSection("rewards." + key);
-                if (section != null) new RewardImpl(section);
+                if (section == null) continue;
+
+                final RewardImpl reward = new RewardImpl(section);
+                for (long level : reward.levels) {
+                    List<Reward> list = rewards.computeIfAbsent(level, l -> new ArrayList<>());
+                    if (!list.contains(reward)) list.add(reward);
+                    rewards.put(level, list);
+                }
             }
 
             main.logger("&7Loaded &e" + (count) + "&7 rewards in &a" + (System.currentTimeMillis() - start) + "ms&7.", "");
@@ -77,10 +86,7 @@ final class Rewards {
         }
 
         private void addLevel(long lvl) {
-            if (!levels.add(lvl)) return;
-
-            Level<?> data = main.levelSystem().getLevel(lvl);
-            if (data != null) data.addReward(this);
+            levels.add(lvl);
         }
 
         String parseFormat(String prefix, String line) {
@@ -106,7 +112,7 @@ final class Rewards {
         }
 
         void typeMessage(Player player, String message) {
-            new MessageSender(player).send(message);
+            new MessageSender(player).setLogger(false).send(message);
         }
 
         public void sendMessages(Player player) {

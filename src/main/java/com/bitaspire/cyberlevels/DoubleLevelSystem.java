@@ -5,6 +5,7 @@ import com.bitaspire.libs.formula.DoubleExpressionBuilder;
 import com.bitaspire.cyberlevels.level.Formula;
 import com.bitaspire.cyberlevels.level.Operator;
 import com.bitaspire.cyberlevels.user.LevelUser;
+import com.bitaspire.libs.formula.expression.ExpressionBuilder;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 
@@ -128,7 +129,12 @@ final class DoubleLevelSystem extends BaseSystem<Double> {
     }
 
     @Override
-    Formula<Double> createFormula(Long level) {
-        return new BaseFormula<>(this, level, new DoubleExpressionBuilder());
+    Formula<Double> createFormula(String string) {
+        return new BaseFormula<Double>(operator, string) {
+            @NotNull
+            ExpressionBuilder<Double> builder() {
+                return new DoubleExpressionBuilder();
+            }
+        };
     }
 }

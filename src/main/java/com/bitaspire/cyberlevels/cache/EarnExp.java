@@ -320,11 +320,18 @@ public class EarnExp {
         });
 
         events.get("fishing").setListener(s -> new Listener() {
-            @EventHandler (priority = EventPriority.HIGHEST)
+            @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
             private void onFishing(PlayerFishEvent event) {
+                final PlayerFishEvent.State state = event.getState();
+                if (state != PlayerFishEvent.State.CAUGHT_FISH
+                        && state != PlayerFishEvent.State.CAUGHT_ENTITY)
+                    return;
+
                 Entity caught = event.getCaught();
-                if (!event.isCancelled() && caught != null || caught instanceof Item)
-                    sendExp(event.getPlayer(), s, ((Item) caught).getItemStack().getType().toString());
+                if (!(caught instanceof Item)) return;
+
+                ItemStack stack = ((Item) caught).getItemStack();
+                sendExp(event.getPlayer(), s, stack.getType().toString());
             }
         });
 

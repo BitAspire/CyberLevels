@@ -1,6 +1,7 @@
 package com.bitaspire.cyberlevels.cache;
 
 import com.bitaspire.cyberlevels.CyberLevels;
+import com.bitaspire.cyberlevels.Message;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -139,13 +140,7 @@ public class Lang {
     }
 
     public boolean sendMessage(Player player, Function<Lang, List<String>> function, String[] keys, Object... values) {
-        List<String> list = new ArrayList<>(function.apply(this));
-        list.replaceAll(s -> s.replaceAll("(?i)\\[actionbar]", "[action-bar]"));
-
-        return main.core().sendMessage(
-                player, list, keys,
-                Arrays.stream(values).map(Object::toString).toArray(String[]::new)
-        );
+        return new Message().player(player).list(function).keys(keys).values(values).send();
     }
 
     public boolean sendMessage(Player player, Function<Lang, List<String>> function, String key, Object value) {

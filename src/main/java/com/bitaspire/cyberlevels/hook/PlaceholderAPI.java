@@ -67,7 +67,7 @@ final class PlaceholderAPI implements Hook {
                             value = user.getLevel() + "";
                             break;
                         case "exp":
-                            value = user.getRoundedExp() + "";
+                            value = user.getExp() + "";
                             break;
                     }
                 }
@@ -108,10 +108,10 @@ final class PlaceholderAPI implements Hook {
                         return (Math.min(user.getLevel() + 1, system.getMaxLevel())) + "";
 
                     case "player_exp":
-                        return user.getRoundedExp() + "";
+                        return user.getExp() + "";
 
                     case "player_exp_required":
-                        return user.getRoundedRequiredExp() + "";
+                        return user.getRequiredExp() + "";
 
                     case "player_exp_remaining":
                         return user.getRemainingExp() + "";

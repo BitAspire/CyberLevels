@@ -10,10 +10,8 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
 public class AntiAbuse {
@@ -24,7 +22,7 @@ public class AntiAbuse {
     private boolean onlyNaturalBlocks = false, includeNaturalCrops = false;
 
     private boolean silkTouchEnabled = false;
-    private final Map<String, Module> modules = new HashMap<>();
+    private final Map<String, Module> modules = new ConcurrentHashMap<>();
 
     AntiAbuse(CyberLevels main) {
         this.main = main;
@@ -77,6 +75,7 @@ public class AntiAbuse {
 
         private final boolean cooldownEnabled;
         private final int cooldownTime;
+        private final long cooldownMillis;
 
         private final boolean limiterEnabled;
         private final long limiterAmount;
@@ -84,7 +83,9 @@ public class AntiAbuse {
         private final boolean worldsEnabled, worldsWhitelist;
         private Timer timer = null;
 
-        private final Map<Player, Long> cooldowns = new HashMap<>(), limiters = new HashMap<>();
+        private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
+        private final Map<UUID, Long> limiters  = new ConcurrentHashMap<>();
+
         private final List<String> worldsList = new ArrayList<>();
 
         Module(ConfigurationSection section) {
@@ -92,6 +93,7 @@ public class AntiAbuse {
 
             cooldownEnabled = section.getBoolean("cooldown.enabled", false);
             cooldownTime = section.getInt("cooldown.time", 5);
+            cooldownMillis = Math.max(0, cooldownTime) * 1000L;
 
             limiterEnabled = section.getBoolean("limiter.enabled", false);
             limiterAmount = section.getLong("limiter.amount", 250);
@@ -108,11 +110,12 @@ public class AntiAbuse {
 
         @Override
         public int getCooldownLeft(Player player) {
-            Long last = cooldowns.get(player);
+            Long last = cooldowns.get(player.getUniqueId());
             if (last == null) return 0;
 
             long elapsed = System.currentTimeMillis() - last;
-            return Math.toIntExact(elapsed >= cooldownTime ? 0 : elapsed);
+            long remaining = Math.max(0, cooldownMillis - elapsed);
+            return (int) Math.ceil(remaining / 1000.0);
         }
 
         @Override
@@ -122,12 +125,12 @@ public class AntiAbuse {
 
         @Override
         public void resetCooldown(Player player) {
-            cooldowns.remove(player);
+            cooldowns.remove(player.getUniqueId());
         }
 
         @Override
         public int getLimiter(Player player) {
-            return Math.toIntExact(limiters.getOrDefault(player, limiterAmount));
+            return Math.toIntExact(limiters.getOrDefault(player.getUniqueId(), limiterAmount));
         }
 
         @Override
@@ -137,7 +140,7 @@ public class AntiAbuse {
 
         @Override
         public void resetLimiter(Player player) {
-            limiters.remove(player);
+            limiters.remove(player.getUniqueId());
         }
 
         @Override
@@ -155,27 +158,28 @@ public class AntiAbuse {
         }
 
         boolean isCoolingDown(Player player, String event) {
-            if (!expEvents.contains(event) || !cooldownEnabled)
-                return false;
+            if (!expEvents.contains(event) || !cooldownEnabled) return false;
 
-            long now = System.currentTimeMillis();
-            long last = cooldowns.getOrDefault(player, 0L);
+            final UUID uuid = player.getUniqueId();
+            final long now = System.currentTimeMillis();
+            final Long last = cooldowns.get(uuid);
 
-            if (now - last >= cooldownTime) {
-                cooldowns.put(player, now);
+            if (last == null || (now - last) >= cooldownMillis) {
+                cooldowns.put(uuid, now);
                 return false;
             }
 
             return true;
+
         }
 
         boolean isLimited(Player player, String event) {
             if (!expEvents.contains(event) || !limiterEnabled) return false;
 
-            long remaining = limiters.getOrDefault(player, limiterAmount);
+            long remaining = limiters.getOrDefault(player.getUniqueId(), limiterAmount);
             if (remaining <= 0) return true;
 
-            limiters.put(player, remaining - 1);
+            limiters.put(player.getUniqueId(), remaining - 1);
             return false;
         }
 

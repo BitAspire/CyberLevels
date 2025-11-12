@@ -153,4 +153,14 @@ public final class CyberLevels extends JavaPlugin {
     public boolean isEnabled(String plugin) {
         return Bukkit.getPluginManager().getPlugin(plugin) != null;
     }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public String formatNumber(Number value) {
+        if (value == null) {
+            return "0";
+        }
+
+        LevelSystem system = levelSystem();
+        return system == null ? value.toString() : system.roundDecimalAsString(value);
+    }
 }

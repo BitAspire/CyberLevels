@@ -154,8 +154,8 @@ public class CLVCommand implements CommandExecutor {
                 new String[] {"player", "level", "maxLevel", "playerEXP", "requiredEXP", "percent", "progressBar"},
                 user.getName(), user.getLevel(),
                 main.cache().levels().getMaxLevel(),
-                user.getExp(),
-                user.getRequiredExp(),
+                main.formatNumber(user.getExp()),
+                main.formatNumber(user.getRequiredExp()),
                 user.getPercent(),
                 user.getProgressBar()
         );
@@ -168,8 +168,8 @@ public class CLVCommand implements CommandExecutor {
                 target.getName(),
                 target.getLevel(),
                 main.cache().levels().getMaxLevel(),
-                target.getExp(),
-                target.getRequiredExp(),
+                main.formatNumber(target.getExp()),
+                main.formatNumber(target.getRequiredExp()),
                 target.getPercent(),
                 target.getProgressBar()
         );
@@ -196,7 +196,7 @@ public class CLVCommand implements CommandExecutor {
         return main.cache().lang().sendMessage(
                 player, action.getMessage(),
                 new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), user.getExp()
+                user.getName(), arg, user.getLevel(), main.formatNumber(user.getExp())
         );
     }
 
@@ -219,7 +219,7 @@ public class CLVCommand implements CommandExecutor {
         return main.cache().lang().sendMessage(
                 player, action.getMessage(),
                 new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), user.getExp()
+                user.getName(), arg, user.getLevel(), main.formatNumber(user.getExp())
         );
     }
 

@@ -97,7 +97,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 "{maxLevel}", "{minLevel}", "{minEXP}"};
         String[] values = {
                 String.valueOf(data.getLevel()),
-                data.getExp().toString(),
+                roundDecimalAsString(data.getExp()),
                 String.valueOf(data.getLevel() + 1),
                 String.valueOf(maxLevel),
                 String.valueOf(startLevel),
@@ -115,7 +115,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         if (!safeForFormula) {
             k = new String[] {"{requiredEXP}", "{percent}", "{progressBar}"};
             v = new String[] {
-                    data.getRequiredExp().toString(),
+                    roundDecimalAsString(data.getRequiredExp()),
                     data.getPercent(), data.getProgressBar()
             };
             string = StringUtils.replaceEach(string, k, v);
@@ -328,6 +328,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     void updateLeaderboard() {
+        if (!main.isEnabled() || leaderboard == null) return;
+
         if (cache.config().leaderboardInstantUpdate() && !leaderboard.isUpdating())
             leaderboard.update();
     }

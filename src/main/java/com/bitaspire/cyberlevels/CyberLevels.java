@@ -153,5 +153,4 @@ public final class CyberLevels extends JavaPlugin {
     public boolean isEnabled(String plugin) {
         return Bukkit.getPluginManager().getPlugin(plugin) != null;
     }
-
 }

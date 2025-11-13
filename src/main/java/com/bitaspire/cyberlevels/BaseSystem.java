@@ -104,25 +104,12 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         return Double.parseDouble(formatter.format(amount));
     }
 
-    @Override
+    @NotNull
     public String formatNumber(Number value) {
-        if (value == null) {
-            return "0";
-        }
+        if (value == null) return "0";
+        if (formatter == null) return value.toString();
 
-        if (formatter == null) {
-            return value.toString();
-        }
-
-        N amount;
-        if (getOperator().zero().getClass().isInstance(value)) {
-            @SuppressWarnings("unchecked")
-            N casted = (N) value;
-            amount = casted;
-        } else {
-            amount = getOperator().valueOf(String.valueOf(value));
-        }
-
+        N amount = getOperator().valueOf(String.valueOf(value));
         return roundString(amount);
     }
 

@@ -86,8 +86,10 @@ public class CLVTabComplete implements TabCompleter {
     private List<String> getPlayerNames() {
         List<String> players = new ArrayList<>();
 
-        for (OfflinePlayer p : Bukkit.getOfflinePlayers())
-            players.add(p.getName());
+        for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+            String name = p.getName();
+            if (name != null) players.add(name);
+        }
 
         return players;
     }

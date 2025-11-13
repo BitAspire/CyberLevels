@@ -106,7 +106,7 @@ public interface LevelSystem<N extends Number> {
      * @return the rounded amount of experience points
      */
     @NotNull
-    N roundDecimal(N amount);
+    N round(N amount);
 
     /**
      * Rounds the given amount of experience points and returns it as a string representation.
@@ -115,7 +115,24 @@ public interface LevelSystem<N extends Number> {
      * @return the rounded amount of experience points as a string
      */
     @NotNull
-    String roundDecimalAsString(N amount);
+    String roundString(N amount);
+
+    /**
+     * Rounds the given amount of experience points and returns it as a double representation.
+     *
+     * @param amount the amount of experience points to round
+     * @return the rounded amount of experience points as a double
+     */
+    double roundDouble(N amount);
+
+    /**
+     * Formats the provided numeric value according to the level system rounding rules.
+     *
+     * @param value the numeric value to format
+     * @return the formatted numeric value as a string
+     */
+    @NotNull
+    String formatNumber(Number value);
 
     /**
      * Generates a progress bar string representing the player's progress towards the next level.

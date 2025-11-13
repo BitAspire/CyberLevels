@@ -70,13 +70,60 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     @NotNull
-    public String roundDecimalAsString(N amount) {
+    public String roundString(N amount) {
+        if (amount == null) {
+            return "0";
+        }
+
         return formatter != null ? formatter.format(amount) : getOperator().toString(amount);
     }
 
     @NotNull
-    public N roundDecimal(N amount) {
-        return formatter != null ? getOperator().valueOf(formatter.format(amount)) : amount;
+    public N round(N amount) {
+        if (amount == null) {
+            return getOperator().zero();
+        }
+
+        if (formatter == null) {
+            return amount;
+        }
+
+        return getOperator().valueOf(formatter.format(amount));
+    }
+
+    @Override
+    public double roundDouble(N amount) {
+        if (amount == null) {
+            return 0D;
+        }
+
+        if (formatter == null) {
+            return amount.doubleValue();
+        }
+
+        return Double.parseDouble(formatter.format(amount));
+    }
+
+    @Override
+    public String formatNumber(Number value) {
+        if (value == null) {
+            return "0";
+        }
+
+        if (formatter == null) {
+            return value.toString();
+        }
+
+        N amount;
+        if (getOperator().zero().getClass().isInstance(value)) {
+            @SuppressWarnings("unchecked")
+            N casted = (N) value;
+            amount = casted;
+        } else {
+            amount = getOperator().valueOf(String.valueOf(value));
+        }
+
+        return roundString(amount);
     }
 
     @NotNull
@@ -97,7 +144,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 "{maxLevel}", "{minLevel}", "{minEXP}"};
         String[] values = {
                 String.valueOf(data.getLevel()),
-                roundDecimalAsString(data.getExp()),
+                roundString(data.getExp()),
                 String.valueOf(data.getLevel() + 1),
                 String.valueOf(maxLevel),
                 String.valueOf(startLevel),
@@ -115,7 +162,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         if (!safeForFormula) {
             k = new String[] {"{requiredEXP}", "{percent}", "{progressBar}"};
             v = new String[] {
-                    roundDecimalAsString(data.getRequiredExp()),
+                    roundString(data.getRequiredExp()),
                     data.getPercent(), data.getProgressBar()
             };
             string = StringUtils.replaceEach(string, k, v);
@@ -437,13 +484,13 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             long levelsChanged = 0;
 
             if (operator.compare(amount, operator.zero()) > 0) {
-                while (operator.compare(operator.add(exp, amount), getRequiredExp()) >= 0) {
+                while (operator.compare(operator.add(exp, amount), rawRequiredExp()) >= 0) {
                     if (level == getMaxLevel()) {
                         exp = operator.zero();
                         return;
                     }
 
-                    amount = operator.add(operator.subtract(amount, getRequiredExp()), exp);
+                    amount = operator.add(operator.subtract(amount, rawRequiredExp()), exp);
                     exp = operator.zero();
                     level++;
                     levelsChanged++;
@@ -459,7 +506,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                         amount = operator.subtract(amount, exp);
                         level--;
                         levelsChanged--;
-                        exp = getRequiredExp();
+                        exp = rawRequiredExp();
                     }
                     exp = operator.subtract(exp, amount);
                     if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
@@ -478,12 +525,12 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 if (operator.compare(totalAmount, operator.zero()) > 0) {
                     cache.lang().sendMessage(
                             getPlayer(), Lang::getGainedExp, new String[] {"gainedEXP", "totalGainedEXP"},
-                            system.roundDecimalAsString(diff), system.roundDecimalAsString(totalAmount)
+                            system.roundString(diff), system.roundString(totalAmount)
                     );
                 } else if (operator.compare(totalAmount, operator.zero()) < 0) {
                     cache.lang().sendMessage(
                             getPlayer(), Lang::getLostExp, new String[] {"lostEXP", "totalLostEXP"},
-                            system.roundDecimalAsString(operator.abs(diff)), system.roundDecimalAsString(operator.abs(totalAmount))
+                            system.roundString(operator.abs(diff)), system.roundString(operator.abs(totalAmount))
                     );
                 }
 
@@ -543,22 +590,26 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @NotNull
         public T getExp() {
-            return system.roundDecimal(exp);
+            return system.round(exp);
         }
 
         @NotNull
         public T getRequiredExp() {
-            return system.getRequiredExp(level, getPlayer());
+            return system.round(rawRequiredExp());
         }
 
         @NotNull
         T remainingExp() {
-            return operator.subtract(getRequiredExp(), exp);
+            return operator.subtract(rawRequiredExp(), exp);
         }
 
         @NotNull
         public T getRemainingExp() {
-            return system.roundDecimal(remainingExp());
+            return system.round(remainingExp());
+        }
+
+        private T rawRequiredExp() {
+            return system.getRequiredExp(level, getPlayer());
         }
 
         @NotNull

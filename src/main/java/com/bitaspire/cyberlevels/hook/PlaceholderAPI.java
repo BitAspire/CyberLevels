@@ -50,7 +50,8 @@ final class PlaceholderAPI implements Hook {
                 if (position < 1 || position > 10)
                     return "out of bounds";
 
-                LevelUser<?> user = main.levelSystem().getLeaderboard().getTopPlayer(position);
+                LevelSystem<?> system = main.levelSystem();
+                LevelUser<?> user = system.getLeaderboard().getTopPlayer(position);
 
                 Lang.LeaderboardKeys keys = main.cache().lang().leaderboardKeys();
                 String value = user == null ? keys.getLoadingName() : keys.getNoPlayerName();
@@ -67,7 +68,7 @@ final class PlaceholderAPI implements Hook {
                             value = user.getLevel() + "";
                             break;
                         case "exp":
-                            value = main.formatNumber(user.getExp());
+                            value = system.formatNumber(user.getExp());
                             break;
                     }
                 }
@@ -108,13 +109,13 @@ final class PlaceholderAPI implements Hook {
                         return (Math.min(user.getLevel() + 1, system.getMaxLevel())) + "";
 
                     case "player_exp":
-                        return main.formatNumber(user.getExp());
+                        return system.formatNumber(user.getExp());
 
                     case "player_exp_required":
-                        return main.formatNumber(user.getRequiredExp());
+                        return system.formatNumber(user.getRequiredExp());
 
                     case "player_exp_remaining":
-                        return main.formatNumber(user.getRemainingExp());
+                        return system.formatNumber(user.getRemainingExp());
 
                     case "player_exp_progress_bar":
                         return main.core().textSettings().colorize(user.getProgressBar());

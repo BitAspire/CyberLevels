@@ -2,6 +2,7 @@ package com.bitaspire.cyberlevels.command;
 
 import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.cache.Lang;
+import com.bitaspire.cyberlevels.level.LevelSystem;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
 import me.croabeast.beanslib.message.MessageSender;
@@ -149,27 +150,31 @@ public class CLVCommand implements CommandExecutor {
 
     private boolean sendLevelInfo(Player player) {
         LevelUser<?> user = main.userManager().getUser(player);
+        LevelSystem<?> system = main.levelSystem();
+
         return main.cache().lang().sendMessage(
                 player, Lang::getLevelInfo,
                 new String[] {"player", "level", "maxLevel", "playerEXP", "requiredEXP", "percent", "progressBar"},
                 user.getName(), user.getLevel(),
                 main.cache().levels().getMaxLevel(),
-                main.formatNumber(user.getExp()),
-                main.formatNumber(user.getRequiredExp()),
+                system.formatNumber(user.getExp()),
+                system.formatNumber(user.getRequiredExp()),
                 user.getPercent(),
                 user.getProgressBar()
         );
     }
 
     private boolean sendLevelInfo(Player viewer, LevelUser<?> target) {
+        LevelSystem<?> system = main.levelSystem();
+
         return main.cache().lang().sendMessage(
                 viewer, Lang::getLevelInfo,
                 new String[]{"player","level","maxLevel","playerEXP","requiredEXP","percent","progressBar"},
                 target.getName(),
                 target.getLevel(),
                 main.cache().levels().getMaxLevel(),
-                main.formatNumber(target.getExp()),
-                main.formatNumber(target.getRequiredExp()),
+                system.formatNumber(target.getExp()),
+                system.formatNumber(target.getRequiredExp()),
                 target.getPercent(),
                 target.getProgressBar()
         );
@@ -193,10 +198,12 @@ public class CLVCommand implements CommandExecutor {
                 break;
         }
 
+        LevelSystem<?> system = main.levelSystem();
+
         return main.cache().lang().sendMessage(
                 player, action.getMessage(),
                 new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), main.formatNumber(user.getExp())
+                user.getName(), arg, user.getLevel(), system.formatNumber(user.getExp())
         );
     }
 
@@ -216,10 +223,12 @@ public class CLVCommand implements CommandExecutor {
                 break;
         }
 
+        LevelSystem<?> system = main.levelSystem();
+
         return main.cache().lang().sendMessage(
                 player, action.getMessage(),
                 new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), main.formatNumber(user.getExp())
+                user.getName(), arg, user.getLevel(), system.formatNumber(user.getExp())
         );
     }
 

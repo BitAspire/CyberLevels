@@ -119,13 +119,13 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     @NotNull
-    public N getRequiredExp(long level, Player player) {
-        return formulas.getOrDefault(level, formula).evaluate(player);
+    public N getRequiredExp(long level, UUID uuid) {
+        return formulas.getOrDefault(level, formula).evaluate(uuid);
     }
 
     @NotNull
-    public String replacePlaceholders(String string, Player player, boolean safeForFormula) {
-        LevelUser<N> data = userManager.getUser(player);
+    public String replacePlaceholders(String string, UUID uuid, boolean safeForFormula) {
+        LevelUser<N> data = userManager.getUser(uuid);
 
         String[] keys = {"{level}", "{playerEXP}", "{nextLevel}",
                 "{maxLevel}", "{minLevel}", "{minEXP}"};
@@ -141,8 +141,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         String[] k = {"{player}", "{playerDisplayName}", "{playerUUID}"};
         String[] v = {
-                player.getName(), player.getDisplayName(),
-                player.getUniqueId().toString()
+                data.getName(), data.isOnline() ? data.getPlayer().getDisplayName() : data.getName(),
+                data.getUuid().toString()
         };
         string = StringUtils.replaceEach(string, k, v);
 
@@ -155,7 +155,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             string = StringUtils.replaceEach(string, k, v);
         }
 
-        return Beans.formatPlaceholders(player, string);
+        return Beans.formatPlaceholders(data.isOnline() ? data.getPlayer() : null, string);
     }
 
     @NotNull
@@ -269,8 +269,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         abstract ExpressionBuilder<T> builder();
 
         @NotNull
-        public T evaluate(Player player) {
-            String parsed = replacePlaceholders(asString, player, true);
+        public T evaluate(UUID uuid) {
+            String parsed = replacePlaceholders(asString, uuid, true);
             if (StringUtils.isBlank(parsed))
                 return operator.fromDouble(0.0);
 
@@ -580,23 +580,18 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             return system.round(exp);
         }
 
+        private T rawRequiredExp() {
+            return system.getRequiredExp(level, uuid);
+        }
+
         @NotNull
         public T getRequiredExp() {
             return system.round(rawRequiredExp());
         }
 
         @NotNull
-        T remainingExp() {
-            return operator.subtract(rawRequiredExp(), exp);
-        }
-
-        @NotNull
         public T getRemainingExp() {
-            return system.round(remainingExp());
-        }
-
-        private T rawRequiredExp() {
-            return system.getRequiredExp(level, getPlayer());
+            return system.round(operator.subtract(rawRequiredExp(), exp));
         }
 
         @NotNull

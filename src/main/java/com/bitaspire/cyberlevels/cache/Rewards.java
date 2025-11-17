@@ -100,7 +100,7 @@ public final class Rewards {
                 if (StringUtils.isBlank(command)) continue;
 
                 if (main.isEnabled("PlaceholderAPI"))
-                    command = PlaceholderAPI.setPlaceholders(player, main.levelSystem().replacePlaceholders(command, player, false));
+                    command = PlaceholderAPI.setPlaceholders(player, main.levelSystem().replacePlaceholders(command, player.getUniqueId(), false));
 
                 if (command.toLowerCase().startsWith("[player]")) {
                     Bukkit.dispatchCommand(player, parseFormat("[player]", command));
@@ -120,7 +120,7 @@ public final class Rewards {
                 message = message.trim();
                 if (StringUtils.isBlank(message)) continue;
 
-                message = main.levelSystem().replacePlaceholders(message.replace("[global]", ""), player, false);
+                message = main.levelSystem().replacePlaceholders(message.replace("[global]", ""), player.getUniqueId(), false);
                 if (message.toLowerCase().startsWith("[player]")) {
                     if (isAllowed(player, "player"))
                         typeMessage(player, parseFormat("[player]", message));

@@ -110,9 +110,12 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     @Override
     public LevelUser<N> getUser(String name) {
-        for (LevelUser<N> user : users.values()) {
-            if (user.getName().equalsIgnoreCase(name)) return user;
-        }
+        for (LevelUser<N> user : users.values())
+            try {
+                String n = Objects.requireNonNull(user.getName());
+                if (n.equalsIgnoreCase(name)) return user;
+            } catch (Exception ignored) {}
+
         return null;
     }
 

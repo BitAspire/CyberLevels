@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Represents a level system with various configurations and functionalities.
@@ -58,7 +59,7 @@ public interface LevelSystem<N extends Number> {
     Formula<N> getCustomFormula(long level);
 
     @NotNull
-    N getRequiredExp(long level, Player player);
+    N getRequiredExp(long level, UUID uuid);
 
     @NotNull
     List<Reward> getRewards(long level);
@@ -160,10 +161,11 @@ public interface LevelSystem<N extends Number> {
      * Replaces placeholders in the given string with actual values based on the player's data.
      *
      * @param string the string containing placeholders
-     * @param player the player whose data will be used for replacement
+     * @param uuid the UUID of the player
+     * @param safeForFormula indicates whether the replacement should be safe for formula usage
      *
      * @return the string with placeholders replaced by actual values
      */
     @NotNull
-    String replacePlaceholders(String string, Player player, boolean safeForFormula);
+    String replacePlaceholders(String string, UUID uuid, boolean safeForFormula);
 }

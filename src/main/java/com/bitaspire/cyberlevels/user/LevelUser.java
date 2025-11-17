@@ -48,18 +48,6 @@ public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
     long getLevel();
 
     /**
-     * Gets the maximum level allowed in the leveling system.
-     * @return the maximum level
-     */
-    long getMaxLevel();
-
-    /**
-     * Sets the maximum level allowed in the leveling system.
-     * @param level the maximum level to set
-     */
-    void setMaxLevel(long level);
-
-    /**
      * Adds levels to the user's current level.
      * @param amount the number of levels to add
      */
@@ -86,13 +74,6 @@ public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
     N getExp();
 
     /**
-     * Gets the rounded experience points of the user.
-     * @return the rounded experience points
-     */
-    @NotNull
-    N getRoundedExp();
-
-    /**
      * Gets the experience points required for the user to reach the next level.
      * @return the experience points required for the next level
      */
@@ -100,25 +81,11 @@ public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
     N getRequiredExp();
 
     /**
-     * Gets the rounded experience points required for the user to reach the next level.
-     * @return the rounded experience points required for the next level
-     */
-    @NotNull
-    N getRoundedRequiredExp();
-
-    /**
      * Gets the remaining experience points needed for the user to reach the next level.
      * @return the remaining experience points needed
      */
     @NotNull
     N getRemainingExp();
-
-    /**
-     * Gets the rounded remaining experience points needed for the user to reach the next level.
-     * @return the rounded remaining experience points needed
-     */
-    @NotNull
-    N getRoundedRemainingExp();
 
     /**
      * Gets the percentage of experience points the user has towards the next level.

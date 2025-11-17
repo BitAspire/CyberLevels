@@ -5,6 +5,7 @@ import com.bitaspire.libs.formula.BigDecimalExpressionBuilder;
 import com.bitaspire.cyberlevels.level.Formula;
 import com.bitaspire.cyberlevels.level.Operator;
 import com.bitaspire.cyberlevels.user.LevelUser;
+import com.bitaspire.libs.formula.expression.ExpressionBuilder;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 
@@ -117,7 +118,12 @@ final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
     }
 
     @Override
-    Formula<BigDecimal> createFormula(Long level) {
-        return new BaseFormula<>(this, level, new BigDecimalExpressionBuilder());
+    Formula<BigDecimal> createFormula(String string) {
+        return new BaseFormula<BigDecimal>(operator, string) {
+            @NotNull
+            ExpressionBuilder<BigDecimal> builder() {
+                return new BigDecimalExpressionBuilder();
+            }
+        };
     }
 }

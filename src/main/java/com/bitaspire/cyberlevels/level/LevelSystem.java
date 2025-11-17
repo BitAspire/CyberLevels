@@ -3,8 +3,10 @@ package com.bitaspire.cyberlevels.level;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Represents a level system with various configurations and functionalities.
@@ -42,20 +44,6 @@ public interface LevelSystem<N extends Number> {
     Operator<N> getOperator();
 
     /**
-     * Gets a set of all levels defined in the level system.
-     * @return a set of levels
-     */
-    @NotNull
-    Set<Level<N>> getLevels();
-
-    /**
-     * Gets the level corresponding to the specified level number.
-     * @param level the level number
-     * @return the corresponding Level object
-     */
-    Level<N> getLevel(long level);
-
-    /**
      * Gets the default formula used for experience calculations.
      * @return the default formula
      */
@@ -69,6 +57,12 @@ public interface LevelSystem<N extends Number> {
      * @return the custom formula for the specified level, or null if no custom formula is defined
      */
     Formula<N> getCustomFormula(long level);
+
+    @NotNull
+    N getRequiredExp(long level, UUID uuid);
+
+    @NotNull
+    List<Reward> getRewards(long level);
 
     /**
      * Gets the leaderboard associated with the level system.
@@ -113,7 +107,7 @@ public interface LevelSystem<N extends Number> {
      * @return the rounded amount of experience points
      */
     @NotNull
-    N roundDecimal(N amount);
+    N round(N amount);
 
     /**
      * Rounds the given amount of experience points and returns it as a string representation.
@@ -122,7 +116,24 @@ public interface LevelSystem<N extends Number> {
      * @return the rounded amount of experience points as a string
      */
     @NotNull
-    String roundDecimalAsString(N amount);
+    String roundString(N amount);
+
+    /**
+     * Rounds the given amount of experience points and returns it as a double representation.
+     *
+     * @param amount the amount of experience points to round
+     * @return the rounded amount of experience points as a double
+     */
+    double roundDouble(N amount);
+
+    /**
+     * Formats the provided numeric value according to the level system rounding rules.
+     *
+     * @param value the numeric value to format
+     * @return the formatted numeric value as a string
+     */
+    @NotNull
+    String formatNumber(Number value);
 
     /**
      * Generates a progress bar string representing the player's progress towards the next level.
@@ -150,10 +161,11 @@ public interface LevelSystem<N extends Number> {
      * Replaces placeholders in the given string with actual values based on the player's data.
      *
      * @param string the string containing placeholders
-     * @param player the player whose data will be used for replacement
+     * @param uuid the UUID of the player
+     * @param safeForFormula indicates whether the replacement should be safe for formula usage
      *
      * @return the string with placeholders replaced by actual values
      */
     @NotNull
-    String replacePlaceholders(String string, Player player, boolean safeForFormula);
+    String replacePlaceholders(String string, UUID uuid, boolean safeForFormula);
 }

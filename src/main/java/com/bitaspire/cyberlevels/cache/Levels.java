@@ -19,7 +19,6 @@ public class Levels {
     private long maxLevel = 25;
 
     private String formula = "25 * {level}";
-    @Getter(AccessLevel.NONE)
     private final Map<Long, String> customFormulas = new HashMap<>();
 
     Levels(CyberLevels main) {
@@ -44,10 +43,5 @@ public class Levels {
                 catch (Exception ignored) {}
         }
         catch (IOException ignored) {}
-    }
-
-    @Nullable
-    public String getCustomFormula(@Nullable Long level) {
-        return level != null ? customFormulas.get(level) : formula;
     }
 }

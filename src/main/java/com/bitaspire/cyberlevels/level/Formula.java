@@ -3,6 +3,8 @@ package com.bitaspire.cyberlevels.level;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.UUID;
+
 /**
  * Represents a mathematical formula used for calculating experience points or levels.
  *
@@ -27,5 +29,5 @@ public interface Formula<N extends Number> {
      * @return the result of the formula evaluation
      */
     @NotNull
-    N evaluate(Player player);
+    N evaluate(UUID uuid);
 }

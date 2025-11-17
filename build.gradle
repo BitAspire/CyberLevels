@@ -4,8 +4,7 @@ plugins {
 }
 
 group = 'com.bitaspire'
-version = '1.0.1'
-description = 'CyberLevels'
+version = '1.0.4'
 
 repositories {
     mavenLocal()

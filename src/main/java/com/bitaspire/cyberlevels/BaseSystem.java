@@ -4,11 +4,12 @@ import com.bitaspire.cyberlevels.user.UserManager;
 import com.bitaspire.libs.formula.expression.ExpressionBuilder;
 import com.bitaspire.cyberlevels.cache.Cache;
 import com.bitaspire.cyberlevels.cache.Lang;
-import com.bitaspire.cyberlevels.cache.Levels;
 import com.bitaspire.cyberlevels.level.*;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import me.croabeast.beanslib.Beans;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -19,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -34,8 +36,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
     private final Formula<N> formula;
 
-    private final Map<Long, Level<N>> levels = new HashMap<>();
-    private final Map<Long, Formula<N>> formulas = new HashMap<>();
+    private final Map<Long, Formula<N>> formulas = new ConcurrentHashMap<>();
+    private final Map<Long, List<Reward>> rewardMap = new ConcurrentHashMap<>();
 
     DecimalFormatter<N> formatter = null;
     UserManager<N> userManager = null;
@@ -46,7 +48,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         this.main = main;
 
         long l = System.currentTimeMillis();
-        main.logger("&dLoading level data...");
 
         cache = main.cache();
 
@@ -54,31 +55,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         startLevel = cache.levels().getStartLevel();
         maxLevel = cache.levels().getMaxLevel();
 
-        formula = createFormula(null);
+        formula = createFormula(cache.levels().getFormula());
+        cache.levels().getCustomFormulas().forEach((k, v) -> formulas.put(k, createFormula(v)));
 
-        long start = startLevel;
-        while (start <= maxLevel) {
-            levels.put(start, new BaseLevel<>(this, start));
-            start++;
-        }
-
-        if (cache.config().isRoundingEnabled())
-            this.formatter = new DecimalFormatter<>(this);
-
-        main.logger("&7Loaded &e" + (start - 1) + "&7 levels in &a" + (System.currentTimeMillis() - l) + "ms&7.", "");
+        rewardMap.putAll(cache.rewards().getRewards());
+        if (cache.config().isRoundingEnabled()) formatter = new DecimalFormatter<>(this);
     }
 
-    @NotNull
-    public Set<Level<N>> getLevels() {
-        return new LinkedHashSet<>(levels.values());
-    }
-
-    @Override
-    public Level<N> getLevel(long level) {
-        return levels.get(level);
-    }
-
-    abstract Formula<N> createFormula(Long level);
+    abstract Formula<N> createFormula(String formula);
 
     @Override
     public Formula<N> getCustomFormula(long level) {
@@ -86,24 +70,68 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     @NotNull
-    public String roundDecimalAsString(N amount) {
+    public String roundString(N amount) {
+        if (amount == null) {
+            return "0";
+        }
+
         return formatter != null ? formatter.format(amount) : getOperator().toString(amount);
     }
 
     @NotNull
-    public N roundDecimal(N amount) {
-        return formatter != null ? getOperator().valueOf(formatter.format(amount)) : amount;
+    public N round(N amount) {
+        if (amount == null) {
+            return getOperator().zero();
+        }
+
+        if (formatter == null) {
+            return amount;
+        }
+
+        return getOperator().valueOf(formatter.format(amount));
+    }
+
+    @Override
+    public double roundDouble(N amount) {
+        if (amount == null) {
+            return 0D;
+        }
+
+        if (formatter == null) {
+            return amount.doubleValue();
+        }
+
+        return Double.parseDouble(formatter.format(amount));
     }
 
     @NotNull
-    public String replacePlaceholders(String string, Player player, boolean safeForFormula) {
-        LevelUser<N> data = userManager.getUser(player);
+    public String formatNumber(Number value) {
+        if (value == null) return "0";
+        if (formatter == null) return value.toString();
+
+        N amount = getOperator().valueOf(String.valueOf(value));
+        return roundString(amount);
+    }
+
+    @NotNull
+    public List<Reward> getRewards(long level) {
+        return rewardMap.getOrDefault(level, new ArrayList<>());
+    }
+
+    @NotNull
+    public N getRequiredExp(long level, UUID uuid) {
+        return formulas.getOrDefault(level, formula).evaluate(uuid);
+    }
+
+    @NotNull
+    public String replacePlaceholders(String string, UUID uuid, boolean safeForFormula) {
+        LevelUser<N> data = userManager.getUser(uuid);
 
         String[] keys = {"{level}", "{playerEXP}", "{nextLevel}",
                 "{maxLevel}", "{minLevel}", "{minEXP}"};
         String[] values = {
                 String.valueOf(data.getLevel()),
-                data.getRoundedExp().toString(),
+                roundString(data.getExp()),
                 String.valueOf(data.getLevel() + 1),
                 String.valueOf(maxLevel),
                 String.valueOf(startLevel),
@@ -113,21 +141,21 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         String[] k = {"{player}", "{playerDisplayName}", "{playerUUID}"};
         String[] v = {
-                player.getName(), player.getDisplayName(),
-                player.getUniqueId().toString()
+                data.getName(), data.isOnline() ? data.getPlayer().getDisplayName() : data.getName(),
+                data.getUuid().toString()
         };
         string = StringUtils.replaceEach(string, k, v);
 
         if (!safeForFormula) {
             k = new String[] {"{requiredEXP}", "{percent}", "{progressBar}"};
             v = new String[] {
-                    data.getRoundedRequiredExp().toString(),
+                    roundString(data.getRequiredExp()),
                     data.getPercent(), data.getProgressBar()
             };
             string = StringUtils.replaceEach(string, k, v);
         }
 
-        return string;
+        return Beans.formatPlaceholders(data.isOnline() ? data.getPlayer() : null, string);
     }
 
     @NotNull
@@ -192,12 +220,16 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     @NotNull
+    LevelUser<N> createOffline(UUID uuid) {
+        return new OfflineUser<>(this, Bukkit.getOfflinePlayer(uuid));
+    }
+
+    @NotNull
     LevelUser<N> createUser(LevelUser<?> user) {
         LevelUser<N> newUser = createUser(user.getUuid());
 
         newUser.setLevel(user.getLevel(), false);
         newUser.setExp(user.getExp() + "", true, false, false);
-        newUser.setMaxLevel(user.getMaxLevel());
 
         return newUser;
     }
@@ -227,70 +259,26 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
     }
 
-    static class BaseFormula<T extends Number> implements Formula<T> {
+    @RequiredArgsConstructor
+    abstract class BaseFormula<T extends Number> implements Formula<T> {
 
-        private final BaseSystem<T> system;
-
+        private final Operator<T> operator;
         @Getter
         private final String asString;
-        private final ExpressionBuilder<T> expression;
 
-        BaseFormula(BaseSystem<T> system, Long custom, ExpressionBuilder<T> expression) {
-            this.system = system;
-            final Levels levels = system.cache.levels();
-
-            String raw = levels.getCustomFormula(custom);
-            asString = raw != null ? raw : levels.getFormula();
-
-            this.expression = expression;
-        }
+        abstract ExpressionBuilder<T> builder();
 
         @NotNull
-        public T evaluate(Player player) {
-            return expression.build(system.replacePlaceholders(asString, player, true)).evaluate();
-        }
-    }
+        public T evaluate(UUID uuid) {
+            String parsed = replacePlaceholders(asString, uuid, true);
+            if (StringUtils.isBlank(parsed))
+                return operator.fromDouble(0.0);
 
-    @Getter
-    class BaseLevel<T extends Number> implements Level<T> {
-
-        private final long level;
-        private Formula<T> formula;
-
-        BaseLevel(BaseSystem<T> system, long level) {
-            this.level = level;
-
-            main.scheduler.runTaskAsynchronously(() -> {
-                Formula<T> custom = system.createFormula(level);
-                if (custom != null) {
-                    system.formulas.put(level, formula = custom);
-                    return;
-                }
-
-                formula = system.getFormula();
-            });
-        }
-
-        private final List<Reward> rewards = new ArrayList<>();
-
-        @Override
-        public void addReward(Reward reward) {
-            rewards.add(reward);
-        }
-
-        @Override
-        public void clearRewards() {
-            rewards.clear();
-        }
-
-        @Override
-        public T getRequiredExp(LevelUser<T> user) {
-            return formula.evaluate(user.getPlayer());
-        }
-
-        @Override
-        public T getRequiredExp(Player player) {
-            return formula.evaluate(player);
+            try {
+                return builder().build(parsed).evaluate();
+            } catch (Throwable t) {
+                return operator.fromDouble(0.0);
+            }
         }
     }
 
@@ -299,7 +287,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         private final UserManager<T> userManager;
 
-        private boolean updating = false;
+        private volatile boolean updating = false;
         protected final List<Entry<T>> topTenPlayers = new CopyOnWriteArrayList<>();
 
         BaseLeaderboard(UserManager<T> manager) {
@@ -313,7 +301,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public void update() {
-            List<LevelUser<T>> users = new ArrayList<>(userManager.getUsers());
+            List<LevelUser<T>> users = userManager.getUsersList();
             updating = true;
 
             Bukkit.getScheduler().runTaskAsynchronously(main, () -> {
@@ -374,6 +362,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     void updateLeaderboard() {
+        if (!main.isEnabled() || leaderboard == null) return;
+
         if (cache.config().leaderboardInstantUpdate() && !leaderboard.isUpdating())
             leaderboard.update();
     }
@@ -386,30 +376,37 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         @Getter
         private final UUID uuid;
 
-        @Getter @Setter
-        long maxLevel;
         @Getter
         long level;
 
-        @Getter
-        T exp;
-
+        T exp, lastAmount;
         long lastTime = 0L;
-        T lastAmount;
+
+        @Getter
+        private long highestRewardedLevel;
+
+        public void setHighestRewardedLevel(long value) {
+            this.highestRewardedLevel = Math.max(0L, value);
+        }
 
         BaseUser(BaseSystem<T> system, UUID uuid) {
             this.uuid = uuid;
             exp = (this.operator = (this.system = system).getOperator()).fromDouble(getStartExp());
             level = system.getStartLevel();
-            maxLevel = system.getMaxLevel();
             lastAmount = operator.zero();
+            highestRewardedLevel = Math.max(0L, level - 1);
         }
 
         void sendLevelReward(long level) {
-            if (!cache.config().preventDuplicateRewards() || level > maxLevel)
-                BaseSystem.this.getLevel(level)
-                        .getRewards()
-                        .forEach(reward -> reward.giveAll(getPlayer()));
+            if (!cache.config().preventDuplicateRewards()) {
+                getRewards(level).forEach(r -> r.giveAll(getPlayer()));
+                return;
+            }
+
+            if (level > getHighestRewardedLevel()) {
+                getRewards(level).forEach(r -> r.giveAll(getPlayer()));
+                setHighestRewardedLevel(level);
+            }
         }
 
         void updateLevel(long newLevel, boolean sendMessage, boolean giveRewards) {
@@ -456,28 +453,31 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         public void removeLevel(long amount) {
-            long target = Math.max(level - Math.max(amount, 0), getStartExp());
+            long target = Math.max(level - Math.max(amount, 0), getStartLevel());
             updateLevel(target, true, false);
         }
 
         private void changeExp(T amount, T difference, boolean sendMessage, boolean doMultiplier, boolean checkLeaderboard) {
             if (operator.compare(amount, operator.zero()) == 0) return;
 
-            if (doMultiplier && operator.compare(amount, operator.zero()) > 0 && hasParentPerm("CyberLevels.player.multiplier.", false)) {
+            if (operator.compare(amount, operator.zero()) > 0 && level >= getMaxLevel())
+                return;
+
+            if (doMultiplier && operator.compare(amount, operator.zero()) > 0 &&
+                    hasParentPerm("CyberLevels.player.multiplier.", false))
                 amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
-            }
 
             final T totalAmount = amount;
             long levelsChanged = 0;
 
             if (operator.compare(amount, operator.zero()) > 0) {
-                while (operator.compare(operator.add(exp, amount), getRequiredExp()) >= 0) {
+                while (operator.compare(operator.add(exp, amount), rawRequiredExp()) >= 0) {
                     if (level == getMaxLevel()) {
                         exp = operator.zero();
                         return;
                     }
 
-                    amount = operator.add(operator.subtract(amount, getRequiredExp()), exp);
+                    amount = operator.add(operator.subtract(amount, rawRequiredExp()), exp);
                     exp = operator.zero();
                     level++;
                     levelsChanged++;
@@ -493,7 +493,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                         amount = operator.subtract(amount, exp);
                         level--;
                         levelsChanged--;
-                        exp = getRequiredExp();
+                        exp = rawRequiredExp();
                     }
                     exp = operator.subtract(exp, amount);
                     if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
@@ -512,12 +512,12 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 if (operator.compare(totalAmount, operator.zero()) > 0) {
                     cache.lang().sendMessage(
                             getPlayer(), Lang::getGainedExp, new String[] {"gainedEXP", "totalGainedEXP"},
-                            system.roundDecimalAsString(diff), system.roundDecimalAsString(totalAmount)
+                            system.roundString(diff), system.roundString(totalAmount)
                     );
                 } else if (operator.compare(totalAmount, operator.zero()) < 0) {
                     cache.lang().sendMessage(
                             getPlayer(), Lang::getLostExp, new String[] {"lostEXP", "totalLostEXP"},
-                            system.roundDecimalAsString(operator.abs(diff)), system.roundDecimalAsString(operator.abs(totalAmount))
+                            system.roundString(operator.abs(diff)), system.roundString(operator.abs(totalAmount))
                     );
                 }
 
@@ -576,29 +576,22 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         @NotNull
-        public T getRoundedExp() {
-            return system.roundDecimal(exp);
+        public T getExp() {
+            return system.round(exp);
+        }
+
+        private T rawRequiredExp() {
+            return system.getRequiredExp(level, uuid);
         }
 
         @NotNull
         public T getRequiredExp() {
-            final Level<T> level = system.getLevel(this.level);
-            return level != null ? level.getRequiredExp(this) : operator.zero();
-        }
-
-        @NotNull
-        public T getRoundedRequiredExp() {
-            return system.roundDecimal(getRequiredExp());
+            return system.round(rawRequiredExp());
         }
 
         @NotNull
         public T getRemainingExp() {
-            return operator.subtract(getRequiredExp(), exp);
-        }
-
-        @NotNull
-        public T getRoundedRemainingExp() {
-            return system.roundDecimal(getRemainingExp());
+            return system.round(operator.subtract(rawRequiredExp(), exp));
         }
 
         @NotNull
@@ -655,7 +648,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                     "player=" + getName() +
                     ", uuid=" + uuid +
                     ", level=" + level +
-                    ", exp=" + getRoundedExp() +
+                    ", exp=" + getExp() +
                     ", progress=" + getPercent() + "%" +
                     '}';
         }

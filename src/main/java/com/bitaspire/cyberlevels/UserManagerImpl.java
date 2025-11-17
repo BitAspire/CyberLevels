@@ -21,6 +21,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
@@ -28,7 +29,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     final Cache cache;
 
     private final BaseSystem<N> system;
-    private final Map<UUID, LevelUser<N>> users = new HashMap<>();
+    private final Map<UUID, LevelUser<N>> users = new ConcurrentHashMap<>();
 
     BukkitTask autoSaveTask = null;
     @Getter
@@ -38,74 +39,97 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         cache = (this.main = main).cache();
         (this.system = system).setUserManager(this);
 
-        if (!cache.config().database().isEnabled())
-            return;
-
-        database = DatabaseFactory.createDatabase(main, system);
-        database.connect();
+        if (cache.config().database().isEnabled()) {
+            database = DatabaseFactory.createDatabase(main, system);
+            database.connect();
+        }
     }
 
     @NotNull
     public Set<LevelUser<N>> getUsers() {
-        return new HashSet<>(users.values());
+        return new LinkedHashSet<>(users.values());
     }
 
-    @Override
-    public LevelUser<N> getUser(UUID uuid) {
-        LevelUser<N> user = users.get(uuid);
-
-        if (user == null) {
-            OfflinePlayer player = Bukkit.getPlayer(uuid);
-            if (player == null)
-                player = Bukkit.getOfflinePlayer(uuid);
-
-            loadUser(player);
-            return users.get(uuid);
-        }
-
-        return user;
-    }
-
-    @Override
-    public LevelUser<N> getUser(String name) {
-        for (LevelUser<N> user : users.values()) {
-            if (user.getName().equalsIgnoreCase(name))
-                return user;
-        }
-        return null;
+    @NotNull
+    public List<LevelUser<N>> getUsersList() {
+        return new ArrayList<>(users.values());
     }
 
     void checkMigration() {
         final Database<?> old = main.database;
-        if ((old == null || database == null) || old.getClass().equals(database.getClass()))
-            return;
+        if (old == null) return;
+
+        final Database<N> now = database;
+
+        if (now != null && old.getClass().equals(now.getClass())) return;
 
         main.logger("&eDetected database type change from " +
                 old.getClass().getSimpleName() + " to " +
-                database.getClass().getSimpleName() + ". Starting migration...");
+                (now == null ? "FlatFile" : now.getClass().getSimpleName()) + ". Starting migration...");
 
         long start = System.currentTimeMillis();
         int migrated = 0;
 
         try {
             for (UUID uuid : old.getUuids()) {
-                final LevelUser<?> user = old.getUser(uuid);
-                if (user == null) continue;
+                LevelUser<?> srcUser = old.getUser(uuid);
+                if (srcUser == null) continue;
 
-                database.addUser(system.createUser(user), false);
+                LevelUser<N> copy = system.createUser(srcUser);
+                if (now != null) {
+                    now.addUser(copy, false);
+                } else {
+                    saveUser(copy);
+                }
+
                 migrated++;
             }
 
             if (migrated > 0) {
                 main.logger("&aMigrated " + migrated + " users in " + (System.currentTimeMillis() - start) + "ms.");
-                return;
+            } else {
+                main.logger("&eNo players were found to migrate. Ending migration...");
             }
-
-            main.logger("&eNo players were found to migrated. Ending migration...");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             main.logger("&cMigration failed.");
             e.printStackTrace();
+        }
+    }
+
+    @Override
+    public LevelUser<N> getUser(UUID uuid) {
+        LevelUser<N> user = users.get(uuid);
+        if (user == null) {
+            OfflinePlayer player = Bukkit.getPlayer(uuid);
+            if (player == null) player = Bukkit.getOfflinePlayer(uuid);
+            loadUser(player);
+            return users.get(uuid);
+        }
+        return user;
+    }
+
+    @Override
+    public LevelUser<N> getUser(String name) {
+        for (LevelUser<N> user : users.values())
+            try {
+                String n = Objects.requireNonNull(user.getName());
+                if (n.equalsIgnoreCase(name)) return user;
+            } catch (Exception ignored) {}
+
+        return null;
+    }
+
+    void setRewardLevel(LevelUser<N> user, long level) {
+        try {
+            user.getClass().getMethod("setHighestRewardedLevel", long.class).invoke(user, level);
+        } catch (Exception ignored) {}
+    }
+
+    long getRewardLevel(LevelUser<N> user) {
+        try {
+            return (long) user.getClass().getMethod("getHighestRewardedLevel").invoke(user);
+        } catch (Exception ignored) {
+            return user.getLevel();
         }
     }
 
@@ -118,20 +142,17 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         try (BufferedReader reader = Files.newBufferedReader(file)) {
             String line;
 
-            line = reader.readLine(); // level
+            line = reader.readLine();
             if (line == null) return null;
             user.setLevel(Long.parseLong(line.trim()), false);
 
-            line = reader.readLine(); // exp
+            line = reader.readLine();
             if (line == null) return null;
             user.setExp(line.trim(), false, false, false);
 
-            line = reader.readLine(); // maxLevel (optional)
-            if (line != null && !line.trim().isEmpty()) {
-                try {
-                    user.setMaxLevel(Long.parseLong(line.trim()));
-                } catch (NumberFormatException ignored) {}
-            }
+            line = reader.readLine();
+            long claimed = (line != null) ? Long.parseLong(line.trim()) : user.getLevel();
+            setRewardLevel(user, claimed);
 
             return user;
         } catch (Exception e) {
@@ -141,8 +162,25 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         }
     }
 
+    private void saveToFlatFile(LevelUser<N> user) {
+        File folder = new File(main.getDataFolder(), "player_data");
+        if (!folder.exists() && !folder.mkdirs()) return;
+
+        Path file = new File(folder, user.getUuid() + ".clv").toPath();
+
+        try (BufferedWriter writer = Files.newBufferedWriter(file)) {
+            writer.write(user.getLevel() + "\n");
+            writer.write(user.getExp() + "\n");
+            long claimed = getRewardLevel(user);
+            writer.write(claimed + "\n");
+        } catch (Exception e) {
+            main.logger("&cFailed to save data for UUID " + user.getUuid() + ".");
+            e.printStackTrace();
+        }
+    }
+
     private void loadUser(OfflinePlayer offline) {
-        Player player = offline instanceof Player ? (Player) offline : null;
+        Player player = (offline instanceof Player) ? (Player) offline : null;
 
         UUID uuid = offline.getUniqueId();
         LevelUser<N> user = users.get(uuid);
@@ -152,10 +190,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
             newUser.setLevel(user.getLevel(), false);
             newUser.setExp(user.getExp() + "", true, false, false);
-            newUser.setMaxLevel(user.getMaxLevel());
-            user = newUser;
+            setRewardLevel(newUser, getRewardLevel(user));
 
-            users.put(uuid, user);
+            users.put(uuid, newUser);
             return;
         }
 
@@ -172,17 +209,24 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                     } catch (Exception e) {
                         main.logger("&cFailed to migrate user to database: " + uuid);
                     }
+                } else {
+                    user = system.createUser(uuid);
                 }
-                else user = system.createUser(uuid);
             }
         } else {
             user = loadFromFlatFile(uuid);
 
-            if (user == null && database != null &&
-                    (user = (player != null) ? database.getUser(player) : database.getUser(uuid)) != null)
-            {
-                migrationMessage = " from " + database.getClass().getSimpleName() + " to flat-file";
-                saveUser(user);
+            if (user == null) {
+                Database<?> old = main.database;
+                if (old != null) {
+                    LevelUser<?> oldUser = (player != null) ? old.getUser(player) : old.getUser(uuid);
+                    if (oldUser != null) {
+                        migrationMessage = " from " + old.getClass().getSimpleName() + " to flat-file";
+                        LevelUser<N> copy = system.createUser(oldUser);
+                        saveToFlatFile(copy);
+                        user = copy;
+                    }
+                }
             }
 
             if (user == null) user = system.createUser(uuid);
@@ -192,6 +236,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             main.logger("Migrated " + (player != null ? player.getName() : uuid) + migrationMessage);
 
         users.put(uuid, user);
+        system.updateLeaderboard();
     }
 
     @Override
@@ -210,7 +255,24 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (user == null) return;
 
         saveUser(user);
-        if (clearData) users.remove(user.getUuid());
+        if (!clearData) return;
+
+        UUID uuid = user.getUuid();
+
+        try {
+            LevelUser<N> offline = system.createOffline(uuid);
+            offline.setLevel(user.getLevel(), false);
+            offline.setExp(user.getExp(), false, false, false);
+
+            setRewardLevel(offline, getRewardLevel(user));
+
+            users.put(uuid, offline);
+        }
+        catch (Exception e) {
+            users.remove(uuid);
+            main.logger("&cNot able to convert to OfflineUser for: " + user.getName() + ". Deleting cache...");
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -219,23 +281,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             database.updateUser(user);
             return;
         }
-
-        File folder = new File(main.getDataFolder(), "player_data");
-        if (!folder.exists() && !folder.mkdirs()) {
-            main.logger("&cFailed to create player_data folder.");
-            return;
-        }
-
-        Path file = new File(folder, user.getUuid() + ".clv").toPath();
-
-        try (BufferedWriter writer = Files.newBufferedWriter(file)) {
-            writer.write(user.getLevel() + "\n");
-            writer.write(user.getRoundedExp() + "\n");
-            writer.write(user.getMaxLevel() + "");
-        } catch (Exception e) {
-            main.logger("&cFailed to save data for UUID " + user.getUuid() + ".");
-            e.printStackTrace();
-        }
+        saveToFlatFile(user);
     }
 
     @Override
@@ -299,11 +345,6 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, clearData));
     }
 
-    void updateMaxLevelToAll() {
-        users.values().forEach(u -> u.setMaxLevel(system.getMaxLevel()));
-        saveOnlinePlayers(false);
-    }
-
     @Override
     public void startAutoSave() {
         if (!cache.config().isAutoSaveEnabled()) return;
@@ -331,9 +372,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     @Override
     public void cancelAutoSave() {
-        if (autoSaveTask == null)
-            return;
-
+        if (autoSaveTask == null) return;
         autoSaveTask.cancel();
         autoSaveTask = null;
     }

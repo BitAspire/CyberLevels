@@ -113,7 +113,19 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         for (LevelUser<N> user : users.values())
             try {
                 String n = Objects.requireNonNull(user.getName());
-                if (n.equalsIgnoreCase(name)) return user;
+                if (n.equalsIgnoreCase(name)) {
+                    // Check if user is stored as OfflineUser but is actually online
+                    if (!user.isOnline()) {
+                        Player online = Bukkit.getPlayer(user.getUuid());
+                        if (online != null && online.isOnline()) {
+                            // Player is online but we have OfflineUser in cache - reload as OnlineUser
+                            main.logger("&eDetected online player " + name + " cached as OfflineUser. Reloading...");
+                            loadPlayer(online);
+                            return users.get(user.getUuid());
+                        }
+                    }
+                    return user;
+                }
             } catch (Exception ignored) {}
 
         return null;

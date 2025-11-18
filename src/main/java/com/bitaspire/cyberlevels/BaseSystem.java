@@ -398,14 +398,27 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         void sendLevelReward(long level) {
-            if (!cache.config().preventDuplicateRewards()) {
-                getRewards(level).forEach(r -> r.giveAll(getPlayer()));
+            // Only give rewards if player is online
+            if (!isOnline()) {
+                // Mark as rewarded but don't give items/commands to offline player
+                if (cache.config().preventDuplicateRewards() && level > getHighestRewardedLevel()) {
+                    setHighestRewardedLevel(level);
+                }
                 return;
             }
 
-            if (level > getHighestRewardedLevel()) {
-                getRewards(level).forEach(r -> r.giveAll(getPlayer()));
-                setHighestRewardedLevel(level);
+            try {
+                if (!cache.config().preventDuplicateRewards()) {
+                    getRewards(level).forEach(r -> r.giveAll(getPlayer()));
+                    return;
+                }
+
+                if (level > getHighestRewardedLevel()) {
+                    getRewards(level).forEach(r -> r.giveAll(getPlayer()));
+                    setHighestRewardedLevel(level);
+                }
+            } catch (IllegalStateException e) {
+                // Player not online, skip rewards
             }
         }
 
@@ -427,12 +440,17 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
 
-            if (sendMessage) {
-                long diff = level - oldLevel;
-                if (diff > 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", diff);
-                } else if (diff < 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(diff));
+            // Only send messages if player is online
+            if (sendMessage && isOnline()) {
+                try {
+                    long diff = level - oldLevel;
+                    if (diff > 0) {
+                        cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", diff);
+                    } else if (diff < 0) {
+                        cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(diff));
+                    }
+                } catch (IllegalStateException e) {
+                    // Player not online, skip messages
                 }
             }
 
@@ -463,9 +481,16 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (operator.compare(amount, operator.zero()) > 0 && level >= getMaxLevel())
                 return;
 
-            if (doMultiplier && operator.compare(amount, operator.zero()) > 0 &&
-                    hasParentPerm("CyberLevels.player.multiplier.", false))
-                amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
+            // Only apply multiplier if player is online (requires permission check)
+            if (doMultiplier && operator.compare(amount, operator.zero()) > 0 && isOnline()) {
+                try {
+                    if (hasParentPerm("CyberLevels.player.multiplier.", false)) {
+                        amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
+                    }
+                } catch (IllegalStateException e) {
+                    // Player not online, skip multiplier
+                }
+            }
 
             final T totalAmount = amount;
             long levelsChanged = 0;
@@ -506,25 +531,30 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             T displayTotal = (cache.config().stackComboExp() && System.currentTimeMillis() - lastTime <= 650)
                     ? operator.add(amount, lastAmount) : amount;
 
-            if (sendMessage) {
-                T diff = operator.subtract(Objects.equals(displayTotal, operator.zero()) ? operator.zero() : displayTotal, difference);
+            // Only send messages if player is online
+            if (sendMessage && isOnline()) {
+                try {
+                    T diff = operator.subtract(Objects.equals(displayTotal, operator.zero()) ? operator.zero() : displayTotal, difference);
 
-                if (operator.compare(totalAmount, operator.zero()) > 0) {
-                    cache.lang().sendMessage(
-                            getPlayer(), Lang::getGainedExp, new String[] {"gainedEXP", "totalGainedEXP"},
-                            system.roundString(diff), system.roundString(totalAmount)
-                    );
-                } else if (operator.compare(totalAmount, operator.zero()) < 0) {
-                    cache.lang().sendMessage(
-                            getPlayer(), Lang::getLostExp, new String[] {"lostEXP", "totalLostEXP"},
-                            system.roundString(operator.abs(diff)), system.roundString(operator.abs(totalAmount))
-                    );
-                }
+                    if (operator.compare(totalAmount, operator.zero()) > 0) {
+                        cache.lang().sendMessage(
+                                getPlayer(), Lang::getGainedExp, new String[] {"gainedEXP", "totalGainedEXP"},
+                                system.roundString(diff), system.roundString(totalAmount)
+                        );
+                    } else if (operator.compare(totalAmount, operator.zero()) < 0) {
+                        cache.lang().sendMessage(
+                                getPlayer(), Lang::getLostExp, new String[] {"lostEXP", "totalLostEXP"},
+                                system.roundString(operator.abs(diff)), system.roundString(operator.abs(totalAmount))
+                        );
+                    }
 
-                if (levelsChanged > 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", levelsChanged);
-                } else if (levelsChanged < 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(levelsChanged));
+                    if (levelsChanged > 0) {
+                        cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", levelsChanged);
+                    } else if (levelsChanged < 0) {
+                        cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(levelsChanged));
+                    }
+                } catch (IllegalStateException e) {
+                    // Player not online, skip messages
                 }
             }
 
@@ -694,7 +724,17 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @NotNull
         public Player getPlayer() {
-            return Objects.requireNonNull(player != null ? player : (player = Bukkit.getPlayer(getUuid())));
+            if (player != null) return player;
+
+            player = Bukkit.getPlayer(getUuid());
+            if (player == null) {
+                throw new IllegalStateException(
+                    "Player " + name + " (" + getUuid() + ") is not online. " +
+                    "Cannot perform operations that require an online player."
+                );
+            }
+
+            return player;
         }
     }
 }

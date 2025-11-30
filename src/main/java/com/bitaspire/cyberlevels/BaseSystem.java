@@ -430,9 +430,9 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (sendMessage) {
                 long diff = level - oldLevel;
                 if (diff > 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", diff);
+                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, diff, level);
                 } else if (diff < 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(diff));
+                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, new String[] {"lostLevels", "level"}, Math.abs(diff), level);
                 }
             }
 
@@ -460,6 +460,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         private void changeExp(T amount, T difference, boolean sendMessage, boolean doMultiplier, boolean checkLeaderboard) {
             if (operator.compare(amount, operator.zero()) == 0) return;
 
+            long startingLevel = level;
             if (operator.compare(amount, operator.zero()) > 0 && level >= getMaxLevel())
                 return;
 
@@ -468,7 +469,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
 
             final T totalAmount = amount;
-            long levelsChanged = 0;
 
             if (operator.compare(amount, operator.zero()) > 0) {
                 while (operator.compare(operator.add(exp, amount), rawRequiredExp()) >= 0) {
@@ -480,7 +480,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                     amount = operator.add(operator.subtract(amount, rawRequiredExp()), exp);
                     exp = operator.zero();
                     level++;
-                    levelsChanged++;
                     sendLevelReward(level);
                 }
 
@@ -492,7 +491,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                     while (operator.compare(amount, exp) > 0 && level > getStartLevel()) {
                         amount = operator.subtract(amount, exp);
                         level--;
-                        levelsChanged--;
                         exp = rawRequiredExp();
                     }
                     exp = operator.subtract(exp, amount);
@@ -520,12 +518,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                             system.roundString(operator.abs(diff)), system.roundString(operator.abs(totalAmount))
                     );
                 }
-
-                if (levelsChanged > 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", levelsChanged);
-                } else if (levelsChanged < 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(levelsChanged));
-                }
             }
 
             lastAmount = displayTotal;
@@ -533,6 +525,15 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
             level = Math.max(getStartLevel(), Math.min(level, getMaxLevel()));
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
+
+            if (sendMessage) {
+                long levelDifference = level - startingLevel;
+                if (levelDifference > 0) {
+                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, levelDifference, level);
+                } else if (levelDifference < 0) {
+                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, new String[] {"lostLevels", "level"}, Math.abs(levelDifference), level);
+                }
+            }
 
             if (checkLeaderboard) system.updateLeaderboard();
         }

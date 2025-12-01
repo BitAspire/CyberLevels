@@ -14,13 +14,14 @@ import java.math.RoundingMode;
 @Getter
 final class DoubleLevelSystem extends BaseSystem<Double> {
 
-    private final Operator<Double> operator;
-
     DoubleLevelSystem(CyberLevels main) {
         super(main);
         setLeaderboardFunction(DoubleLeaderboard::new);
+    }
 
-        operator = new Operator<Double>() {
+    @Override
+    Operator<Double> createOperator() {
+        return new Operator<Double>() {
             @Override
             public Double zero() {
                 return 0.0;
@@ -130,7 +131,7 @@ final class DoubleLevelSystem extends BaseSystem<Double> {
 
     @Override
     Formula<Double> createFormula(String string) {
-        return new BaseFormula<Double>(operator, string) {
+        return new BaseFormula<Double>(getOperator(), string) {
             @NotNull
             Builder<Double> builder() {
                 return new DoubleBuilder();

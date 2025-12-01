@@ -34,6 +34,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     private final long startLevel, maxLevel;
     private final int startExp;
 
+    private final Operator<N> operator;
     private final Formula<N> formula;
 
     private final Map<Long, Formula<N>> formulas = new ConcurrentHashMap<>();
@@ -55,6 +56,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         startLevel = cache.levels().getStartLevel();
         maxLevel = cache.levels().getMaxLevel();
 
+        operator = createOperator();
         formula = createFormula(cache.levels().getFormula());
         cache.levels().getCustomFormulas().forEach((k, v) -> formulas.put(k, createFormula(v)));
 
@@ -62,6 +64,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         if (cache.config().isRoundingEnabled()) formatter = new DecimalFormatter<>(this);
     }
 
+    abstract Operator<N> createOperator();
     abstract Formula<N> createFormula(String formula);
 
     @Override

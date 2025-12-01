@@ -1,7 +1,6 @@
 package com.bitaspire.cyberlevels;
 
 import com.bitaspire.cyberlevels.user.UserManager;
-import com.bitaspire.libs.formula.expression.ExpressionBuilder;
 import com.bitaspire.cyberlevels.cache.Cache;
 import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.level.*;
@@ -10,6 +9,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import me.croabeast.beanslib.Beans;
+import me.croabeast.expr4j.expression.Builder;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -266,7 +266,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         @Getter
         private final String asString;
 
-        abstract ExpressionBuilder<T> builder();
+        abstract Builder<T> builder();
 
         @NotNull
         public T evaluate(UUID uuid) {
@@ -304,14 +304,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             List<LevelUser<T>> users = userManager.getUsersList();
             updating = true;
 
-            Bukkit.getScheduler().runTaskAsynchronously(main, () -> {
+            main.scheduler().runTaskAsynchronously(() -> {
                 List<Entry<T>> list = new ArrayList<>();
                 for (LevelUser<T> user : users) list.add(toEntry(user));
 
                 list.sort(Comparator.naturalOrder());
                 List<Entry<T>> top10 = list.subList(0, Math.min(10, list.size()));
 
-                Bukkit.getScheduler().runTask(main, () -> {
+                main.scheduler().runTask(() -> {
                     topTenPlayers.clear();
                     topTenPlayers.addAll(top10);
                     updating = false;

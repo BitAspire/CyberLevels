@@ -62,7 +62,12 @@ dependencies {
     // Misc utils
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation 'me.croabeast:YAML-API:1.1'
-    implementation 'me.croabeast:GlobalScheduler:1.0'
+    implementation 'me.croabeast:GlobalScheduler:1.1'
+
+    implementation 'me.croabeast.expr4j:core:1.0'
+    implementation 'me.croabeast.expr4j:big-decimal:1.0'
+    implementation 'me.croabeast.expr4j:double:1.0'
+
     compileOnly 'ch.obermuhlner:big-math:2.3.2'
     compileOnly 'org.apache.commons:commons-lang3:3.18.0'
 }

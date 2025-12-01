@@ -1,12 +1,12 @@
 package com.bitaspire.cyberlevels;
 
 import com.bitaspire.cyberlevels.user.UserManager;
-import com.bitaspire.libs.formula.BigDecimalExpressionBuilder;
 import com.bitaspire.cyberlevels.level.Formula;
 import com.bitaspire.cyberlevels.level.Operator;
 import com.bitaspire.cyberlevels.user.LevelUser;
-import com.bitaspire.libs.formula.expression.ExpressionBuilder;
 import lombok.Getter;
+import me.croabeast.expr4j.BigDecimalBuilder;
+import me.croabeast.expr4j.expression.Builder;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
@@ -121,8 +121,8 @@ final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
     Formula<BigDecimal> createFormula(String string) {
         return new BaseFormula<BigDecimal>(operator, string) {
             @NotNull
-            ExpressionBuilder<BigDecimal> builder() {
-                return new BigDecimalExpressionBuilder();
+            Builder<BigDecimal> builder() {
+                return new BigDecimalBuilder();
             }
         };
     }

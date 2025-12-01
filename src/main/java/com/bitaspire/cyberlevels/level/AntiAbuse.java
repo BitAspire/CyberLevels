@@ -2,9 +2,7 @@ package com.bitaspire.cyberlevels.level;
 
 import com.bitaspire.cyberlevels.CyberLevels;
 import lombok.Getter;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -160,11 +158,7 @@ public interface AntiAbuse {
          * Starts the timer asynchronously.
          */
         public void start() {
-            new BukkitRunnable() {
-                public void run() {
-                    startScheduler(false);
-                }
-            }.runTaskAsynchronously(main);
+            main.scheduler().runTaskAsynchronously(() -> startScheduler(false));
         }
 
         private void startScheduler(boolean cancelTimer) {
@@ -358,14 +352,8 @@ public interface AntiAbuse {
             public void run() {
                 if (main == null || !main.isEnabled()) return;
 
-                Bukkit.getScheduler().runTask(main, antiAbuse::resetLimiters);
-
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        startScheduler(true);
-                    }
-                }.runTaskLaterAsynchronously(main, 20L);
+                main.scheduler().runTask(antiAbuse::resetLimiters);
+                main.scheduler().runTaskLaterAsynchronously(() -> startScheduler(true), 20L);
             }
         }
 

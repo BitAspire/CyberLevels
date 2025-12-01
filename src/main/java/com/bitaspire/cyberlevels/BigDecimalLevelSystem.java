@@ -15,13 +15,14 @@ import java.math.RoundingMode;
 @Getter
 final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
 
-    private final Operator<BigDecimal> operator;
-
     BigDecimalLevelSystem(CyberLevels main) {
         super(main);
         setLeaderboardFunction(BigDecimalLeaderboard::new);
+    }
 
-        operator = new Operator<BigDecimal>() {
+    @Override
+    Operator<BigDecimal> createOperator() {
+        return new Operator<BigDecimal>() {
             @Override
             public BigDecimal zero() {
                 return BigDecimal.ZERO;
@@ -119,7 +120,7 @@ final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
 
     @Override
     Formula<BigDecimal> createFormula(String string) {
-        return new BaseFormula<BigDecimal>(operator, string) {
+        return new BaseFormula<BigDecimal>(getOperator(), string) {
             @NotNull
             Builder<BigDecimal> builder() {
                 return new BigDecimalBuilder();

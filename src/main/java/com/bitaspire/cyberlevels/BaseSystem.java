@@ -217,9 +217,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     @NotNull
     LevelUser<N> createUser(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
-        return player == null ?
-                new OfflineUser<>(this, Bukkit.getOfflinePlayer(uuid)) :
-                new OnlineUser<>(this, player);
+        return player == null ? createOffline(uuid) : new OnlineUser<>(this, player);
     }
 
     @NotNull
@@ -280,6 +278,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             try {
                 return builder().build(parsed).evaluate();
             } catch (Throwable t) {
+                t.printStackTrace();
                 return operator.fromDouble(0.0);
             }
         }
@@ -365,10 +364,10 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     void updateLeaderboard() {
-        if (!main.isEnabled() || leaderboard == null) return;
+        if (!main.isEnabled() || leaderboard == null ||
+                !cache.config().isLeaderboardEnabled()) return;
 
-        if (cache.config().leaderboardInstantUpdate() && !leaderboard.isUpdating())
-            leaderboard.update();
+        if (!leaderboard.isUpdating()) leaderboard.update();
     }
 
     abstract class BaseUser<T extends Number> implements LevelUser<T> {

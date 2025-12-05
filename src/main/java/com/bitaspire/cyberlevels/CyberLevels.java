@@ -134,7 +134,6 @@ public final class CyberLevels extends JavaPlugin {
         userManager.cancelAutoSave();
 
         if (database != null) database.disconnect();
-
         listeners.unregister();
     }
 

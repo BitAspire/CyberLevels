@@ -516,11 +516,13 @@ class DatabaseFactory {
             CompletableFuture<Set<UUID>> future = new CompletableFuture<>();
 
             main.scheduler().runTaskAsynchronously(() -> {
-                Set<UUID> result = new LinkedHashSet<>();
                 String sql = "SELECT " + qCol("UUID") + " FROM " + qTab(getTable());
+
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement(sql);
-                     ResultSet rs = statement.executeQuery()) {
+                     ResultSet rs = statement.executeQuery())
+                {
+                    Set<UUID> result = new LinkedHashSet<>();
                     while (rs.next()) {
                         try {
                             result.add(UUID.fromString(rs.getString("UUID")));
@@ -719,7 +721,8 @@ class DatabaseFactory {
         HikariConfig createConfig() {
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl("jdbc:sqlite:" + filePath);
-            config.setMaximumPoolSize(1);
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(2);
             config.setPoolName("CLV-SQLite");
             return config;
         }

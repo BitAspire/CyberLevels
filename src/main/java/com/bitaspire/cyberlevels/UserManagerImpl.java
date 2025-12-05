@@ -30,9 +30,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     final CyberLevels main;
     final Cache cache;
 
+    private final AtomicBoolean leaderboardQueued = new AtomicBoolean(false);
     private final BaseSystem<N> system;
     private final Map<UUID, LevelUser<N>> users = new ConcurrentHashMap<>();
-    private final AtomicBoolean leaderboardUpdateQueued = new AtomicBoolean(false);
 
     GlobalTask autoSaveTask = null;
     @Getter
@@ -265,10 +265,10 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     }
 
     private void scheduleLeaderboardUpdate() {
-        if (!leaderboardUpdateQueued.compareAndSet(false, true)) return;
+        if (!leaderboardQueued.compareAndSet(false, true)) return;
         main.scheduler().runTask(() -> {
             system.updateLeaderboard();
-            leaderboardUpdateQueued.set(false);
+            leaderboardQueued.set(false);
         });
     }
 

@@ -7,8 +7,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import me.croabeast.scheduler.GlobalTask;
-import org.apache.commons.lang.StringUtils;
+import com.bitaspire.scheduler.GlobalTask;
+import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -482,11 +482,15 @@ public class EarnExp {
     }
 
     public void register() {
-        events.values().forEach(e -> e.getRegistrable().register());
+        events.values().forEach(source -> {
+            if (source.isActive()) source.getRegistrable().register();
+        });
     }
 
     public void unregister() {
-        events.values().forEach(e -> e.getRegistrable().unregister());
+        events.values().forEach(source -> {
+            if (source.isActive()) source.getRegistrable().unregister();
+        });
     }
 
     @Getter
@@ -552,6 +556,10 @@ public class EarnExp {
             };
 
             events.put(category, this);
+        }
+
+        boolean isActive() {
+            return enabled;
         }
 
         <T> T get(String path, T def) {

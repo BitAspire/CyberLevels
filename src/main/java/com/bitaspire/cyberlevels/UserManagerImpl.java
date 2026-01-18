@@ -8,9 +8,9 @@ import com.bitaspire.cyberlevels.user.LevelUser;
 import com.bitaspire.cyberlevels.user.UserManager;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import me.croabeast.scheduler.GlobalRunnable;
-import me.croabeast.scheduler.GlobalTask;
-import org.apache.commons.lang.StringUtils;
+import com.bitaspire.scheduler.GlobalRunnable;
+import com.bitaspire.scheduler.GlobalTask;
+import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -63,7 +63,6 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (old == null) return;
 
         final Database<N> now = database;
-
         if (now != null && old.getClass().equals(now.getClass())) return;
 
         main.logger("&eDetected database type change from " +

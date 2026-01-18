@@ -12,9 +12,9 @@ import org.jetbrains.annotations.NotNull;
 import java.math.RoundingMode;
 
 @Getter
-final class DoubleLevelSystem extends BaseSystem<Double> {
+final class DoubleSystem extends BaseSystem<Double> {
 
-    DoubleLevelSystem(CyberLevels main) {
+    DoubleSystem(CyberLevels main) {
         super(main);
         setLeaderboardFunction(DoubleLeaderboard::new);
     }

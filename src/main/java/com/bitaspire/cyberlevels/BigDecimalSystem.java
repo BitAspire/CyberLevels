@@ -13,9 +13,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 @Getter
-final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
+final class BigDecimalSystem extends BaseSystem<BigDecimal> {
 
-    BigDecimalLevelSystem(CyberLevels main) {
+    BigDecimalSystem(CyberLevels main) {
         super(main);
         setLeaderboardFunction(BigDecimalLeaderboard::new);
     }

@@ -41,16 +41,8 @@ class DatabaseFactory {
             return name;
         }
 
-        abstract PreparedStatement prepareUpsert(Connection c,
-                                                 UUID uuid,
-                                                 long level,
-                                                 String exp,
-                                                 long updatedAt) throws SQLException;
-
-        abstract PreparedStatement prepareUpsertMeta(Connection c,
-                                                     UUID uuid,
-                                                     long highestRewarded,
-                                                     long updatedAt) throws SQLException;
+        abstract PreparedStatement prepareUpsert(Connection c, UUID uuid, long level, String exp, long updatedAt) throws SQLException;
+        abstract PreparedStatement prepareUpsertMeta(Connection c, UUID uuid, long highestRewarded, long updatedAt) throws SQLException;
 
         abstract Set<String> getExistingColumns(Connection conn) throws SQLException;
         abstract boolean isExpColumnTextual(Connection conn) throws SQLException;
@@ -112,9 +104,9 @@ class DatabaseFactory {
                         ensureMetaSchema(conn);
                     }
 
-                    main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.", "");
+                    main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
                 } catch (Exception e) {
-                    main.logger("&cThere was an issue connecting to " + type + " Database.", "");
+                    main.logger("&cThere was an issue connecting to " + type + " Database.");
                     e.printStackTrace();
                 }
             });
@@ -127,16 +119,23 @@ class DatabaseFactory {
             main.logger("&dAttempting to disconnect from " + type + "...");
             long l = System.currentTimeMillis();
 
-            main.scheduler().runTaskAsynchronously(() -> {
+            Runnable close = () -> {
                 try {
                     dataSource.close();
-                    dataSource = null;
-                    main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.", "");
+                    main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
                 } catch (Exception e) {
-                    main.logger("&cThere was an issue disconnecting from " + type + " Database.", "");
+                    main.logger("&cThere was an issue disconnecting from " + type + " Database.");
                     e.printStackTrace();
+                } finally {
+                    dataSource = null;
                 }
-            });
+            };
+
+            if (main.isEnabled()) {
+                main.scheduler().runTaskAsynchronously(close);
+            } else {
+                close.run();
+            }
         }
 
         void ensureTargetSchema(Connection conn) throws SQLException {
@@ -415,13 +414,7 @@ class DatabaseFactory {
 
             main.scheduler().runTaskAsynchronously(() -> {
                 try (Connection connection = dataSource.getConnection()) {
-                    try (PreparedStatement st = prepareUpsert(
-                            connection,
-                            uuid,
-                            level,
-                            expStr,
-                            now
-                    )) {
+                    try (PreparedStatement st = prepareUpsert(connection, uuid, level, expStr, now)) {
                         st.executeUpdate();
                     }
 
@@ -544,8 +537,6 @@ class DatabaseFactory {
         }
     }
 
-    // --------------- MySQL / MariaDB --------------- //
-
     static class MySQL<N extends Number> extends DatabaseImpl<N> {
 
         final String ip, database, username, password, table;
@@ -575,9 +566,20 @@ class DatabaseFactory {
             config.setJdbcUrl("jdbc:mysql://" + ip + ":" + port + "/" + database + "?useSSL=" + ssl + "&autoReconnect=true&useUnicode=true&characterEncoding=utf8");
             config.setUsername(username);
             config.setPassword(password);
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
+            config.setConnectionTimeout(10000);
+            config.setValidationTimeout(5000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.setKeepaliveTime(300000);
+            config.setMaximumPoolSize(20);
+            config.setMinimumIdle(4);
             config.setPoolName("CLV-MySQL");
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            config.addDataSourceProperty("useServerPrepStmts", "true");
+            config.addDataSourceProperty("tcpKeepAlive", "true");
+            config.setTransactionIsolation("TRANSACTION_READ_COMMITTED");
             return config;
         }
 
@@ -702,8 +704,6 @@ class DatabaseFactory {
         }
     }
 
-    // --------------- SQLite --------------- //
-
     static class SQLite<N extends Number> extends DatabaseImpl<N> {
 
         private final String filePath, table;
@@ -720,9 +720,14 @@ class DatabaseFactory {
         @Override
         HikariConfig createConfig() {
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl("jdbc:sqlite:" + filePath);
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
+            config.setJdbcUrl("jdbc:sqlite:" + filePath + "?busy_timeout=5000&journal_mode=WAL&synchronous=NORMAL");
+            config.setMaximumPoolSize(2);
+            config.setMinimumIdle(1);
+            config.setConnectionTimeout(10000);
+            config.setValidationTimeout(5000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.setKeepaliveTime(300000);
             config.setPoolName("CLV-SQLite");
             return config;
         }
@@ -839,8 +844,6 @@ class DatabaseFactory {
         }
     }
 
-    // --------------- PostgreSQL --------------- //
-
     static class PostgreSQL<N extends Number> extends DatabaseImpl<N> {
 
         final String ip, database, username, password, table;
@@ -867,9 +870,15 @@ class DatabaseFactory {
             config.setJdbcUrl("jdbc:postgresql://" + ip + ":" + port + "/" + database);
             config.setUsername(username);
             config.setPassword(password);
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
+            config.setConnectionTimeout(10000);
+            config.setValidationTimeout(5000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.setKeepaliveTime(300000);
+            config.setMaximumPoolSize(20);
+            config.setMinimumIdle(4);
             config.setPoolName("CLV-Postgres");
+            config.addDataSourceProperty("tcpKeepAlive", "true");
             return config;
         }
 

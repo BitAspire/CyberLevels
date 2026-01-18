@@ -8,7 +8,6 @@ import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import me.croabeast.beanslib.Beans;
 import me.croabeast.expr4j.expression.Builder;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
@@ -158,7 +157,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             string = StringUtils.replaceEach(string, k, v);
         }
 
-        return Beans.formatPlaceholders(data.isOnline() ? data.getPlayer() : null, string);
+        return main.library().replace(data.isOnline() ? data.getPlayer() : null, string);
     }
 
     @NotNull
@@ -323,13 +322,15 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public LevelUser<T> getTopPlayer(int position) {
-            return updating || position < 1 || position > 10 ? null : userManager.getUser(topTenPlayers.get(position - 1).getUuid());
+            if (updating || position < 1 || position > 10) return null;
+
+            int index = position - 1;
+            if (index >= topTenPlayers.size()) return null;
+
+            return userManager.getUser(topTenPlayers.get(index).getUuid());
         }
 
-        @Override
-        public int checkPosition(Player player) {
-            UUID uuid = player.getUniqueId();
-
+        int check(UUID uuid) {
             for (int i = 0; i < topTenPlayers.size(); i++)
                 if (uuid.equals(topTenPlayers.get(i).getUuid()))
                     return i + 1;
@@ -338,8 +339,13 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         @Override
+        public int checkPosition(Player player) {
+            return check(player.getUniqueId());
+        }
+
+        @Override
         public int checkPosition(LevelUser<T> user) {
-            return checkPosition(user.getPlayer());
+            return check(user.getUuid());
         }
 
         abstract Entry<T> toEntry(LevelUser<T> user);
@@ -400,6 +406,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         void sendLevelReward(long level) {
+            if (!isOnline()) return;
+
             if (!cache.config().preventDuplicateRewards()) {
                 getRewards(level).forEach(r -> r.giveAll(getPlayer()));
                 return;
@@ -429,7 +437,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
 
-            if (sendMessage) {
+            if (sendMessage && isOnline()) {
                 long diff = level - oldLevel;
                 if (diff > 0) {
                     cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, diff, level);
@@ -506,7 +514,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             T displayTotal = (cache.config().stackComboExp() && System.currentTimeMillis() - lastTime <= 650)
                     ? operator.add(amount, lastAmount) : amount;
 
-            if (sendMessage) {
+            if (sendMessage && isOnline()) {
                 T diff = operator.subtract(Objects.equals(displayTotal, operator.zero()) ? operator.zero() : displayTotal, difference);
 
                 if (operator.compare(totalAmount, operator.zero()) > 0) {
@@ -528,7 +536,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             level = Math.max(getStartLevel(), Math.min(level, getMaxLevel()));
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
 
-            if (sendMessage) {
+            if (sendMessage && isOnline()) {
                 long levelDifference = level - startingLevel;
                 if (levelDifference > 0) {
                     cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, levelDifference, level);
@@ -609,6 +617,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public boolean hasParentPerm(String permission, boolean checkOp) {
+            if (!isOnline()) return false;
             if (checkOp && getPlayer().isOp()) return true;
 
             for (PermissionAttachmentInfo node : getPlayer().getEffectivePermissions()) {
@@ -622,8 +631,9 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public double getMultiplier() {
-            double multiplier = 0;
+            if (!isOnline()) return 1;
 
+            double multiplier = 0;
             for (PermissionAttachmentInfo perm : getPlayer().getEffectivePermissions()) {
                 if (!perm.getValue()) continue;
 

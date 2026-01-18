@@ -1,5 +1,7 @@
 package com.bitaspire.cyberlevels.command;
 
+import com.bitaspire.cyberlevels.CyberLevels;
+import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -11,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
+@RequiredArgsConstructor
 public class CLVTabComplete implements TabCompleter {
 
     private static final String PLAYER_PREFIX = "CyberLevels.player.";
@@ -36,6 +39,8 @@ public class CLVTabComplete implements TabCompleter {
         COMMAND_PERMISSIONS.put("setLevel", ADMIN_PREFIX + "levels.set");
         COMMAND_PERMISSIONS.put("removeLevel", ADMIN_PREFIX + "levels.remove");
     }
+
+    private final CyberLevels main;
 
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
@@ -86,9 +91,15 @@ public class CLVTabComplete implements TabCompleter {
     private List<String> getPlayerNames() {
         List<String> players = new ArrayList<>();
 
-        for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
-            String name = p.getName();
-            if (name != null) players.add(name);
+        if (main.cache().config().isTabCompleteLoadOfflineUsers()) {
+            for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+                String name = p.getName();
+                if (name != null) players.add(name);
+            }
+        } else {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                players.add(player.getName());
+            }
         }
 
         return players;

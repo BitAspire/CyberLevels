@@ -1,12 +1,12 @@
 package com.bitaspire.cyberlevels;
 
+import com.bitaspire.common.util.ReplaceUtils;
 import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.user.LevelUser;
+import com.bitaspire.takion.message.MessageSender;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import me.croabeast.beanslib.key.ValueReplacer;
-import me.croabeast.beanslib.message.MessageSender;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.bukkit.entity.Player;
 
 import java.util.*;
@@ -23,7 +23,9 @@ public final class Message {
     private UnaryOperator<String> operator = null;
 
     private final Map<String, String> placeholders = new LinkedHashMap<>();
-    private final MessageSender sender = new MessageSender().setLogger(false).setCaseSensitive(false);
+    private final MessageSender sender = CyberLevels.instance()
+            .library().getLoadedSender()
+            .setLogger(false).setSensitive(false);
 
     public Message player(Player player) {
         sender.setTargets(player);
@@ -49,8 +51,7 @@ public final class Message {
     }
 
     public Message list(Function<Lang, List<String>> function) {
-        if (lang != null && function != null)
-            list(function.apply(lang));
+        if (lang != null && function != null) list(function.apply(lang));
         return this;
     }
 
@@ -75,24 +76,17 @@ public final class Message {
         return values;
     }
 
-    public boolean send(Player player) {
-        player(player);
-        return send();
-    }
-
-    public boolean send(LevelUser<?> user) {
-        player(user);
-        return send();
-    }
-
     public boolean send() {
         messages.removeIf(Objects::isNull);
 
-        messages.replaceAll(s -> ValueReplacer.forEach(placeholders, s));
+        messages.replaceAll(s -> ReplaceUtils.replaceEach(placeholders, s));
         if (operator != null) messages.replaceAll(operator);
+
         messages.replaceAll(s -> s.replace("[actionbar]", "[action-bar]"));
 
-        return sender.send(messages);
+        return !messages.isEmpty() &&
+                !StringUtils.isBlank(messages.get(0)) &&
+                sender.send(messages);
     }
 
     public class Values {

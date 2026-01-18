@@ -1,6 +1,5 @@
 package com.bitaspire.cyberlevels.level;
 
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;

@@ -1,5 +1,8 @@
 package com.bitaspire.cyberlevels;
 
+import com.bitaspire.common.util.ServerInfoUtils;
+import com.bitaspire.cybercore.CoreSettings;
+import com.bitaspire.cybercore.CyberCore;
 import com.bitaspire.cyberlevels.cache.Cache;
 import com.bitaspire.cyberlevels.command.CLVCommand;
 import com.bitaspire.cyberlevels.command.CLVTabComplete;
@@ -8,15 +11,15 @@ import com.bitaspire.cyberlevels.level.LevelSystem;
 import com.bitaspire.cyberlevels.listener.Listeners;
 import com.bitaspire.cyberlevels.user.Database;
 import com.bitaspire.cyberlevels.user.UserManager;
+import com.bitaspire.takion.TakionLib;
+import com.bitaspire.takion.message.MessageSender;
+import com.bitaspire.scheduler.GlobalScheduler;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
-import me.croabeast.beanslib.utility.LibUtils;
-import me.croabeast.scheduler.GlobalScheduler;
-import net.zerotoil.dev.cybercore.CoreSettings;
-import net.zerotoil.dev.cybercore.CyberCore;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @Accessors(fluent = true)
@@ -46,14 +49,22 @@ public final class CyberLevels extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (!CyberCore.restrictVersions(8, 22, "CLV", getDescription().getVersion()))
-            return;
+        if (serverVersion() < 16) {
+            DependencyLoader loader = DependencyLoader.BUKKIT_LOADER;
+            loader.load("ch.obermuhlner", "big-math", "2.3.2", true);
+            loader.load("org.slf4j", "slf4j-api", "1.7.36", true);
+            loader.load("com.zaxxer", "HikariCP", "4.0.3", true);
+            loader.load("com.mysql", "mysql-connector-j", "8.0.33", true);
+            loader.load("org.xerial", "sqlite-jdbc", "3.51.1.0", true);
+            loader.load("org.postgresql", "postgresql", "42.7.8", true);
+            loader.load("org.apache.commons", "commons-lang3", "3.18.0", true);
+        }
 
         instance = this;
         scheduler = GlobalScheduler.getScheduler(this);
         core = new CyberCore(this);
 
-        CoreSettings settings = core.coreSettings();
+        CoreSettings settings = core.getSettings();
         settings.setBootColor('d');
         settings.setBootLogo(
                 "&d╭━━━╮&7╱╱╱&d╭╮&7╱╱╱╱╱╱&d╭╮&7╱╱╱╱╱╱╱╱╱╱╱&d╭╮",
@@ -71,7 +82,7 @@ public final class CyberLevels extends JavaPlugin {
         PluginCommand command = this.getCommand("clv");
         if (command != null) {
             command.setExecutor(new CLVCommand(this));
-            command.setTabCompleter(new CLVTabComplete());
+            command.setTabCompleter(new CLVTabComplete(this));
         }
 
         reloadPlugin();
@@ -91,8 +102,8 @@ public final class CyberLevels extends JavaPlugin {
 
         long start = System.currentTimeMillis();
         BaseSystem<?> system = !cache.config().useBigDecimalSystem() ?
-                new DoubleLevelSystem(this) :
-                new BigDecimalLevelSystem(this);
+                new DoubleSystem(this) :
+                new BigDecimalSystem(this);
 
         logger("&dChecking level system type...");
         levelSystem = system;
@@ -108,6 +119,7 @@ public final class CyberLevels extends JavaPlugin {
         manager.checkMigration();
 
         database = (userManager = manager).getDatabase();
+        logger("");
 
         manager.loadOfflinePlayers();
         userManager.loadOnlinePlayers();
@@ -133,20 +145,31 @@ public final class CyberLevels extends JavaPlugin {
         userManager.saveOnlinePlayers(true);
         userManager.cancelAutoSave();
 
-        if (database != null) database.disconnect();
+        if (database != null) {
+            database.disconnect();
+            if (isEnabled()) logger("");
+        }
         listeners.unregister();
     }
 
     public String getAuthors() {
-        return this.getDescription().getAuthors().toString().replace("[", "").replace("]", "");
+        return this.getDescription().getAuthors().toString().replaceAll("[\\[\\]]", "");
     }
 
     public double serverVersion() {
-        return LibUtils.getMainVersion();
+        return ServerInfoUtils.SERVER_VERSION;
+    }
+
+    public TakionLib library() {
+        return core.getLibrary();
+    }
+
+    public MessageSender createSender(Player player) {
+        return library().getLoadedSender().setTargets(player).setParser(player);
     }
 
     public void logger(String... message) {
-        core.logger(message);
+        library().getLogger().log(message);
     }
 
     public boolean isEnabled(String plugin) {

@@ -5,7 +5,6 @@ import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.level.LevelSystem;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
-import me.croabeast.beanslib.message.MessageSender;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -42,7 +41,7 @@ public class CLVCommand implements CommandExecutor {
         if (args.length == 1) {
             switch (sub) {
                 case "about":
-                    return isRestricted(player, "player.about") || new MessageSender(player).send(
+                    return isRestricted(player, "player.about") || main.createSender(player).send(
                             " &d&lCyber&f&lLevels &fv" + main.getDescription().getVersion() + " &7(&7&nhttps://bit.ly/2YSlqYq&7).",
                             " &fDeveloped by &d" + main.getAuthors() + "&f.",
                             " A leveling system plugin with MySQL support and custom events."

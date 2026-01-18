@@ -116,3 +116,4 @@ buildNumber.properties
 # Common working directory
 run/
 /libs/
+/.claude/settings.local.json

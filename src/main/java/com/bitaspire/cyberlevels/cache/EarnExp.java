@@ -88,12 +88,12 @@ public class EarnExp {
                 if (!source.isEnabled() && !source.useSpecifics())
                     return;
 
+                long delay = 20L * Math.max(1, source.getInterval());
                 task = main.scheduler().runTaskTimer(
                         () -> {
                             for (Player p : Bukkit.getOnlinePlayers())
                                 sendPermissionExp(p, source);
-                        }, 0L,
-                        20L * Math.max(1, source.getInterval()));
+                        }, delay, delay);
             }
 
             @Override
@@ -559,7 +559,7 @@ public class EarnExp {
         }
 
         boolean isActive() {
-            return enabled;
+            return isEnabled() || useSpecifics();
         }
 
         <T> T get(String path, T def) {

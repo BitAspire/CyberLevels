@@ -7,12 +7,13 @@ import com.bitaspire.cyberlevels.user.Database;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import com.bitaspire.cyberlevels.user.UserManager;
 import lombok.Getter;
-import org.apache.commons.lang.StringUtils;
+import lombok.RequiredArgsConstructor;
+import com.bitaspire.scheduler.GlobalRunnable;
+import com.bitaspire.scheduler.GlobalTask;
+import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
@@ -22,16 +23,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     final CyberLevels main;
     final Cache cache;
 
+    private final AtomicBoolean leaderboardQueued = new AtomicBoolean(false);
     private final BaseSystem<N> system;
     private final Map<UUID, LevelUser<N>> users = new ConcurrentHashMap<>();
 
-    BukkitTask autoSaveTask = null;
+    GlobalTask autoSaveTask = null;
     @Getter
     private Database<N> database = null;
 
@@ -60,7 +63,6 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (old == null) return;
 
         final Database<N> now = database;
-
         if (now != null && old.getClass().equals(now.getClass())) return;
 
         main.logger("&eDetected database type change from " +
@@ -99,12 +101,14 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     @Override
     public LevelUser<N> getUser(UUID uuid) {
         LevelUser<N> user = users.get(uuid);
+
         if (user == null) {
             OfflinePlayer player = Bukkit.getPlayer(uuid);
-            if (player == null) player = Bukkit.getOfflinePlayer(uuid);
-            loadUser(player);
-            return users.get(uuid);
+            if (player == null)
+                player = Bukkit.getOfflinePlayer(uuid);
+            return loadUser(player);
         }
+
         return user;
     }
 
@@ -179,27 +183,12 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         }
     }
 
-    private void loadUser(OfflinePlayer offline) {
-        Player player = (offline instanceof Player) ? (Player) offline : null;
-
-        UUID uuid = offline.getUniqueId();
-        LevelUser<N> user = users.get(uuid);
-
-        if (user != null && player != null && !user.isOnline()) {
-            LevelUser<N> newUser = system.createUser(uuid);
-
-            newUser.setLevel(user.getLevel(), false);
-            newUser.setExp(user.getExp() + "", true, false, false);
-            setRewardLevel(newUser, getRewardLevel(user));
-
-            users.put(uuid, newUser);
-            return;
-        }
-
+    private LoadResult loadUserData(UUID uuid) {
+        LevelUser<N> user;
         String migrationMessage = "";
 
         if (database != null) {
-            user = (player != null) ? database.getUser(player) : database.getUser(uuid);
+            user = database.getUser(uuid);
 
             if (user == null) {
                 if ((user = loadFromFlatFile(uuid)) != null) {
@@ -219,7 +208,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             if (user == null) {
                 Database<?> old = main.database;
                 if (old != null) {
-                    LevelUser<?> oldUser = (player != null) ? old.getUser(player) : old.getUser(uuid);
+                    LevelUser<?> oldUser = old.getUser(uuid);
                     if (oldUser != null) {
                         migrationMessage = " from " + old.getClass().getSimpleName() + " to flat-file";
                         LevelUser<N> copy = system.createUser(oldUser);
@@ -232,21 +221,70 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             if (user == null) user = system.createUser(uuid);
         }
 
-        if (StringUtils.isNotBlank(migrationMessage))
-            main.logger("Migrated " + (player != null ? player.getName() : uuid) + migrationMessage);
+        return new LoadResult(user, migrationMessage);
+    }
 
-        users.put(uuid, user);
-        system.updateLeaderboard();
+    private void loadUserAsync(OfflinePlayer offline, boolean updateLeaderboard) {
+        Player player = (offline instanceof Player) ? (Player) offline : null;
+
+        UUID uuid = offline.getUniqueId();
+        LevelUser<N> user = users.get(uuid);
+
+        if (user != null && player != null && !user.isOnline()) {
+            LevelUser<N> newUser = system.createUser(uuid);
+
+            newUser.setLevel(user.getLevel(), false);
+            newUser.setExp(user.getExp() + "", true, false, false);
+            setRewardLevel(newUser, getRewardLevel(user));
+
+            users.put(uuid, newUser);
+            if (updateLeaderboard) scheduleLeaderboardUpdate();
+            return;
+        }
+
+        main.scheduler().runTaskAsynchronously(() -> {
+            LoadResult result = loadUserData(uuid);
+            main.scheduler().runTask(() -> finishUserLoad(uuid, player, result, updateLeaderboard));
+        });
+    }
+
+    private LevelUser<N> loadUser(OfflinePlayer offline) {
+        Player player = (offline instanceof Player) ? (Player) offline : null;
+        LoadResult result = loadUserData(offline.getUniqueId());
+        finishUserLoad(offline.getUniqueId(), player, result, true);
+        return result.user;
+    }
+
+    private void finishUserLoad(UUID uuid, Player player, LoadResult result, boolean updateLeaderboard) {
+        if (StringUtils.isNotBlank(result.migrationMessage))
+            main.logger("Migrated " + (player != null ? player.getName() : uuid) + result.migrationMessage);
+
+        users.put(uuid, result.user);
+        if (updateLeaderboard) scheduleLeaderboardUpdate();
+    }
+
+    private void scheduleLeaderboardUpdate() {
+        if (!leaderboardQueued.compareAndSet(false, true)) return;
+        main.scheduler().runTask(() -> {
+            system.updateLeaderboard();
+            leaderboardQueued.set(false);
+        });
+    }
+
+    @RequiredArgsConstructor
+    private class LoadResult {
+        final LevelUser<N> user;
+        final String migrationMessage;
     }
 
     @Override
     public void loadPlayer(OfflinePlayer offline) {
-        loadUser(offline);
+        loadUserAsync(offline, true);
     }
 
     @Override
     public void loadPlayer(Player player) {
-        loadUser(player);
+        loadUserAsync(player, true);
     }
 
     @Override
@@ -254,7 +292,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         LevelUser<N> user = users.get(player.getUniqueId());
         if (user == null) return;
 
-        saveUser(user);
+        saveUserAsync(user);
         if (!clearData) return;
 
         UUID uuid = user.getUuid();
@@ -284,6 +322,10 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         saveToFlatFile(user);
     }
 
+    private void saveUserAsync(LevelUser<N> user) {
+        main.scheduler().runTaskAsynchronously(() -> saveUser(user));
+    }
+
     @Override
     public void removeUser(UUID uuid) {
         users.remove(uuid);
@@ -305,18 +347,36 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         long l = System.currentTimeMillis();
         main.logger("&dLoading data for offline players...");
 
-        int counter = 0;
-        for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
-            loadPlayer(player);
-            counter++;
-        }
+        OfflinePlayer[] players = Bukkit.getOfflinePlayers();
+        if (players.length < 1) return;
 
-        if (counter < 1) return;
+        int batchSize = 10;
 
-        main.logger("&7Loaded data for &e" + counter +
-                " &7offline player(s) in &a" +
-                (System.currentTimeMillis() - l) +
-                "ms&7.", "");
+        new GlobalRunnable(main.scheduler()) {
+            int index = 0;
+            int loaded = 0;
+
+            @Override
+            public void run() {
+                int processed = 0;
+                while (index < players.length && processed < batchSize) {
+                    loadUserAsync(players[index++], false);
+                    loaded++;
+                    processed++;
+                }
+
+                if (index < players.length) return;
+
+                cancel();
+                if (loaded > 0)
+                    main.logger("&7Loaded data for &e" + loaded +
+                            " &7offline player(s) in &a" +
+                            (System.currentTimeMillis() - l) +
+                            "ms&7.", "");
+
+                scheduleLeaderboardUpdate();
+            }
+        }.runTaskTimer(0L, 1L);
     }
 
     @Override
@@ -328,7 +388,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
         int counter = 0;
         for (Player player : Bukkit.getOnlinePlayers()) {
-            loadPlayer(player);
+            loadUserAsync(player, false);
             counter++;
         }
 
@@ -338,6 +398,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                 " &7online player(s) in &a" +
                 (System.currentTimeMillis() - l) +
                 "ms&7.", "");
+        scheduleLeaderboardUpdate();
     }
 
     @Override
@@ -350,24 +411,21 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (!cache.config().isAutoSaveEnabled()) return;
         Config config = cache.config();
 
-        autoSaveTask = (new BukkitRunnable() {
-            @Override
-            public void run() {
-                long start = System.currentTimeMillis();
-                main.userManager().saveOnlinePlayers(false);
+        autoSaveTask = main.scheduler().runTaskLater(() -> {
+            long start = System.currentTimeMillis();
+            main.userManager().saveOnlinePlayers(false);
 
-                if (config.syncLeaderboardOnAutoSave())
-                    system.getLeaderboard().update();
+            if (config.syncLeaderboardOnAutoSave())
+                system.getLeaderboard().update();
 
-                if (config.isMessagesOnAutoSave())
-                    cache.lang().sendMessage(
-                            null, Lang::getAutoSave, "ms",
-                            System.currentTimeMillis() - start
-                    );
+            if (config.isMessagesOnAutoSave())
+                cache.lang().sendMessage(
+                        null, Lang::getAutoSave, "ms",
+                        System.currentTimeMillis() - start
+                );
 
-                startAutoSave();
-            }
-        }).runTaskLater(main, 20L * config.getAutoSaveInterval());
+            startAutoSave();
+        }, 20L * config.getAutoSaveInterval());
     }
 
     @Override

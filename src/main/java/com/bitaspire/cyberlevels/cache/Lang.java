@@ -5,7 +5,7 @@ import com.bitaspire.cyberlevels.Message;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
-import me.croabeast.file.Configurable;
+import com.bitaspire.file.Configurable;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 

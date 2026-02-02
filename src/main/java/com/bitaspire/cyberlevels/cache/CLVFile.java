@@ -1,7 +1,7 @@
 package com.bitaspire.cyberlevels.cache;
 
 import com.bitaspire.cyberlevels.CyberLevels;
-import me.croabeast.file.ConfigurableFile;
+import com.bitaspire.file.ConfigurableFile;
 
 import java.io.IOException;
 

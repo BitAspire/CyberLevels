@@ -1,27 +1,28 @@
 package com.bitaspire.cyberlevels;
 
 import com.bitaspire.cyberlevels.user.UserManager;
-import com.bitaspire.libs.formula.BigDecimalExpressionBuilder;
 import com.bitaspire.cyberlevels.level.Formula;
 import com.bitaspire.cyberlevels.level.Operator;
 import com.bitaspire.cyberlevels.user.LevelUser;
-import com.bitaspire.libs.formula.expression.ExpressionBuilder;
 import lombok.Getter;
+import me.croabeast.expr4j.BigDecimalBuilder;
+import me.croabeast.expr4j.expression.Builder;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 @Getter
-final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
+final class BigDecimalSystem extends BaseSystem<BigDecimal> {
 
-    private final Operator<BigDecimal> operator;
-
-    BigDecimalLevelSystem(CyberLevels main) {
+    BigDecimalSystem(CyberLevels main) {
         super(main);
         setLeaderboardFunction(BigDecimalLeaderboard::new);
+    }
 
-        operator = new Operator<BigDecimal>() {
+    @Override
+    Operator<BigDecimal> createOperator() {
+        return new Operator<BigDecimal>() {
             @Override
             public BigDecimal zero() {
                 return BigDecimal.ZERO;
@@ -119,10 +120,10 @@ final class BigDecimalLevelSystem extends BaseSystem<BigDecimal> {
 
     @Override
     Formula<BigDecimal> createFormula(String string) {
-        return new BaseFormula<BigDecimal>(operator, string) {
+        return new BaseFormula<BigDecimal>(getOperator(), string) {
             @NotNull
-            ExpressionBuilder<BigDecimal> builder() {
-                return new BigDecimalExpressionBuilder();
+            Builder<BigDecimal> builder() {
+                return new BigDecimalBuilder();
             }
         };
     }

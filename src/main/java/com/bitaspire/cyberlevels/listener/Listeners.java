@@ -12,7 +12,6 @@ import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashSet;
 import java.util.List;
@@ -63,15 +62,13 @@ public class Listeners {
 
     private void fixPlacedAbuse(List<Block> blocks, BlockFace direction) {
         for (Block block : blocks) {
-            if (block.hasMetadata("CLV_PLACED")) {
-                (new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        Block newBlock = block.getRelative(direction);
-                        newBlock.setMetadata("CLV_PLACED", new FixedMetadataValue(main, true));
-                    }
-                }).runTaskLater(main, 1L);
-            }
+            if (!block.hasMetadata("CLV_PLACED")) continue;
+
+            main.scheduler().runTaskLater(() ->
+                    block.getRelative(direction).setMetadata(
+                            "CLV_PLACED",
+                            new FixedMetadataValue(main, true)
+                    ), 1L);
         }
     }
 

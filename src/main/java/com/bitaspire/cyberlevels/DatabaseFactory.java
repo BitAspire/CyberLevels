@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @UtilityClass
 class DatabaseFactory {
@@ -40,16 +41,8 @@ class DatabaseFactory {
             return name;
         }
 
-        abstract PreparedStatement prepareUpsert(Connection c,
-                                                 UUID uuid,
-                                                 long level,
-                                                 String exp,
-                                                 long updatedAt) throws SQLException;
-
-        abstract PreparedStatement prepareUpsertMeta(Connection c,
-                                                     UUID uuid,
-                                                     long highestRewarded,
-                                                     long updatedAt) throws SQLException;
+        abstract PreparedStatement prepareUpsert(Connection c, UUID uuid, long level, String exp, long updatedAt) throws SQLException;
+        abstract PreparedStatement prepareUpsertMeta(Connection c, UUID uuid, long highestRewarded, long updatedAt) throws SQLException;
 
         abstract Set<String> getExistingColumns(Connection conn) throws SQLException;
         abstract boolean isExpColumnTextual(Connection conn) throws SQLException;
@@ -102,19 +95,21 @@ class DatabaseFactory {
             main.logger("&dAttempting to connect to " + type + "...");
             long l = System.currentTimeMillis();
 
-            try {
-                dataSource = new HikariDataSource(createConfig());
+            main.scheduler().runTaskAsynchronously(() -> {
+                try {
+                    dataSource = new HikariDataSource(createConfig());
 
-                try (Connection conn = dataSource.getConnection()) {
-                    ensureTargetSchema(conn);
-                    ensureMetaSchema(conn);
+                    try (Connection conn = dataSource.getConnection()) {
+                        ensureTargetSchema(conn);
+                        ensureMetaSchema(conn);
+                    }
+
+                    main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
+                } catch (Exception e) {
+                    main.logger("&cThere was an issue connecting to " + type + " Database.");
+                    e.printStackTrace();
                 }
-
-                main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.", "");
-            } catch (Exception e) {
-                main.logger("&cThere was an issue connecting to " + type + " Database.", "");
-                e.printStackTrace();
-            }
+            });
         }
 
         @Override
@@ -123,13 +118,23 @@ class DatabaseFactory {
 
             main.logger("&dAttempting to disconnect from " + type + "...");
             long l = System.currentTimeMillis();
-            try {
-                dataSource.close();
-                dataSource = null;
-                main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.", "");
-            } catch (Exception e) {
-                main.logger("&cThere was an issue disconnecting from " + type + " Database.", "");
-                e.printStackTrace();
+
+            Runnable close = () -> {
+                try {
+                    dataSource.close();
+                    main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
+                } catch (Exception e) {
+                    main.logger("&cThere was an issue disconnecting from " + type + " Database.");
+                    e.printStackTrace();
+                } finally {
+                    dataSource = null;
+                }
+            };
+
+            if (main.isEnabled()) {
+                main.scheduler().runTaskAsynchronously(close);
+            } else {
+                close.run();
             }
         }
 
@@ -317,18 +322,28 @@ class DatabaseFactory {
         @Override
         public boolean isUserLoaded(LevelUser<N> user) {
             if (!isConnected()) return false;
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement statement = connection.prepareStatement(
-                         "SELECT 1 FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?")) {
-                statement.setString(1, user.getUuid().toString());
-                try (ResultSet rs = statement.executeQuery()) {
-                    return rs.next();
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+
+            main.scheduler().runTaskAsynchronously(() -> {
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement statement = connection.prepareStatement(
+                             "SELECT 1 FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?")) {
+                    statement.setString(1, user.getUuid().toString());
+                    try (ResultSet rs = statement.executeQuery()) {
+                        future.complete(rs.next());
+                    }
+                } catch (Exception e) {
+                    main.logger("&cFailed to check if user exists in table.");
+                    e.printStackTrace();
+                    future.complete(false);
                 }
+            });
+
+            try {
+                return future.get();
             } catch (Exception e) {
-                main.logger("&cFailed to check if user exists in table.");
-                e.printStackTrace();
+                return false;
             }
-            return false;
         }
 
         void setRewardLevel(LevelUser<N> user, long level) {
@@ -358,73 +373,81 @@ class DatabaseFactory {
                 expStr = String.valueOf(user.getExp()); // already string-ish
             }
 
-            String sql = "INSERT INTO " + qTab(getTable()) + " (" +
-                    qCol("UUID") + "," + qCol("LEVEL") + "," + qCol("EXP") + "," + qCol("UPDATED_AT") +
-                    ") VALUES (?,?,?,?)";
+            final String finalLevelStr = levelStr;
+            final String finalExpStr = expStr;
 
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement st = connection.prepareStatement(sql)) {
-                st.setString(1, user.getUuid().toString());
-                st.setLong(2, Long.parseLong(levelStr));
-                st.setString(3, expStr);
-                st.setLong(4, System.currentTimeMillis());
-                st.executeUpdate();
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "INSERT INTO " + qTab(getTable()) + " (" +
+                        qCol("UUID") + "," + qCol("LEVEL") + "," + qCol("EXP") + "," + qCol("UPDATED_AT") +
+                        ") VALUES (?,?,?,?)";
 
-                long now = System.currentTimeMillis();
-                long highest = getRewardLevel(user);
-                try (PreparedStatement pm = prepareUpsertMeta(connection, user.getUuid(), highest, now)) {
-                    pm.executeUpdate();
-                }
-            } catch (Exception e) {
-                main.logger("&cFailed to add user " + user.getName() + ".");
-                e.printStackTrace();
-            }
+                    try (Connection connection = dataSource.getConnection();
+                         PreparedStatement st = connection.prepareStatement(sql))
+                    {
+                        st.setString(1, user.getUuid().toString());
+                        st.setLong(2, Long.parseLong(finalLevelStr));
+                        st.setString(3, finalExpStr);
+                        st.setLong(4, System.currentTimeMillis());
+                        st.executeUpdate();
+
+                        long now = System.currentTimeMillis();
+                        long highest = getRewardLevel(user);
+                        try (PreparedStatement pm = prepareUpsertMeta(connection, user.getUuid(), highest, now)) {
+                            pm.executeUpdate();
+                        }
+                    } catch (Exception e) {
+                        main.logger("&cFailed to add user " + user.getName() + ".");
+                        e.printStackTrace();
+                    }
+            });
         }
 
         @Override
         public void updateUser(LevelUser<N> user) {
             if (!isConnected()) return;
-            UUID uuid = user.getUuid();
-            long now = System.currentTimeMillis();
+            final UUID uuid = user.getUuid();
+            final long now = System.currentTimeMillis();
+            final String expStr = String.valueOf(user.getExp());
+            final long level = user.getLevel();
+            final String name = user.getName();
+            final long highest = getRewardLevel(user);
 
-            try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement st = prepareUpsert(
-                        connection,
-                        uuid,
-                        user.getLevel(),
-                        String.valueOf(user.getExp()),
-                        now
-                )) {
-                    st.executeUpdate();
-                }
+            main.scheduler().runTaskAsynchronously(() -> {
+                try (Connection connection = dataSource.getConnection()) {
+                    try (PreparedStatement st = prepareUpsert(connection, uuid, level, expStr, now)) {
+                        st.executeUpdate();
+                    }
 
-                long highest = getRewardLevel(user);
-                try (PreparedStatement stm = prepareUpsertMeta(connection, uuid, highest, now)) {
-                    stm.executeUpdate();
+                    try (PreparedStatement stm = prepareUpsertMeta(connection, uuid, highest, now)) {
+                        stm.executeUpdate();
+                    }
+                } catch (Exception e) {
+                    main.logger("&cFailed to update user " + name + ".");
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                main.logger("&cFailed to update user " + user.getName() + ".");
-                e.printStackTrace();
-            }
+            });
         }
 
         @Override
         public void removeUser(UUID uuid) {
             if (!isConnected()) return;
-            String sql = "DELETE FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?";
-            String metaSql = "DELETE FROM " + qTab(metaTable()) + " WHERE " + qCol("UUID") + "=?";
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement st = connection.prepareStatement(sql);
-                 PreparedStatement sm = connection.prepareStatement(metaSql)) {
-                st.setString(1, uuid.toString());
-                st.executeUpdate();
 
-                sm.setString(1, uuid.toString());
-                sm.executeUpdate();
-            } catch (Exception e) {
-                main.logger("&cFailed to remove user " + uuid + " from " + type + " database.");
-                e.printStackTrace();
-            }
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "DELETE FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?";
+                String metaSql = "DELETE FROM " + qTab(metaTable()) + " WHERE " + qCol("UUID") + "=?";
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement st = connection.prepareStatement(sql);
+                     PreparedStatement sm = connection.prepareStatement(metaSql)) {
+                    st.setString(1, uuid.toString());
+                    st.executeUpdate();
+
+                    sm.setString(1, uuid.toString());
+                    sm.executeUpdate();
+                } catch (Exception e) {
+                    main.logger("&cFailed to remove user " + uuid + " from " + type + " database.");
+                    e.printStackTrace();
+                }
+            });
         }
 
         @Override
@@ -436,31 +459,44 @@ class DatabaseFactory {
         public LevelUser<N> getUser(UUID uuid) {
             if (!isConnected() || uuid == null) return null;
 
-            String sql = "SELECT " + qCol("LEVEL") + "," + qCol("EXP") + " FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?";
+            CompletableFuture<LevelUser<N>> future = new CompletableFuture<>();
 
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement st = connection.prepareStatement(sql)) {
-                st.setString(1, uuid.toString());
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "SELECT " + qCol("LEVEL") + "," + qCol("EXP") + " FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?";
 
-                try (ResultSet rs = st.executeQuery()) {
-                    if (!rs.next()) return null;
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement st = connection.prepareStatement(sql)) {
+                    st.setString(1, uuid.toString());
 
-                    LevelUser<N> user = system.createUser(uuid);
-                    long level = rs.getLong("LEVEL");
-                    user.setLevel(level, false);
+                    try (ResultSet rs = st.executeQuery()) {
+                        if (!rs.next()) {
+                            future.complete(null);
+                            return;
+                        }
 
-                    String expStr = rs.getString("EXP");
-                    if (expStr == null) expStr = "0";
-                    user.setExp(expStr, false, false, false);
+                        LevelUser<N> user = system.createUser(uuid);
+                        long level = rs.getLong("LEVEL");
+                        user.setLevel(level, false);
 
-                    long hr = readHighestRewarded(connection, uuid);
-                    setRewardLevel(user, hr >= 0 ? hr : user.getLevel());
+                        String expStr = rs.getString("EXP");
+                        if (expStr == null) expStr = "0";
+                        user.setExp(expStr, false, false, false);
 
-                    return user;
+                        long hr = readHighestRewarded(connection, uuid);
+                        setRewardLevel(user, hr >= 0 ? hr : user.getLevel());
+
+                        future.complete(user);
+                    }
+                } catch (Exception e) {
+                    main.logger("&cFailed to get player data for " + uuid + ".", "");
+                    e.printStackTrace();
+                    future.complete(null);
                 }
+            });
+
+            try {
+                return future.get();
             } catch (Exception e) {
-                main.logger("&cFailed to get player data for " + uuid + ".", "");
-                e.printStackTrace();
                 return null;
             }
         }
@@ -470,24 +506,36 @@ class DatabaseFactory {
             Set<UUID> uuids = new LinkedHashSet<>();
             if (!isConnected()) return uuids;
 
-            String sql = "SELECT " + qCol("UUID") + " FROM " + qTab(getTable());
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement statement = connection.prepareStatement(sql);
-                 ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) {
-                    try {
-                        uuids.add(UUID.fromString(rs.getString("UUID")));
-                    } catch (Exception ignored) {}
+            CompletableFuture<Set<UUID>> future = new CompletableFuture<>();
+
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "SELECT " + qCol("UUID") + " FROM " + qTab(getTable());
+
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement statement = connection.prepareStatement(sql);
+                     ResultSet rs = statement.executeQuery())
+                {
+                    Set<UUID> result = new LinkedHashSet<>();
+                    while (rs.next()) {
+                        try {
+                            result.add(UUID.fromString(rs.getString("UUID")));
+                        } catch (Exception ignored) {}
+                    }
+                    future.complete(result);
+                } catch (SQLException e) {
+                    main.logger("&cFailed to fetch UUIDs from " + type + ".");
+                    e.printStackTrace();
+                    future.complete(new LinkedHashSet<>());
                 }
-            } catch (SQLException e) {
-                main.logger("&cFailed to fetch UUIDs from " + type + ".");
-                e.printStackTrace();
+            });
+
+            try {
+                return future.get();
+            } catch (Exception e) {
+                return uuids;
             }
-            return uuids;
         }
     }
-
-    // --------------- MySQL / MariaDB --------------- //
 
     static class MySQL<N extends Number> extends DatabaseImpl<N> {
 
@@ -518,9 +566,20 @@ class DatabaseFactory {
             config.setJdbcUrl("jdbc:mysql://" + ip + ":" + port + "/" + database + "?useSSL=" + ssl + "&autoReconnect=true&useUnicode=true&characterEncoding=utf8");
             config.setUsername(username);
             config.setPassword(password);
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
+            config.setConnectionTimeout(10000);
+            config.setValidationTimeout(5000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.setKeepaliveTime(300000);
+            config.setMaximumPoolSize(20);
+            config.setMinimumIdle(4);
             config.setPoolName("CLV-MySQL");
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            config.addDataSourceProperty("useServerPrepStmts", "true");
+            config.addDataSourceProperty("tcpKeepAlive", "true");
+            config.setTransactionIsolation("TRANSACTION_READ_COMMITTED");
             return config;
         }
 
@@ -645,8 +704,6 @@ class DatabaseFactory {
         }
     }
 
-    // --------------- SQLite --------------- //
-
     static class SQLite<N extends Number> extends DatabaseImpl<N> {
 
         private final String filePath, table;
@@ -663,8 +720,14 @@ class DatabaseFactory {
         @Override
         HikariConfig createConfig() {
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl("jdbc:sqlite:" + filePath);
-            config.setMaximumPoolSize(1);
+            config.setJdbcUrl("jdbc:sqlite:" + filePath + "?busy_timeout=5000&journal_mode=WAL&synchronous=NORMAL");
+            config.setMaximumPoolSize(2);
+            config.setMinimumIdle(1);
+            config.setConnectionTimeout(10000);
+            config.setValidationTimeout(5000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.setKeepaliveTime(300000);
             config.setPoolName("CLV-SQLite");
             return config;
         }
@@ -781,8 +844,6 @@ class DatabaseFactory {
         }
     }
 
-    // --------------- PostgreSQL --------------- //
-
     static class PostgreSQL<N extends Number> extends DatabaseImpl<N> {
 
         final String ip, database, username, password, table;
@@ -809,9 +870,15 @@ class DatabaseFactory {
             config.setJdbcUrl("jdbc:postgresql://" + ip + ":" + port + "/" + database);
             config.setUsername(username);
             config.setPassword(password);
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
+            config.setConnectionTimeout(10000);
+            config.setValidationTimeout(5000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.setKeepaliveTime(300000);
+            config.setMaximumPoolSize(20);
+            config.setMinimumIdle(4);
             config.setPoolName("CLV-Postgres");
+            config.addDataSourceProperty("tcpKeepAlive", "true");
             return config;
         }
 

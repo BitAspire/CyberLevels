@@ -47,6 +47,11 @@ config:
     # How often (in seconds)?
     interval: 300
 
+  tab-complete:
+    # Load offline player data when suggesting names?
+    # If false, will suggest online users only.
+    load-offline-users: true
+
   # Should adding levels give rewards?
   add-level-reward: false
 

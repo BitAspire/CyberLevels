@@ -7,7 +7,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.apache.commons.lang.StringUtils;
+import com.bitaspire.scheduler.GlobalTask;
+import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -29,8 +30,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionType;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -82,20 +81,19 @@ public class EarnExp {
     void setDefaultEvents() {
         final SourceImpl source = events.get("timed-giving");
         source.setRegistrable(new ExpSource.Registrable() {
-            private BukkitTask task = null;
+            private GlobalTask task = null;
 
             @Override
             public void register() {
                 if (!source.isEnabled() && !source.useSpecifics())
                     return;
 
-                task = Bukkit.getScheduler().runTaskTimer(
-                        main,
+                long delay = 20L * Math.max(1, source.getInterval());
+                task = main.scheduler().runTaskTimer(
                         () -> {
                             for (Player p : Bukkit.getOnlinePlayers())
                                 sendPermissionExp(p, source);
-                        }, 0L,
-                        20L * Math.max(1, source.getInterval()));
+                        }, delay, delay);
             }
 
             @Override
@@ -254,39 +252,36 @@ public class EarnExp {
                     prePotion[i] = meta.getBasePotionData().getType();
                 }
 
-                (new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        double counter = 0;
+                main.scheduler().runTaskLater(() -> {
+                    double counter = 0;
 
-                        for (int i = 0; i <= 2 ; i++) {
-                            ItemStack stack = event.getContents().getItem(i);
-                            if (stack == null) continue;
+                    for (int i = 0; i <= 2 ; i++) {
+                        ItemStack stack = event.getContents().getItem(i);
+                        if (stack == null) continue;
 
-                            PotionMeta meta = (PotionMeta) stack.getItemMeta();
-                            if (meta == null) continue;
+                        PotionMeta meta = (PotionMeta) stack.getItemMeta();
+                        if (meta == null) continue;
 
-                            String data = "";
+                        String data = "";
 
-                            PotionType type = meta.getBasePotionData().getType();
-                            if (prePotion[i] == null || type != prePotion[i])
-                                data = type.toString();
+                        PotionType type = meta.getBasePotionData().getType();
+                        if (prePotion[i] == null || type != prePotion[i])
+                            data = type.toString();
 
-                            if (main.levelSystem().checkAntiAbuse(player, s)) return;
-                            if (s.isEnabled() || s.useSpecifics())
-                                counter += s.getPartialMatchesExp(data);
-                        }
-
-                        LevelUser<?> user = main.userManager().getUser(player);
-
-                        if (counter > 0) {
-                            user.addExp(counter + "", main.cache().config().isMultiplierEvents());
-                            return;
-                        }
-
-                        if (counter < 0) user.removeExp(Math.abs(counter) + "");
+                        if (main.levelSystem().checkAntiAbuse(player, s)) return;
+                        if (s.isEnabled() || s.useSpecifics())
+                            counter += s.getPartialMatchesExp(data);
                     }
-                }).runTaskLater(main, 1L);
+
+                    LevelUser<?> user = main.userManager().getUser(player);
+
+                    if (counter > 0) {
+                        user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+                        return;
+                    }
+
+                    if (counter < 0) user.removeExp(Math.abs(counter) + "");
+                }, 1L);
             }
         });
 
@@ -360,7 +355,7 @@ public class EarnExp {
                     counter += s.getPartialMatchesExp(item);
 
                 final double finalCounter = counter;
-                Bukkit.getScheduler().runTask(main, () -> {
+                main.scheduler().runTask(() -> {
                     LevelUser<?> user = main.userManager().getUser(player);
 
                     if (finalCounter > 0) {
@@ -487,11 +482,15 @@ public class EarnExp {
     }
 
     public void register() {
-        events.values().forEach(e -> e.getRegistrable().register());
+        events.values().forEach(source -> {
+            if (source.isActive()) source.getRegistrable().register();
+        });
     }
 
     public void unregister() {
-        events.values().forEach(e -> e.getRegistrable().unregister());
+        events.values().forEach(source -> {
+            if (source.isActive()) source.getRegistrable().unregister();
+        });
     }
 
     @Getter
@@ -557,6 +556,10 @@ public class EarnExp {
             };
 
             events.put(category, this);
+        }
+
+        boolean isActive() {
+            return isEnabled() || useSpecifics();
         }
 
         <T> T get(String path, T def) {

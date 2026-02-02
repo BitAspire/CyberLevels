@@ -73,8 +73,7 @@ final class PlaceholderAPI implements Hook {
                     }
                 }
 
-                return main.core().textSettings()
-                        .colorize(player instanceof Player ? (Player) player : null, value);
+                return main.library().colorize(player instanceof Player ? (Player) player : null, value);
             }
 
             @Override
@@ -118,7 +117,7 @@ final class PlaceholderAPI implements Hook {
                         return system.formatNumber(user.getRemainingExp());
 
                     case "player_exp_progress_bar":
-                        return main.core().textSettings().colorize(user.getProgressBar());
+                        return main.library().colorize(user.getProgressBar());
 
                     case "player_exp_percent":
                         return user.getPercent();

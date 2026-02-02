@@ -1,9 +1,9 @@
 package com.bitaspire.cyberlevels.hook;
 
+import com.bitaspire.common.MetricsLoader;
 import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.level.ExpSource;
 import com.bitaspire.cyberlevels.user.LevelUser;
-import net.zerotoil.dev.cybercore.addons.Metrics;
 import org.bukkit.entity.Player;
 
 import java.util.HashSet;
@@ -18,7 +18,9 @@ public class HookManager {
         (this.main = main).logger("&dLoading plugin hooks...");
 
         long startTime = System.currentTimeMillis();
-        new Metrics(main, 13782);
+
+        System.setProperty("bstats.relocatecheck", "false");
+        MetricsLoader.initialize(main, 13782);
 
         if (main.isEnabled("PlaceholderAPI")) {
             final long l = System.currentTimeMillis();

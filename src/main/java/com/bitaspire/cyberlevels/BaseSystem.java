@@ -1,7 +1,6 @@
 package com.bitaspire.cyberlevels;
 
 import com.bitaspire.cyberlevels.user.UserManager;
-import com.bitaspire.libs.formula.expression.ExpressionBuilder;
 import com.bitaspire.cyberlevels.cache.Cache;
 import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.level.*;
@@ -9,7 +8,7 @@ import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import me.croabeast.beanslib.Beans;
+import me.croabeast.expr4j.expression.Builder;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -34,6 +33,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     private final long startLevel, maxLevel;
     private final int startExp;
 
+    private final Operator<N> operator;
     private final Formula<N> formula;
 
     private final Map<Long, Formula<N>> formulas = new ConcurrentHashMap<>();
@@ -55,6 +55,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         startLevel = cache.levels().getStartLevel();
         maxLevel = cache.levels().getMaxLevel();
 
+        operator = createOperator();
         formula = createFormula(cache.levels().getFormula());
         cache.levels().getCustomFormulas().forEach((k, v) -> formulas.put(k, createFormula(v)));
 
@@ -62,6 +63,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         if (cache.config().isRoundingEnabled()) formatter = new DecimalFormatter<>(this);
     }
 
+    abstract Operator<N> createOperator();
     abstract Formula<N> createFormula(String formula);
 
     @Override
@@ -155,7 +157,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             string = StringUtils.replaceEach(string, k, v);
         }
 
-        return Beans.formatPlaceholders(data.isOnline() ? data.getPlayer() : null, string);
+        return main.library().replace(data.isOnline() ? data.getPlayer() : null, string);
     }
 
     @NotNull
@@ -214,9 +216,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     @NotNull
     LevelUser<N> createUser(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
-        return player == null ?
-                new OfflineUser<>(this, Bukkit.getOfflinePlayer(uuid)) :
-                new OnlineUser<>(this, player);
+        return player == null ? createOffline(uuid) : new OnlineUser<>(this, player);
     }
 
     @NotNull
@@ -266,7 +266,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         @Getter
         private final String asString;
 
-        abstract ExpressionBuilder<T> builder();
+        abstract Builder<T> builder();
 
         @NotNull
         public T evaluate(UUID uuid) {
@@ -277,6 +277,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             try {
                 return builder().build(parsed).evaluate();
             } catch (Throwable t) {
+                t.printStackTrace();
                 return operator.fromDouble(0.0);
             }
         }
@@ -304,14 +305,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             List<LevelUser<T>> users = userManager.getUsersList();
             updating = true;
 
-            Bukkit.getScheduler().runTaskAsynchronously(main, () -> {
+            main.scheduler().runTaskAsynchronously(() -> {
                 List<Entry<T>> list = new ArrayList<>();
                 for (LevelUser<T> user : users) list.add(toEntry(user));
 
                 list.sort(Comparator.naturalOrder());
                 List<Entry<T>> top10 = list.subList(0, Math.min(10, list.size()));
 
-                Bukkit.getScheduler().runTask(main, () -> {
+                main.scheduler().runTask(() -> {
                     topTenPlayers.clear();
                     topTenPlayers.addAll(top10);
                     updating = false;
@@ -321,13 +322,15 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public LevelUser<T> getTopPlayer(int position) {
-            return updating || position < 1 || position > 10 ? null : userManager.getUser(topTenPlayers.get(position - 1).getUuid());
+            if (updating || position < 1 || position > 10) return null;
+
+            int index = position - 1;
+            if (index >= topTenPlayers.size()) return null;
+
+            return userManager.getUser(topTenPlayers.get(index).getUuid());
         }
 
-        @Override
-        public int checkPosition(Player player) {
-            UUID uuid = player.getUniqueId();
-
+        int check(UUID uuid) {
             for (int i = 0; i < topTenPlayers.size(); i++)
                 if (uuid.equals(topTenPlayers.get(i).getUuid()))
                     return i + 1;
@@ -336,8 +339,13 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         @Override
+        public int checkPosition(Player player) {
+            return check(player.getUniqueId());
+        }
+
+        @Override
         public int checkPosition(LevelUser<T> user) {
-            return checkPosition(user.getPlayer());
+            return check(user.getUuid());
         }
 
         abstract Entry<T> toEntry(LevelUser<T> user);
@@ -362,10 +370,10 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     }
 
     void updateLeaderboard() {
-        if (!main.isEnabled() || leaderboard == null) return;
+        if (!main.isEnabled() || leaderboard == null ||
+                !cache.config().isLeaderboardEnabled()) return;
 
-        if (cache.config().leaderboardInstantUpdate() && !leaderboard.isUpdating())
-            leaderboard.update();
+        if (!leaderboard.isUpdating()) leaderboard.update();
     }
 
     abstract class BaseUser<T extends Number> implements LevelUser<T> {
@@ -398,6 +406,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
 
         void sendLevelReward(long level) {
+            if (!isOnline()) return;
+
             if (!cache.config().preventDuplicateRewards()) {
                 getRewards(level).forEach(r -> r.giveAll(getPlayer()));
                 return;
@@ -427,12 +437,12 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
 
-            if (sendMessage) {
+            if (sendMessage && isOnline()) {
                 long diff = level - oldLevel;
                 if (diff > 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", diff);
+                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, diff, level);
                 } else if (diff < 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(diff));
+                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, new String[] {"lostLevels", "level"}, Math.abs(diff), level);
                 }
             }
 
@@ -460,6 +470,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         private void changeExp(T amount, T difference, boolean sendMessage, boolean doMultiplier, boolean checkLeaderboard) {
             if (operator.compare(amount, operator.zero()) == 0) return;
 
+            long startingLevel = level;
             if (operator.compare(amount, operator.zero()) > 0 && level >= getMaxLevel())
                 return;
 
@@ -468,7 +479,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
 
             final T totalAmount = amount;
-            long levelsChanged = 0;
 
             if (operator.compare(amount, operator.zero()) > 0) {
                 while (operator.compare(operator.add(exp, amount), rawRequiredExp()) >= 0) {
@@ -480,7 +490,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                     amount = operator.add(operator.subtract(amount, rawRequiredExp()), exp);
                     exp = operator.zero();
                     level++;
-                    levelsChanged++;
                     sendLevelReward(level);
                 }
 
@@ -492,7 +501,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                     while (operator.compare(amount, exp) > 0 && level > getStartLevel()) {
                         amount = operator.subtract(amount, exp);
                         level--;
-                        levelsChanged--;
                         exp = rawRequiredExp();
                     }
                     exp = operator.subtract(exp, amount);
@@ -506,7 +514,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             T displayTotal = (cache.config().stackComboExp() && System.currentTimeMillis() - lastTime <= 650)
                     ? operator.add(amount, lastAmount) : amount;
 
-            if (sendMessage) {
+            if (sendMessage && isOnline()) {
                 T diff = operator.subtract(Objects.equals(displayTotal, operator.zero()) ? operator.zero() : displayTotal, difference);
 
                 if (operator.compare(totalAmount, operator.zero()) > 0) {
@@ -520,12 +528,6 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                             system.roundString(operator.abs(diff)), system.roundString(operator.abs(totalAmount))
                     );
                 }
-
-                if (levelsChanged > 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, "gainedLevels", levelsChanged);
-                } else if (levelsChanged < 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, "lostLevels", Math.abs(levelsChanged));
-                }
             }
 
             lastAmount = displayTotal;
@@ -533,6 +535,15 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
             level = Math.max(getStartLevel(), Math.min(level, getMaxLevel()));
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
+
+            if (sendMessage && isOnline()) {
+                long levelDifference = level - startingLevel;
+                if (levelDifference > 0) {
+                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, levelDifference, level);
+                } else if (levelDifference < 0) {
+                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, new String[] {"lostLevels", "level"}, Math.abs(levelDifference), level);
+                }
+            }
 
             if (checkLeaderboard) system.updateLeaderboard();
         }
@@ -606,6 +617,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public boolean hasParentPerm(String permission, boolean checkOp) {
+            if (!isOnline()) return false;
             if (checkOp && getPlayer().isOp()) return true;
 
             for (PermissionAttachmentInfo node : getPlayer().getEffectivePermissions()) {
@@ -619,8 +631,9 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public double getMultiplier() {
-            double multiplier = 0;
+            if (!isOnline()) return 1;
 
+            double multiplier = 0;
             for (PermissionAttachmentInfo perm : getPlayer().getEffectivePermissions()) {
                 if (!perm.getValue()) continue;
 

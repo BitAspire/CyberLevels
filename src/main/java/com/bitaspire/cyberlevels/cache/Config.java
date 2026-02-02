@@ -31,6 +31,8 @@ public class Config {
     private boolean autoSaveEnabled = true;
     private int autoSaveInterval = 300;
 
+    private boolean tabCompleteLoadOfflineUsers = true;
+
     @Accessors(fluent = true)
     private boolean preventDuplicateRewards = false,
             stackComboExp = true,
@@ -68,6 +70,8 @@ public class Config {
 
             autoSaveEnabled = file.get("config.auto-save.enabled", true);
             autoSaveInterval = file.get("config.auto-save.interval", autoSaveInterval);
+
+            tabCompleteLoadOfflineUsers = file.get("config.tab-complete.load-offline-users", tabCompleteLoadOfflineUsers);
 
             multiplierCommands = file.get("config.multiplier.commands", false);
             multiplierEvents = file.get("config.multiplier.events", true);

@@ -95,21 +95,26 @@ class DatabaseFactory {
             main.logger("&dAttempting to connect to " + type + "...");
             long l = System.currentTimeMillis();
 
-            main.scheduler().runTaskAsynchronously(() -> {
-                try {
-                    dataSource = new HikariDataSource(createConfig());
+            try {
+                dataSource = new HikariDataSource(createConfig());
 
-                    try (Connection conn = dataSource.getConnection()) {
-                        ensureTargetSchema(conn);
-                        ensureMetaSchema(conn);
-                    }
-
-                    main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
-                } catch (Exception e) {
-                    main.logger("&cThere was an issue connecting to " + type + " Database.");
-                    e.printStackTrace();
+                try (Connection conn = dataSource.getConnection()) {
+                    ensureTargetSchema(conn);
+                    ensureMetaSchema(conn);
                 }
-            });
+
+                main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
+            } catch (Exception e) {
+                main.logger("&cThere was an issue connecting to " + type + " Database.");
+                e.printStackTrace();
+
+                if (dataSource != null) {
+                    try {
+                        dataSource.close();
+                    } catch (Exception ignored) {}
+                    dataSource = null;
+                }
+            }
         }
 
         @Override
@@ -119,22 +124,14 @@ class DatabaseFactory {
             main.logger("&dAttempting to disconnect from " + type + "...");
             long l = System.currentTimeMillis();
 
-            Runnable close = () -> {
-                try {
-                    dataSource.close();
-                    main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
-                } catch (Exception e) {
-                    main.logger("&cThere was an issue disconnecting from " + type + " Database.");
-                    e.printStackTrace();
-                } finally {
-                    dataSource = null;
-                }
-            };
-
-            if (main.isEnabled()) {
-                main.scheduler().runTaskAsynchronously(close);
-            } else {
-                close.run();
+            try {
+                dataSource.close();
+                main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
+            } catch (Exception e) {
+                main.logger("&cThere was an issue disconnecting from " + type + " Database.");
+                e.printStackTrace();
+            } finally {
+                dataSource = null;
             }
         }
 
@@ -360,6 +357,47 @@ class DatabaseFactory {
             }
         }
 
+        private long parseLevel(String raw, UUID uuid) {
+            long fallback = system.getStartLevel();
+            if (raw == null) return fallback;
+
+            String value = raw.trim();
+            if (value.isEmpty()) return fallback;
+
+            try {
+                return Long.parseLong(value);
+            } catch (Exception ignored) {
+                main.logger("&eInvalid level value '" + value + "' for " + uuid + " in " + type + " database. Using " + fallback + ".");
+                return fallback;
+            }
+        }
+
+        private String parseExp(String raw, UUID uuid) {
+            String fallback = String.valueOf(system.getStartExp());
+            if (raw == null) return fallback;
+
+            String value = raw.trim();
+            if (value.isEmpty()) return fallback;
+
+            try {
+                system.getOperator().valueOf(value);
+                return value;
+            } catch (Exception ignored) {
+                main.logger("&eInvalid exp value '" + value + "' for " + uuid + " in " + type + " database. Using " + fallback + ".");
+                return fallback;
+            }
+        }
+
+        private void upsertUser(Connection connection, UUID uuid, long level, String expStr, long highest, long now) throws SQLException {
+            try (PreparedStatement st = prepareUpsert(connection, uuid, level, expStr, now)) {
+                st.executeUpdate();
+            }
+
+            try (PreparedStatement stm = prepareUpsertMeta(connection, uuid, highest, now)) {
+                stm.executeUpdate();
+            }
+        }
+
         @Override
         public void addUser(LevelUser<N> user, boolean defValues) {
             if (!isConnected()) return;
@@ -414,18 +452,30 @@ class DatabaseFactory {
 
             main.scheduler().runTaskAsynchronously(() -> {
                 try (Connection connection = dataSource.getConnection()) {
-                    try (PreparedStatement st = prepareUpsert(connection, uuid, level, expStr, now)) {
-                        st.executeUpdate();
-                    }
-
-                    try (PreparedStatement stm = prepareUpsertMeta(connection, uuid, highest, now)) {
-                        stm.executeUpdate();
-                    }
+                    upsertUser(connection, uuid, level, expStr, highest, now);
                 } catch (Exception e) {
                     main.logger("&cFailed to update user " + name + ".");
                     e.printStackTrace();
                 }
             });
+        }
+
+        @Override
+        public void updateUserSync(LevelUser<N> user) {
+            if (!isConnected()) return;
+
+            UUID uuid = user.getUuid();
+            long now = System.currentTimeMillis();
+            String expStr = String.valueOf(user.getExp());
+            long level = user.getLevel();
+            long highest = getRewardLevel(user);
+
+            try (Connection connection = dataSource.getConnection()) {
+                upsertUser(connection, uuid, level, expStr, highest, now);
+            } catch (Exception e) {
+                main.logger("&cFailed to update user " + user.getName() + " synchronously.");
+                e.printStackTrace();
+            }
         }
 
         @Override
@@ -475,12 +525,8 @@ class DatabaseFactory {
                         }
 
                         LevelUser<N> user = system.createUser(uuid);
-                        long level = rs.getLong("LEVEL");
-                        user.setLevel(level, false);
-
-                        String expStr = rs.getString("EXP");
-                        if (expStr == null) expStr = "0";
-                        user.setExp(expStr, false, false, false);
+                        user.setLevel(parseLevel(rs.getString("LEVEL"), uuid), false);
+                        user.setExp(parseExp(rs.getString("EXP"), uuid), false, false, false);
 
                         long hr = readHighestRewarded(connection, uuid);
                         setRewardLevel(user, hr >= 0 ? hr : user.getLevel());

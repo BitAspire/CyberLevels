@@ -51,7 +51,6 @@ public class CLVCommand implements CommandExecutor {
                     if (isRestricted(player, "admin.reload")) return true;
 
                     main.cache().lang().sendMessage(player, Lang::getReloading);
-                    main.onDisable();
                     main.reloadPlugin();
 
                     return main.cache().lang().sendMessage(player, Lang::getReloaded);
@@ -109,7 +108,8 @@ public class CLVCommand implements CommandExecutor {
                 user = main.userManager().getUser(player);
 
             if (user == null) {
-                main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", args[2]);
+                String target = args.length > 2 ? args[2] : (player == null ? "<none>" : player.getName());
+                main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", target);
                 return true;
             }
 
@@ -183,7 +183,13 @@ public class CLVCommand implements CommandExecutor {
         perm = "admin.levels." + perm;
 
         if (isRestricted(player, perm) || notDouble(player, arg)) return true;
-        double value = Math.abs(Double.parseDouble(arg));
+
+        double value;
+        try {
+            value = Math.abs(Double.parseDouble(arg));
+        } catch (Exception ignored) {
+            return true;
+        }
 
         switch (action) {
             case ADD:
@@ -208,7 +214,13 @@ public class CLVCommand implements CommandExecutor {
 
     private boolean handleLevel(Player player, LevelUser<?> user, String arg, String perm, LevelAction action) {
         if (isRestricted(player, perm) || notLong(player, arg)) return true;
-        long value = Math.abs(Long.parseLong(arg));
+
+        long value;
+        try {
+            value = Math.abs(Long.parseLong(arg));
+        } catch (Exception ignored) {
+            return true;
+        }
 
         switch (action) {
             case ADD:
@@ -241,7 +253,8 @@ public class CLVCommand implements CommandExecutor {
             Long.parseLong(arg);
             return false;
         } catch (Exception e) {
-            return main.cache().lang().sendMessage(player, Lang::getNotNumber);
+            main.cache().lang().sendMessage(player, Lang::getNotNumber);
+            return true;
         }
     }
 
@@ -250,7 +263,8 @@ public class CLVCommand implements CommandExecutor {
             Double.parseDouble(arg);
             return false;
         } catch (Exception e) {
-            return main.cache().lang().sendMessage(player, Lang::getNotNumber);
+            main.cache().lang().sendMessage(player, Lang::getNotNumber);
+            return true;
         }
     }
 

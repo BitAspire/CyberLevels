@@ -62,6 +62,18 @@ public interface Database<N extends Number> {
      */
     void updateUser(LevelUser<N> user);
 
+    /**
+     * Updates the user's data synchronously in the current thread.
+     *
+     * <p> Implementations that don't provide a dedicated sync path can
+     * safely fall back to {@link #updateUser(LevelUser)}.
+     *
+     * @param user the LevelUser to update
+     */
+    default void updateUserSync(LevelUser<N> user) {
+        updateUser(user);
+    }
+
     void removeUser(UUID uuid);
 
     /**

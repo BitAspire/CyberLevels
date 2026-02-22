@@ -78,7 +78,7 @@ final class PlaceholderAPI implements Hook {
 
             @Override
             public String onRequest(OfflinePlayer player, @NotNull String identifier) {
-                if (!player.isOnline()) return null;
+                if (player == null || !player.isOnline()) return null;
 
                 LevelSystem<?> system = main.levelSystem();
 
@@ -97,7 +97,7 @@ final class PlaceholderAPI implements Hook {
                     }
                 }
 
-                LevelUser<?> user = main.userManager().getUser((Player) player);
+                LevelUser<?> user = main.userManager().getUser(player.getUniqueId());
                 if (user == null) return "0";
 
                 switch (identifier.toLowerCase()) {

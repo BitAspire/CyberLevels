@@ -137,6 +137,32 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         }
     }
 
+    private long parseLong(String raw, long fallback, UUID uuid, String field) {
+        if (StringUtils.isBlank(raw)) return fallback;
+
+        String value = raw.trim();
+        try {
+            return Long.parseLong(value);
+        } catch (Exception ignored) {
+            main.logger("&eInvalid " + field + " value '" + value + "' for " + uuid + " in flat-file. Using " + fallback + ".");
+            return fallback;
+        }
+    }
+
+    private String parseExp(String raw, UUID uuid) {
+        String fallback = String.valueOf(system.getStartExp());
+        if (StringUtils.isBlank(raw)) return fallback;
+
+        String value = raw.trim();
+        try {
+            system.getOperator().valueOf(value);
+            return value;
+        } catch (Exception ignored) {
+            main.logger("&eInvalid exp value '" + value + "' for " + uuid + " in flat-file. Using " + fallback + ".");
+            return fallback;
+        }
+    }
+
     private LevelUser<N> loadFromFlatFile(UUID uuid) {
         LevelUser<N> user = system.createUser(uuid);
 
@@ -148,14 +174,14 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
             line = reader.readLine();
             if (line == null) return null;
-            user.setLevel(Long.parseLong(line.trim()), false);
+            user.setLevel(parseLong(line, system.getStartLevel(), uuid, "level"), false);
 
             line = reader.readLine();
             if (line == null) return null;
-            user.setExp(line.trim(), false, false, false);
+            user.setExp(parseExp(line, uuid), false, false, false);
 
             line = reader.readLine();
-            long claimed = (line != null) ? Long.parseLong(line.trim()) : user.getLevel();
+            long claimed = (line != null) ? parseLong(line, user.getLevel(), uuid, "highest rewarded level") : user.getLevel();
             setRewardLevel(user, claimed);
 
             return user;
@@ -289,13 +315,27 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     @Override
     public void savePlayer(Player player, boolean clearData) {
+        savePlayer(player, clearData, false);
+    }
+
+    void savePlayerSync(Player player, boolean clearData) {
+        savePlayer(player, clearData, true);
+    }
+
+    private void savePlayer(Player player, boolean clearData, boolean syncSave) {
         LevelUser<N> user = users.get(player.getUniqueId());
         if (user == null) return;
 
-        saveUserAsync(user);
+        if (syncSave) saveUserSync(user);
+        else saveUserAsync(user);
         if (!clearData) return;
 
         UUID uuid = user.getUuid();
+
+        if (syncSave) {
+            users.remove(uuid);
+            return;
+        }
 
         try {
             LevelUser<N> offline = system.createOffline(uuid);
@@ -317,6 +357,14 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     public void saveUser(LevelUser<N> user) {
         if (database != null) {
             database.updateUser(user);
+            return;
+        }
+        saveToFlatFile(user);
+    }
+
+    private void saveUserSync(LevelUser<N> user) {
+        if (database != null) {
+            database.updateUserSync(user);
             return;
         }
         saveToFlatFile(user);
@@ -403,7 +451,11 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     @Override
     public void saveOnlinePlayers(boolean clearData) {
-        Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, clearData));
+        Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, clearData, false));
+    }
+
+    void saveOnlinePlayersSync(boolean clearData) {
+        Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, clearData, true));
     }
 
     @Override

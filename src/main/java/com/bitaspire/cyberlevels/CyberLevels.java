@@ -90,12 +90,7 @@ public final class CyberLevels extends JavaPlugin {
     }
 
     public void reloadPlugin() {
-        if (cache != null) {
-            cache.antiAbuse().unregister();
-            cache.earnExp().unregister();
-        }
-
-        if (hookManager != null) hookManager.unregister();
+        shutdownRuntime();
 
         (listeners = new Listeners(this)).register();
         cache = new Cache(this);
@@ -135,21 +130,41 @@ public final class CyberLevels extends JavaPlugin {
         levelSystem.getLeaderboard().update();
     }
 
-    @Override
-    public void onDisable() {
-        cache.antiAbuse().unregister();
-        cache.earnExp().unregister();
+    private void shutdownRuntime() {
+        if (userManager != null) {
+            userManager.cancelAutoSave();
 
-        hookManager.unregister();
+            if (userManager instanceof UserManagerImpl<?>)
+                ((UserManagerImpl<?>) userManager).saveOnlinePlayersSync(true);
+            else userManager.saveOnlinePlayers(true);
+        }
 
-        userManager.saveOnlinePlayers(true);
-        userManager.cancelAutoSave();
+        if (cache != null) {
+            cache.antiAbuse().unregister();
+            cache.earnExp().unregister();
+        }
+
+        if (hookManager != null) hookManager.unregister();
 
         if (database != null) {
             database.disconnect();
-            if (isEnabled()) logger("");
+            database = null;
         }
-        listeners.unregister();
+
+        if (listeners != null) {
+            listeners.unregister();
+            listeners = null;
+        }
+
+        hookManager = null;
+        userManager = null;
+        levelSystem = null;
+        cache = null;
+    }
+
+    @Override
+    public void onDisable() {
+        shutdownRuntime();
     }
 
     public String getAuthors() {

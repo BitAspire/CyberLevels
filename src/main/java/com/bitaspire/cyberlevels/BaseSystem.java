@@ -1,5 +1,6 @@
 package com.bitaspire.cyberlevels;
 
+import net.zerotoil.dev.cyberlevels.api.events.XPChangeEvent;
 import com.bitaspire.cyberlevels.user.UserManager;
 import com.bitaspire.cyberlevels.cache.Cache;
 import com.bitaspire.cyberlevels.cache.Lang;
@@ -477,6 +478,16 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (doMultiplier && operator.compare(amount, operator.zero()) > 0 &&
                     hasParentPerm("CyberLevels.player.multiplier.", false))
                 amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
+
+            if (operator.compare(amount, operator.zero()) > 0 && isOnline()) {
+                double oldXP = exp.doubleValue();
+                double changedAmount = amount.doubleValue();
+
+                XPChangeEvent event = new XPChangeEvent(getPlayer(), oldXP, oldXP + changedAmount, changedAmount);
+                Bukkit.getPluginManager().callEvent(event);
+
+                amount = operator.fromDouble(event.getAmount());
+            }
 
             final T totalAmount = amount;
 

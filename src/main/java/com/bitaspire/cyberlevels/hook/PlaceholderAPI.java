@@ -54,7 +54,8 @@ final class PlaceholderAPI implements Hook {
                 LevelUser<?> user = system.getLeaderboard().getTopPlayer(position);
 
                 Lang.LeaderboardKeys keys = main.cache().lang().leaderboardKeys();
-                String value = user == null ? keys.getLoadingName() : keys.getNoPlayerName();
+                String value = system.getLeaderboard().isUpdating() ?
+                        keys.getLoadingName() : keys.getNoPlayerName();
 
                 if (user != null) {
                     switch (type.toLowerCase()) {
@@ -85,6 +86,7 @@ final class PlaceholderAPI implements Hook {
                 switch (identifier.toLowerCase()) {
                     case "level_maximum": return system.getMaxLevel() + "";
                     case "exp_minimum": return system.getStartExp() + "";
+                    case "experience_minimum": return system.getStartExp() + "";
                     case "level_minimum":  return system.getStartLevel() + "";
                 }
 
@@ -105,21 +107,27 @@ final class PlaceholderAPI implements Hook {
                         return String.valueOf(user.getLevel());
 
                     case "player_level_next":
+                    case "player_next_level":
                         return (Math.min(user.getLevel() + 1, system.getMaxLevel())) + "";
 
                     case "player_exp":
+                    case "player_experience":
                         return system.formatNumber(user.getExp());
 
                     case "player_exp_required":
+                    case "player_experience_required":
                         return system.formatNumber(user.getRequiredExp());
 
                     case "player_exp_remaining":
+                    case "player_experience_remaining":
                         return system.formatNumber(user.getRemainingExp());
 
                     case "player_exp_progress_bar":
+                    case "player_experience_progress_bar":
                         return main.library().colorize(user.getProgressBar());
 
                     case "player_exp_percent":
+                    case "player_experience_percent":
                         return user.getPercent();
                 }
 

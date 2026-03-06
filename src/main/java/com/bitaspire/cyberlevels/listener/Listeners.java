@@ -49,7 +49,6 @@ public class Listeners {
             }
         };
 
-        register();
     }
 
     public void register() {

@@ -231,13 +231,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         LevelUser<N> user = users.get(uuid);
 
         if (user != null && player != null && !user.isOnline()) {
-            LevelUser<N> newUser = system.createUser(uuid);
-
-            newUser.setLevel(user.getLevel(), false);
-            newUser.setExp(user.getExp() + "", true, false, false);
-            setRewardLevel(newUser, getRewardLevel(user));
-
-            users.put(uuid, newUser);
+            users.put(uuid, toOnlineUser(uuid, user));
             if (updateLeaderboard) scheduleLeaderboardUpdate();
             return;
         }
@@ -249,17 +243,39 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     }
 
     private LevelUser<N> loadUser(OfflinePlayer offline) {
+        UUID uuid = offline.getUniqueId();
         Player player = (offline instanceof Player) ? (Player) offline : null;
-        LoadResult result = loadUserData(offline.getUniqueId());
-        finishUserLoad(offline.getUniqueId(), player, result, true);
-        return result.user;
+        LoadResult result = loadUserData(uuid);
+        finishUserLoad(uuid, player, result, true);
+        return users.getOrDefault(uuid, result.user);
+    }
+
+    private LevelUser<N> toOnlineUser(UUID uuid, LevelUser<N> source) {
+        LevelUser<N> online = system.createUser(uuid);
+        online.setLevel(source.getLevel(), false);
+        online.setExp(source.getExp() + "", true, false, false);
+        setRewardLevel(online, getRewardLevel(source));
+        return online;
     }
 
     private void finishUserLoad(UUID uuid, Player player, LoadResult result, boolean updateLeaderboard) {
         if (StringUtils.isNotBlank(result.migrationMessage))
             main.logger("Migrated " + (player != null ? player.getName() : uuid) + result.migrationMessage);
 
-        users.put(uuid, result.user);
+        LevelUser<N> existing = users.get(uuid);
+        if (existing != null) {
+            if (player != null && !existing.isOnline())
+                users.put(uuid, toOnlineUser(uuid, existing));
+
+            if (updateLeaderboard) scheduleLeaderboardUpdate();
+            return;
+        }
+
+        LevelUser<N> loaded = result.user;
+        if (player != null && !loaded.isOnline())
+            loaded = toOnlineUser(uuid, loaded);
+
+        users.put(uuid, loaded);
         if (updateLeaderboard) scheduleLeaderboardUpdate();
     }
 

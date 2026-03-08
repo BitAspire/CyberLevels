@@ -11,9 +11,9 @@ import com.bitaspire.cyberlevels.level.LevelSystem;
 import com.bitaspire.cyberlevels.listener.Listeners;
 import com.bitaspire.cyberlevels.user.Database;
 import com.bitaspire.cyberlevels.user.UserManager;
+import com.bitaspire.scheduler.GlobalScheduler;
 import com.bitaspire.takion.TakionLib;
 import com.bitaspire.takion.message.MessageSender;
-import com.bitaspire.scheduler.GlobalScheduler;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -41,6 +41,7 @@ public final class CyberLevels extends JavaPlugin {
     LevelSystem<?> levelSystem;
 
     UserManager<?> userManager;
+
     @Getter(AccessLevel.NONE)
     Database<?> database;
 
@@ -67,14 +68,14 @@ public final class CyberLevels extends JavaPlugin {
         CoreSettings settings = core.getSettings();
         settings.setBootColor('d');
         settings.setBootLogo(
-                "&d╭━━━╮&7╱╱╱&d╭╮&7╱╱╱╱╱╱&d╭╮&7╱╱╱╱╱╱╱╱╱╱╱&d╭╮",
-                "&d┃╭━╮┃&7╱╱╱&d┃┃&7╱╱╱╱╱╱&d┃┃&7╱╱╱╱╱╱╱╱╱╱╱&d┃┃",
-                "&d┃┃&7╱&d╰╋╮&7╱&d╭┫╰━┳━━┳━┫┃&7╱╱&d╭━━┳╮╭┳━━┫┃╭━━╮",
-                "&d┃┃&7╱&d╭┫┃&7╱&d┃┃╭╮┃┃━┫╭┫┃&7╱&d╭┫┃━┫╰╯┃┃━┫┃┃━━┫",
-                "&d┃╰━╯┃╰━╯┃╰╯┃┃━┫┃┃╰━╯┃┃━╋╮╭┫┃━┫╰╋━━┃",
-                "&d╰━━━┻━╮╭┻━━┻━━┻╯╰━━━┻━━╯╰╯╰━━┻━┻━━╯",
-                "&7╱╱╱╱&d╭━╯┃  &7Authors: &f" + getAuthors(),
-                "&7╱╱╱╱&d╰━━╯  &7Version: &f" + this.getDescription().getVersion()
+            "&d╭━━━╮&7╱╱╱&d╭╮&7╱╱╱╱╱╱&d╭╮&7╱╱╱╱╱╱╱╱╱╱╱&d╭╮",
+            "&d┃╭━╮┃&7╱╱╱&d┃┃&7╱╱╱╱╱╱&d┃┃&7╱╱╱╱╱╱╱╱╱╱╱&d┃┃",
+            "&d┃┃&7╱&d╰╋╮&7╱&d╭┫╰━┳━━┳━┫┃&7╱╱&d╭━━┳╮╭┳━━┫┃╭━━╮",
+            "&d┃┃&7╱&d╭┫┃&7╱&d┃┃╭╮┃┃━┫╭┫┃&7╱&d╭┫┃━┫╰╯┃┃━┫┃┃━━┫",
+            "&d┃╰━╯┃╰━╯┃╰╯┃┃━┫┃┃╰━╯┃┃━╋╮╭┫┃━┫╰╋━━┃",
+            "&d╰━━━┻━╮╭┻━━┻━━┻╯╰━━━┻━━╯╰╯╰━━┻━┻━━╯",
+            "&7╱╱╱╱&d╭━╯┃  &7Authors: &f" + getAuthors(),
+            "&7╱╱╱╱&d╰━━╯  &7Version: &f" + this.getDescription().getVersion()
         );
 
         core.loadStart(false);
@@ -101,18 +102,20 @@ public final class CyberLevels extends JavaPlugin {
         cache = new Cache(this);
 
         long start = System.currentTimeMillis();
-        BaseSystem<?> system = !cache.config().useBigDecimalSystem() ?
-                new DoubleSystem(this) :
-                new BigDecimalSystem(this);
+        BaseSystem<?> system = !cache.config().useBigDecimalSystem()
+            ? new DoubleSystem(this)
+            : new BigDecimalSystem(this);
 
         logger("&dChecking level system type...");
         levelSystem = system;
 
         logger(
-                "&7Loaded &e" + system.getClass().getSimpleName() +
-                        "&7 in &a" +
-                        (System.currentTimeMillis() - start) +
-                        "ms&7.", ""
+            "&7Loaded &e" +
+                system.getClass().getSimpleName() +
+                "&7 in &a" +
+                (System.currentTimeMillis() - start) +
+                "ms&7.",
+            ""
         );
 
         UserManagerImpl<?> manager = new UserManagerImpl<>(this, system);
@@ -142,18 +145,28 @@ public final class CyberLevels extends JavaPlugin {
 
         hookManager.unregister();
 
-        userManager.saveOnlinePlayers(true);
+        if (userManager instanceof UserManagerImpl<?>) (
+            (UserManagerImpl<?>) userManager
+        ).saveOnlinePlayersSync(true);
+        else userManager.saveOnlinePlayers(true);
+
         userManager.cancelAutoSave();
 
         if (database != null) {
-            database.disconnect();
+            if (database instanceof DatabaseFactory.DatabaseImpl<?>) (
+                (DatabaseFactory.DatabaseImpl<?>) database
+            ).disconnectSync();
+            else database.disconnect();
             if (isEnabled()) logger("");
         }
         listeners.unregister();
     }
 
     public String getAuthors() {
-        return this.getDescription().getAuthors().toString().replaceAll("[\\[\\]]", "");
+        return this.getDescription()
+            .getAuthors()
+            .toString()
+            .replaceAll("[\\[\\]]", "");
     }
 
     public double serverVersion() {

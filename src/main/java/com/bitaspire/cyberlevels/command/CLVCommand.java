@@ -5,6 +5,8 @@ import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.level.LevelSystem;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -100,17 +102,20 @@ public class CLVCommand implements CommandExecutor {
         }
 
         if (args.length >= 2) {
-            LevelUser<?> user = null;
+            final boolean hasTargetArg = args.length >= 3;
+            final String targetName = hasTargetArg ? args[2] : null;
 
-            if (args.length == 3)
-                user = main.userManager().getUser(args[2]);
-
-            if (user == null && player != null)
+            LevelUser<?> user;
+            if (hasTargetArg) {
+                user = resolveUserByName(targetName);
+                if (user == null)
+                    return main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", targetName);
+            } else {
+                if (player == null) {
+                    main.logger("&cConsole must specify a player.");
+                    return true;
+                }
                 user = main.userManager().getUser(player);
-
-            if (user == null) {
-                main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", args[2]);
-                return true;
             }
 
             String value = args[1];
@@ -145,6 +150,24 @@ public class CLVCommand implements CommandExecutor {
         }
 
         return main.cache().lang().sendMessage(player, Lang::getNoPermission);
+    }
+
+    private LevelUser<?> resolveUserByName(String name) {
+        if (name == null || name.trim().isEmpty())
+            return null;
+
+        LevelUser<?> user = main.userManager().getUser(name);
+        if (user != null) return user;
+
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null)
+            return main.userManager().getUser(online);
+
+        OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
+        if (!offline.hasPlayedBefore() && !offline.isOnline())
+            return null;
+
+        return main.userManager().getUser(offline.getUniqueId());
     }
 
     private boolean sendLevelInfo(Player player) {

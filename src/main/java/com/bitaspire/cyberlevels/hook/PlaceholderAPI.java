@@ -49,7 +49,7 @@ final class PlaceholderAPI implements Hook {
 
                 int maxPos = main.cache().config().getLeaderboardMaxPositions();
                 if (position < 1 || position > maxPos)
-                    return "add more positions in config.yml";
+                    return "out of bounds (max: " + maxPos + ")";
 
                 LevelSystem<?> system = main.levelSystem();
                 LevelUser<?> user = system.getLeaderboard().getTopPlayer(position);

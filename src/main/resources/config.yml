@@ -34,6 +34,10 @@ config:
     # continue using at your own discretion.
     enabled: true
 
+    # How many top ranks to keep in memory and expose (e.g. /clv top, placeholders).
+    # Higher values can increase work per update and lag the server more.
+    max-positions: 10
+
     # Should the leaderboard sync with your storage
     # system when the auto-save is called?
     sync-on-auto-save: true

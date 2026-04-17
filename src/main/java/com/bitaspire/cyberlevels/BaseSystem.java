@@ -310,11 +310,12 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 for (LevelUser<T> user : users) list.add(toEntry(user));
 
                 list.sort(Comparator.naturalOrder());
-                List<Entry<T>> top10 = list.subList(0, Math.min(10, list.size()));
+                int max = cache.config().getLeaderboardMaxPositions();
+                List<Entry<T>> top = list.subList(0, Math.min(max, list.size()));
 
                 main.scheduler().runTask(() -> {
                     topTenPlayers.clear();
-                    topTenPlayers.addAll(top10);
+                    topTenPlayers.addAll(top);
                     updating = false;
                 });
             });
@@ -322,7 +323,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public LevelUser<T> getTopPlayer(int position) {
-            if (updating || position < 1 || position > 10) return null;
+            int max = cache.config().getLeaderboardMaxPositions();
+            if (updating || position < 1 || position > max) return null;
 
             int index = position - 1;
             if (index >= topTenPlayers.size()) return null;

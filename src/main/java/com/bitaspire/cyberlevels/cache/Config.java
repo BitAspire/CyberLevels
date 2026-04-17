@@ -24,6 +24,7 @@ public class Config {
     private boolean expIntegerOnly = false;
 
     private boolean leaderboardEnabled = true;
+    private int leaderboardMaxPositions = 10;
     @Accessors(fluent = true)
     private boolean syncLeaderboardOnAutoSave = true,
             leaderboardInstantUpdate = false;
@@ -61,6 +62,8 @@ public class Config {
             expIntegerOnly = file.get("config.earn-exp.integer-only", false);
 
             leaderboardEnabled = file.get("config.leaderboard.enabled", true);
+            leaderboardMaxPositions = clampLeaderboardPositions(
+                    file.get("config.leaderboard.max-positions", leaderboardMaxPositions));
             syncLeaderboardOnAutoSave = file.get("config.leaderboard.sync-on-auto-save", true);
             leaderboardInstantUpdate = file.get("config.leaderboard.instant-update", false);
 
@@ -84,6 +87,12 @@ public class Config {
             messagesOnConsole = file.get("config.messages.message-console", true);
         }
         catch (Exception ignored) {}
+    }
+
+    private static int clampLeaderboardPositions(int value) {
+        if (value < 1) return 1;
+        if (value > 1000) return 1000;
+        return value;
     }
 
     public void update() {

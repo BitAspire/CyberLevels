@@ -486,7 +486,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 double oldXP = exp.doubleValue();
                 double changedAmount = amount.doubleValue();
 
-                XPChangeEvent event = new XPChangeEvent(getPlayer(), oldXP, oldXP + changedAmount, changedAmount);
+                XPChangeEvent event = new XPChangeEvent(getPlayer(), oldXP, changedAmount);
                 Bukkit.getPluginManager().callEvent(event);
 
                 amount = operator.fromDouble(event.getAmount());

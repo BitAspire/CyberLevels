@@ -6,16 +6,8 @@ import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.user.Database;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import com.bitaspire.cyberlevels.user.UserManager;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import com.bitaspire.scheduler.GlobalRunnable;
 import com.bitaspire.scheduler.GlobalTask;
-import org.apache.commons.lang3.StringUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -24,6 +16,13 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
@@ -35,6 +34,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     private final Map<UUID, LevelUser<N>> users = new ConcurrentHashMap<>();
 
     GlobalTask autoSaveTask = null;
+
     @Getter
     private Database<N> database = null;
 
@@ -65,9 +65,13 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         final Database<N> now = database;
         if (now != null && old.getClass().equals(now.getClass())) return;
 
-        main.logger("&eDetected database type change from " +
-                old.getClass().getSimpleName() + " to " +
-                (now == null ? "FlatFile" : now.getClass().getSimpleName()) + ". Starting migration...");
+        main.logger(
+            "&eDetected database type change from " +
+                old.getClass().getSimpleName() +
+                " to " +
+                (now == null ? "FlatFile" : now.getClass().getSimpleName()) +
+                ". Starting migration..."
+        );
 
         long start = System.currentTimeMillis();
         int migrated = 0;
@@ -88,9 +92,17 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             }
 
             if (migrated > 0) {
-                main.logger("&aMigrated " + migrated + " users in " + (System.currentTimeMillis() - start) + "ms.");
+                main.logger(
+                    "&aMigrated " +
+                        migrated +
+                        " users in " +
+                        (System.currentTimeMillis() - start) +
+                        "ms."
+                );
             } else {
-                main.logger("&eNo players were found to migrate. Ending migration...");
+                main.logger(
+                    "&eNo players were found to migrate. Ending migration..."
+                );
             }
         } catch (Exception e) {
             main.logger("&cMigration failed.");
@@ -104,8 +116,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
         if (user == null) {
             OfflinePlayer player = Bukkit.getPlayer(uuid);
-            if (player == null)
-                player = Bukkit.getOfflinePlayer(uuid);
+            if (player == null) player = Bukkit.getOfflinePlayer(uuid);
             return loadUser(player);
         }
 
@@ -114,24 +125,46 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     @Override
     public LevelUser<N> getUser(String name) {
-        for (LevelUser<N> user : users.values())
-            try {
-                String n = Objects.requireNonNull(user.getName());
-                if (n.equalsIgnoreCase(name)) return user;
-            } catch (Exception ignored) {}
+        if (StringUtils.isBlank(name)) return null;
+
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) return getUser(online);
+
+        for (Player player : Bukkit.getOnlinePlayers())
+            if (player.getName().equalsIgnoreCase(name)) return getUser(player);
+
+        for (OfflinePlayer offline : Bukkit.getOfflinePlayers()) {
+            String offlineName = offline.getName();
+            if (
+                offlineName != null && offlineName.equalsIgnoreCase(name)
+            ) return getUser(offline.getUniqueId());
+        }
+
+        for (LevelUser<N> user : users.values()) {
+            String loadedName = user.getName();
+            if (
+                loadedName != null && loadedName.equalsIgnoreCase(name)
+            ) return user;
+        }
 
         return null;
     }
 
     void setRewardLevel(LevelUser<N> user, long level) {
         try {
-            user.getClass().getMethod("setHighestRewardedLevel", long.class).invoke(user, level);
+            user
+                .getClass()
+                .getMethod("setHighestRewardedLevel", long.class)
+                .invoke(user, level);
         } catch (Exception ignored) {}
     }
 
     long getRewardLevel(LevelUser<N> user) {
         try {
-            return (long) user.getClass().getMethod("getHighestRewardedLevel").invoke(user);
+            return (long) user
+                .getClass()
+                .getMethod("getHighestRewardedLevel")
+                .invoke(user);
         } catch (Exception ignored) {
             return user.getLevel();
         }
@@ -140,7 +173,10 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     private LevelUser<N> loadFromFlatFile(UUID uuid) {
         LevelUser<N> user = system.createUser(uuid);
 
-        Path file = new File(main.getDataFolder(), "player_data" + File.separator + uuid + ".clv").toPath();
+        Path file = new File(
+            main.getDataFolder(),
+            "player_data" + File.separator + uuid + ".clv"
+        ).toPath();
         if (!Files.exists(file)) return null;
 
         try (BufferedReader reader = Files.newBufferedReader(file)) {
@@ -155,7 +191,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             user.setExp(line.trim(), false, false, false);
 
             line = reader.readLine();
-            long claimed = (line != null) ? Long.parseLong(line.trim()) : user.getLevel();
+            long claimed = (line != null)
+                ? Long.parseLong(line.trim())
+                : user.getLevel();
             setRewardLevel(user, claimed);
 
             return user;
@@ -178,7 +216,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             long claimed = getRewardLevel(user);
             writer.write(claimed + "\n");
         } catch (Exception e) {
-            main.logger("&cFailed to save data for UUID " + user.getUuid() + ".");
+            main.logger(
+                "&cFailed to save data for UUID " + user.getUuid() + "."
+            );
             e.printStackTrace();
         }
     }
@@ -192,11 +232,15 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
             if (user == null) {
                 if ((user = loadFromFlatFile(uuid)) != null) {
-                    migrationMessage = " from flat-file to " + database.getClass().getSimpleName();
+                    migrationMessage =
+                        " from flat-file to " +
+                        database.getClass().getSimpleName();
                     try {
                         database.addUser(user, false);
                     } catch (Exception e) {
-                        main.logger("&cFailed to migrate user to database: " + uuid);
+                        main.logger(
+                            "&cFailed to migrate user to database: " + uuid
+                        );
                     }
                 } else {
                     user = system.createUser(uuid);
@@ -210,7 +254,10 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                 if (old != null) {
                     LevelUser<?> oldUser = old.getUser(uuid);
                     if (oldUser != null) {
-                        migrationMessage = " from " + old.getClass().getSimpleName() + " to flat-file";
+                        migrationMessage =
+                            " from " +
+                            old.getClass().getSimpleName() +
+                            " to flat-file";
                         LevelUser<N> copy = system.createUser(oldUser);
                         saveToFlatFile(copy);
                         user = copy;
@@ -224,7 +271,10 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         return new LoadResult(user, migrationMessage);
     }
 
-    private void loadUserAsync(OfflinePlayer offline, boolean updateLeaderboard) {
+    private void loadUserAsync(
+        OfflinePlayer offline,
+        boolean updateLeaderboard
+    ) {
         Player player = (offline instanceof Player) ? (Player) offline : null;
 
         UUID uuid = offline.getUniqueId();
@@ -236,10 +286,16 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             return;
         }
 
-        main.scheduler().runTaskAsynchronously(() -> {
-            LoadResult result = loadUserData(uuid);
-            main.scheduler().runTask(() -> finishUserLoad(uuid, player, result, updateLeaderboard));
-        });
+        main
+            .scheduler()
+            .runTaskAsynchronously(() -> {
+                LoadResult result = loadUserData(uuid);
+                main
+                    .scheduler()
+                    .runTask(() ->
+                        finishUserLoad(uuid, player, result, updateLeaderboard)
+                    );
+            });
     }
 
     private LevelUser<N> loadUser(OfflinePlayer offline) {
@@ -258,22 +314,34 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         return online;
     }
 
-    private void finishUserLoad(UUID uuid, Player player, LoadResult result, boolean updateLeaderboard) {
-        if (StringUtils.isNotBlank(result.migrationMessage))
-            main.logger("Migrated " + (player != null ? player.getName() : uuid) + result.migrationMessage);
+    private void finishUserLoad(
+        UUID uuid,
+        Player player,
+        LoadResult result,
+        boolean updateLeaderboard
+    ) {
+        if (StringUtils.isNotBlank(result.migrationMessage)) main.logger(
+            "Migrated " +
+                (player != null ? player.getName() : uuid) +
+                result.migrationMessage
+        );
 
         LevelUser<N> existing = users.get(uuid);
         if (existing != null) {
-            if (player != null && !existing.isOnline())
-                users.put(uuid, toOnlineUser(uuid, existing));
+            if (player != null && !existing.isOnline()) users.put(
+                uuid,
+                toOnlineUser(uuid, existing)
+            );
 
             if (updateLeaderboard) scheduleLeaderboardUpdate();
             return;
         }
 
         LevelUser<N> loaded = result.user;
-        if (player != null && !loaded.isOnline())
-            loaded = toOnlineUser(uuid, loaded);
+        if (player != null && !loaded.isOnline()) loaded = toOnlineUser(
+            uuid,
+            loaded
+        );
 
         users.put(uuid, loaded);
         if (updateLeaderboard) scheduleLeaderboardUpdate();
@@ -281,14 +349,17 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     private void scheduleLeaderboardUpdate() {
         if (!leaderboardQueued.compareAndSet(false, true)) return;
-        main.scheduler().runTask(() -> {
-            system.updateLeaderboard();
-            leaderboardQueued.set(false);
-        });
+        main
+            .scheduler()
+            .runTask(() -> {
+                system.updateLeaderboard();
+                leaderboardQueued.set(false);
+            });
     }
 
     @RequiredArgsConstructor
     private class LoadResult {
+
         final LevelUser<N> user;
         final String migrationMessage;
     }
@@ -321,10 +392,41 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             setRewardLevel(offline, getRewardLevel(user));
 
             users.put(uuid, offline);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             users.remove(uuid);
-            main.logger("&cNot able to convert to OfflineUser for: " + user.getName() + ". Deleting cache...");
+            main.logger(
+                "&cNot able to convert to OfflineUser for: " +
+                    user.getName() +
+                    ". Deleting cache..."
+            );
+            e.printStackTrace();
+        }
+    }
+
+    void savePlayerSync(Player player, boolean clearData) {
+        LevelUser<N> user = users.get(player.getUniqueId());
+        if (user == null) return;
+
+        saveUserSync(user);
+        if (!clearData) return;
+
+        UUID uuid = user.getUuid();
+
+        try {
+            LevelUser<N> offline = system.createOffline(uuid);
+            offline.setLevel(user.getLevel(), false);
+            offline.setExp(user.getExp(), false, false, false);
+
+            setRewardLevel(offline, getRewardLevel(user));
+
+            users.put(uuid, offline);
+        } catch (Exception e) {
+            users.remove(uuid);
+            main.logger(
+                "&cNot able to convert to OfflineUser for: " +
+                    user.getName() +
+                    ". Deleting cache..."
+            );
             e.printStackTrace();
         }
     }
@@ -342,6 +444,13 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         main.scheduler().runTaskAsynchronously(() -> saveUser(user));
     }
 
+    void saveUserSync(LevelUser<N> user) {
+        if (database instanceof DatabaseFactory.DatabaseImpl) (
+            (DatabaseFactory.DatabaseImpl<N>) database
+        ).updateUserSync(user);
+        else saveToFlatFile(user);
+    }
+
     @Override
     public void removeUser(UUID uuid) {
         users.remove(uuid);
@@ -351,10 +460,15 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             return;
         }
 
-        File file = new File(main.getDataFolder() + File.separator + "player_data", uuid + ".clv");
+        File file = new File(
+            main.getDataFolder() + File.separator + "player_data",
+            uuid + ".clv"
+        );
         if (!file.exists()) return;
 
-        if (!file.delete()) main.logger("&cFailed to delete flat-file for user " + uuid);
+        if (!file.delete()) main.logger(
+            "&cFailed to delete flat-file for user " + uuid
+        );
     }
 
     void loadOfflinePlayers() {
@@ -384,15 +498,19 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                 if (index < players.length) return;
 
                 cancel();
-                if (loaded > 0)
-                    main.logger("&7Loaded data for &e" + loaded +
-                            " &7offline player(s) in &a" +
-                            (System.currentTimeMillis() - l) +
-                            "ms&7.", "");
+                if (loaded > 0) main.logger(
+                    "&7Loaded data for &e" +
+                        loaded +
+                        " &7offline player(s) in &a" +
+                        (System.currentTimeMillis() - l) +
+                        "ms&7.",
+                    ""
+                );
 
                 scheduleLeaderboardUpdate();
             }
-        }.runTaskTimer(0L, 1L);
+        }
+            .runTaskTimer(0L, 1L);
     }
 
     @Override
@@ -410,10 +528,14 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
         if (counter < 1) return;
 
-        main.logger("&7Loaded data for &e" + counter +
+        main.logger(
+            "&7Loaded data for &e" +
+                counter +
                 " &7online player(s) in &a" +
                 (System.currentTimeMillis() - l) +
-                "ms&7.", "");
+                "ms&7.",
+            ""
+        );
         scheduleLeaderboardUpdate();
     }
 
@@ -422,26 +544,39 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, clearData));
     }
 
+    void saveOnlinePlayersSync(boolean clearData) {
+        Bukkit.getOnlinePlayers().forEach(p -> savePlayerSync(p, clearData));
+    }
+
     @Override
     public void startAutoSave() {
         if (!cache.config().isAutoSaveEnabled()) return;
         Config config = cache.config();
 
-        autoSaveTask = main.scheduler().runTaskLater(() -> {
-            long start = System.currentTimeMillis();
-            main.userManager().saveOnlinePlayers(false);
+        autoSaveTask = main
+            .scheduler()
+            .runTaskLater(
+                () -> {
+                    long start = System.currentTimeMillis();
+                    main.userManager().saveOnlinePlayers(false);
 
-            if (config.syncLeaderboardOnAutoSave())
-                system.getLeaderboard().update();
+                    if (config.syncLeaderboardOnAutoSave()) system
+                        .getLeaderboard()
+                        .update();
 
-            if (config.isMessagesOnAutoSave())
-                cache.lang().sendMessage(
-                        null, Lang::getAutoSave, "ms",
-                        System.currentTimeMillis() - start
-                );
+                    if (config.isMessagesOnAutoSave()) cache
+                        .lang()
+                        .sendMessage(
+                            null,
+                            Lang::getAutoSave,
+                            "ms",
+                            System.currentTimeMillis() - start
+                        );
 
-            startAutoSave();
-        }, 20L * config.getAutoSaveInterval());
+                    startAutoSave();
+                },
+                20L * config.getAutoSaveInterval()
+            );
     }
 
     @Override

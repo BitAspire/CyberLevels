@@ -328,9 +328,10 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (updating || position < 1 || position > max) return null;
 
             int index = position - 1;
-            if (index >= topTenPlayers.size()) return null;
+            List<Entry<T>> snapshot = new ArrayList<>(topTenPlayers);
+            if (index >= snapshot.size()) return null;
 
-            return userManager.getUser(topTenPlayers.get(index).getUuid());
+            return userManager.getUser(snapshot.get(index).getUuid());
         }
 
         int check(UUID uuid) {

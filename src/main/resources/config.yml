@@ -2,7 +2,7 @@ config:
   # Should data be stored in MySQL?
   # Tested on MySQL 10.4 and MariaDB 10.6.
   mysql:
-    enabled: true
+    enabled: true # When enabled, will use type below. When disabled, this will fall-back to file storage.
     type: SQLITE # Can also be MARIADB, SQLITE, POSTGRES, POSTGRESQL
     host: 'localhost'
     port: '3306'
@@ -13,6 +13,8 @@ config:
     ssl: true
     sqlite-file: "plugins/CyberLevels/data.db"
 
+  # Should the plugin use BigDecimal for all calculations?
+  # Can be required if you plan to use very large numbers, otherwise keep disabled.
   use-big-decimal-system: false
 
   # Should numbers be rounded?

@@ -4,7 +4,7 @@ import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.level.Reward;
 import lombok.Getter;
 import me.clip.placeholderapi.PlaceholderAPI;
-import com.bitaspire.file.Configurable;
+import com.bitaspire.libs.file.Configurable;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;

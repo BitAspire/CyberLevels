@@ -1,6 +1,6 @@
 package com.bitaspire.cyberlevels.hook;
 
-import com.bitaspire.common.MetricsLoader;
+import com.bitaspire.libs.common.MetricsLoader;
 import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.level.ExpSource;
 import com.bitaspire.cyberlevels.user.LevelUser;
@@ -63,11 +63,11 @@ public class HookManager {
 
         LevelUser<?> user = main.userManager().getUser(player);
         if (counter > 0) {
-            user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+            user.addExp(counter, main.cache().config().isMultiplierEvents());
             return;
         }
 
-        user.removeExp(Math.abs(counter) + "");
+        user.removeExp(Math.abs(counter));
     }
 
     public void register() {

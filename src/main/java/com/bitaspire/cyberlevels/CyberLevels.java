@@ -1,6 +1,7 @@
 package com.bitaspire.cyberlevels;
 
-import com.bitaspire.common.util.ServerInfoUtils;
+import com.bitaspire.libs.common.CollectionBuilder;
+import com.bitaspire.libs.common.util.ServerInfoUtils;
 import com.bitaspire.cybercore.CoreSettings;
 import com.bitaspire.cybercore.CyberCore;
 import com.bitaspire.cyberlevels.cache.Cache;
@@ -11,16 +12,20 @@ import com.bitaspire.cyberlevels.level.LevelSystem;
 import com.bitaspire.cyberlevels.listener.Listeners;
 import com.bitaspire.cyberlevels.user.Database;
 import com.bitaspire.cyberlevels.user.UserManager;
-import com.bitaspire.takion.TakionLib;
-import com.bitaspire.takion.message.MessageSender;
-import com.bitaspire.scheduler.GlobalScheduler;
+import com.bitaspire.cyberlevels.utility.SpigotUpdateChecker;
+import com.bitaspire.libs.scheduler.GlobalScheduler;
+import com.bitaspire.libs.takion.TakionLib;
+import com.bitaspire.libs.takion.message.MessageSender;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import net.zerotoil.dev.cyberlevels.api.events.XPChangeEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 @Accessors(fluent = true)
 @Getter
@@ -46,6 +51,12 @@ public final class CyberLevels extends JavaPlugin {
 
     @Getter(AccessLevel.NONE)
     HookManager hookManager;
+
+    /**
+     * Cached Spigot version notice for operators (resolved via {@code lang.yml} on send).
+     */
+    @Getter(AccessLevel.NONE)
+    private volatile SpigotOpUpdateNotice spigotOpUpdateNotice = SpigotOpUpdateNotice.none();
 
     @Override
     public void onEnable() {
@@ -89,6 +100,7 @@ public final class CyberLevels extends JavaPlugin {
         core.loadFinish();
     }
 
+    @SuppressWarnings("deprecation")
     public void reloadPlugin() {
         shutdownRuntime();
 
@@ -128,15 +140,32 @@ public final class CyberLevels extends JavaPlugin {
         userManager.startAutoSave();
 
         levelSystem.getLeaderboard().update();
+
+        if (cache.config().isSpigotUpdateCheckEnabled()) {
+            SpigotUpdateChecker.checkAsync(this);
+        }
+
+        scheduler.runTaskLater(() -> {
+            List<String> list = CollectionBuilder
+                    .of(XPChangeEvent.getHandlerList().getRegisteredListeners())
+                    .map(l -> l.getPlugin().getName()).toList();
+            if (!list.isEmpty())
+                library().getLogger().log(
+                        "Detected plugins still listening to deprecated XPChangeEvent: " + String.join(", ", list),
+                        "Ask those plugins to migrate to com.bitaspire.cyberlevels.event.ExpChangeEvent."
+                );
+        }, 1L);
     }
 
     private void shutdownRuntime() {
         if (userManager != null) {
             userManager.cancelAutoSave();
 
-            if (userManager instanceof UserManagerImpl<?>)
+            if (userManager instanceof UserManagerImpl<?>) {
                 ((UserManagerImpl<?>) userManager).saveOnlinePlayersSync(true);
-            else userManager.saveOnlinePlayers(true);
+            } else {
+                userManager.saveOnlinePlayers(true);
+            }
         }
 
         if (cache != null) {
@@ -147,9 +176,16 @@ public final class CyberLevels extends JavaPlugin {
         if (hookManager != null) hookManager.unregister();
 
         if (database != null) {
-            database.disconnect();
+            if (database instanceof DatabaseFactory.DatabaseImpl<?>) {
+                ((DatabaseFactory.DatabaseImpl<?>) database).disconnectSync();
+            } else {
+                database.disconnect();
+            }
             database = null;
+            if (isEnabled()) logger("");
         }
+
+        spigotOpUpdateNotice = SpigotOpUpdateNotice.none();
 
         if (listeners != null) {
             listeners.unregister();
@@ -189,5 +225,60 @@ public final class CyberLevels extends JavaPlugin {
 
     public boolean isEnabled(String plugin) {
         return Bukkit.getPluginManager().getPlugin(plugin) != null;
+    }
+
+    /**
+     * @param notice pending OP notice from Spigot version check, or {@link SpigotOpUpdateNotice#none()}
+     */
+    public void setSpigotOpUpdateNotice(SpigotOpUpdateNotice notice) {
+        spigotOpUpdateNotice = notice != null ? notice : SpigotOpUpdateNotice.none();
+    }
+
+    public SpigotOpUpdateNotice getSpigotOpUpdateNotice() {
+        return spigotOpUpdateNotice;
+    }
+
+    /**
+     * Cached data for Spigot vs JAR version; chat lines come from {@code lang.yml} when sent.
+     */
+    public static final class SpigotOpUpdateNotice {
+
+        public static final byte KIND_NONE = 0;
+        public static final byte KIND_NEWER = 1;
+        public static final byte KIND_EARLY = 2;
+
+        private final byte kind;
+        private final @Nullable String remoteVersion;
+        private final @Nullable String localVersion;
+
+        private SpigotOpUpdateNotice(byte kind, @Nullable String remoteVersion, @Nullable String localVersion) {
+            this.kind = kind;
+            this.remoteVersion = remoteVersion;
+            this.localVersion = localVersion;
+        }
+
+        public static SpigotOpUpdateNotice none() {
+            return new SpigotOpUpdateNotice(KIND_NONE, null, null);
+        }
+
+        public static SpigotOpUpdateNotice newer(String remoteVersion, String localVersion) {
+            return new SpigotOpUpdateNotice(KIND_NEWER, remoteVersion, localVersion);
+        }
+
+        public static SpigotOpUpdateNotice earlyAccess(String localVersion) {
+            return new SpigotOpUpdateNotice(KIND_EARLY, null, localVersion);
+        }
+
+        public byte getKind() {
+            return kind;
+        }
+
+        public @Nullable String getRemoteVersion() {
+            return remoteVersion;
+        }
+
+        public @Nullable String getLocalVersion() {
+            return localVersion;
+        }
     }
 }

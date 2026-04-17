@@ -1,6 +1,7 @@
 package com.bitaspire.cyberlevels.listener;
 
 import com.bitaspire.cyberlevels.CyberLevels;
+import com.bitaspire.cyberlevels.utility.SpigotUpdateChecker;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -29,6 +30,7 @@ public class Listeners {
             @EventHandler
             private void onJoin(PlayerJoinEvent event) {
                 main.userManager().loadPlayer(event.getPlayer());
+                SpigotUpdateChecker.deliverPendingOpChatOnJoin(main, event.getPlayer());
             }
 
             @EventHandler
@@ -49,7 +51,6 @@ public class Listeners {
             }
         };
 
-        register();
     }
 
     public void register() {

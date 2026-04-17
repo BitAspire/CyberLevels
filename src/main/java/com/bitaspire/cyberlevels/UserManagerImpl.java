@@ -8,8 +8,8 @@ import com.bitaspire.cyberlevels.user.LevelUser;
 import com.bitaspire.cyberlevels.user.UserManager;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import com.bitaspire.scheduler.GlobalRunnable;
-import com.bitaspire.scheduler.GlobalTask;
+import com.bitaspire.libs.scheduler.GlobalRunnable;
+import com.bitaspire.libs.scheduler.GlobalTask;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -114,10 +114,24 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     @Override
     public LevelUser<N> getUser(String name) {
+        if (StringUtils.isBlank(name)) return null;
+
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) return getUser(online);
+
+        for (Player player : Bukkit.getOnlinePlayers())
+            if (player.getName().equalsIgnoreCase(name)) return getUser(player);
+
+        for (OfflinePlayer offline : Bukkit.getOfflinePlayers()) {
+            String offlineName = offline.getName();
+            if (offlineName != null && offlineName.equalsIgnoreCase(name))
+                return getUser(offline.getUniqueId());
+        }
+
         for (LevelUser<N> user : users.values())
             try {
-                String n = Objects.requireNonNull(user.getName());
-                if (n.equalsIgnoreCase(name)) return user;
+                String loadedName = Objects.requireNonNull(user.getName());
+                if (loadedName.equalsIgnoreCase(name)) return user;
             } catch (Exception ignored) {}
 
         return null;
@@ -275,17 +289,38 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     }
 
     private LevelUser<N> loadUser(OfflinePlayer offline) {
+        UUID uuid = offline.getUniqueId();
         Player player = (offline instanceof Player) ? (Player) offline : null;
-        LoadResult result = loadUserData(offline.getUniqueId());
-        finishUserLoad(offline.getUniqueId(), player, result, true);
-        return result.user;
+        LoadResult result = loadUserData(uuid);
+        finishUserLoad(uuid, player, result, true);
+        return users.getOrDefault(uuid, result.user);
+    }
+
+    private LevelUser<N> toOnlineUser(UUID uuid, LevelUser<N> source) {
+        LevelUser<N> online = system.createUser(uuid);
+        online.setLevel(source.getLevel(), false);
+        online.setExp(source.getExp() + "", true, false, false);
+        setRewardLevel(online, getRewardLevel(source));
+        return online;
     }
 
     private void finishUserLoad(UUID uuid, Player player, LoadResult result, boolean updateLeaderboard) {
         if (StringUtils.isNotBlank(result.migrationMessage))
             main.logger("Migrated " + (player != null ? player.getName() : uuid) + result.migrationMessage);
 
-        users.put(uuid, result.user);
+        LevelUser<N> existing = users.get(uuid);
+        if (existing != null) {
+            if (player != null && !existing.isOnline())
+                users.put(uuid, toOnlineUser(uuid, existing));
+
+            if (updateLeaderboard) scheduleLeaderboardUpdate();
+            return;
+        }
+
+        LevelUser<N> loaded = result.user;
+        if (player != null && !loaded.isOnline()) loaded = toOnlineUser(uuid, loaded);
+
+        users.put(uuid, loaded);
         if (updateLeaderboard) scheduleLeaderboardUpdate();
     }
 

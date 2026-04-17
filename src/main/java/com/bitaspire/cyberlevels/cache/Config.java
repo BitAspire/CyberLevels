@@ -24,6 +24,7 @@ public class Config {
     private boolean expIntegerOnly = false;
 
     private boolean leaderboardEnabled = true;
+    private int leaderboardMaxPositions = 10;
     @Accessors(fluent = true)
     private boolean syncLeaderboardOnAutoSave = true,
             leaderboardInstantUpdate = false;
@@ -46,6 +47,10 @@ public class Config {
             autoUpdateLang = true,
             autoUpdateEarnExp = true;
 
+    private boolean spigotUpdateCheckEnabled = true;
+    @Accessors(fluent = true)
+    private boolean spigotUpdateCheckNotifyOpsChat = true;
+
     private boolean messagesOnAutoSave = true;
     private boolean messagesOnConsole = true;
 
@@ -61,6 +66,8 @@ public class Config {
             expIntegerOnly = file.get("config.earn-exp.integer-only", false);
 
             leaderboardEnabled = file.get("config.leaderboard.enabled", true);
+            leaderboardMaxPositions = clampLeaderboardPositions(
+                    file.get("config.leaderboard.max-positions", leaderboardMaxPositions));
             syncLeaderboardOnAutoSave = file.get("config.leaderboard.sync-on-auto-save", true);
             leaderboardInstantUpdate = file.get("config.leaderboard.instant-update", false);
 
@@ -80,10 +87,19 @@ public class Config {
             autoUpdateLang = file.get("config.auto-update.lang", true);
             autoUpdateEarnExp = file.get("config.auto-update.earn-exp", true);
 
+            spigotUpdateCheckEnabled = file.get("config.spigot-update-check.enabled", true);
+            spigotUpdateCheckNotifyOpsChat = file.get("config.spigot-update-check.notify-ops-chat", true);
+
             messagesOnAutoSave = file.get("config.messages.auto-save", true);
             messagesOnConsole = file.get("config.messages.message-console", true);
         }
         catch (Exception ignored) {}
+    }
+
+    private static int clampLeaderboardPositions(int value) {
+        if (value < 1) return 1;
+        if (value > 1000) return 1000;
+        return value;
     }
 
     public void update() {

@@ -1,9 +1,9 @@
 package com.bitaspire.cyberlevels;
 
-import com.bitaspire.common.util.ReplaceUtils;
+import com.bitaspire.libs.common.util.ReplaceUtils;
 import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.user.LevelUser;
-import com.bitaspire.takion.message.MessageSender;
+import com.bitaspire.libs.takion.message.MessageSender;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;

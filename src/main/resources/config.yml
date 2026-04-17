@@ -2,7 +2,7 @@ config:
   # Should data be stored in MySQL?
   # Tested on MySQL 10.4 and MariaDB 10.6.
   mysql:
-    enabled: true
+    enabled: true # When enabled, will use type below. When disabled, this will fall-back to file storage.
     type: SQLITE # Can also be MARIADB, SQLITE, POSTGRES, POSTGRESQL
     host: 'localhost'
     port: '3306'
@@ -13,6 +13,8 @@ config:
     ssl: true
     sqlite-file: "plugins/CyberLevels/data.db"
 
+  # Should the plugin use BigDecimal for all calculations?
+  # Can be required if you plan to use very large numbers, otherwise keep disabled.
   use-big-decimal-system: false
 
   # Should numbers be rounded?
@@ -33,6 +35,10 @@ config:
     # This feature has been shown to be stable. Please
     # continue using at your own discretion.
     enabled: true
+
+    # How many top ranks to keep in memory and expose (e.g. /clv top, placeholders).
+    # Higher values can increase work per update and lag the server more.
+    max-positions: 10
 
     # Should the leaderboard sync with your storage
     # system when the auto-save is called?
@@ -72,6 +78,14 @@ config:
     config: true
     lang: true
     earn-exp: true
+
+  # Contacts SpigotMC once on startup (async) to compare your JAR
+  # version with the resource listing (resource ID 98826).
+  spigot-update-check:
+    enabled: true
+
+    # When an update or early-access notice is shown in console, also message online operators in chat.
+    notify-ops-chat: true
 
   messages:
     # Should auto-save messages send to console?

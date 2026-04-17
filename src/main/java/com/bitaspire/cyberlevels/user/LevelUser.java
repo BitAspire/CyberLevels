@@ -112,6 +112,18 @@ public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
     /**
      * Adds experience points to the user.
      *
+     * <p>This overload avoids unnecessary string conversions in hot event paths.
+     *
+     * @param amount the amount of experience points to add
+     * @param multiply whether to apply the user's multiplier to the added experience
+     */
+    default void addExp(double amount, boolean multiply) {
+        addExp(String.valueOf(amount), multiply);
+    }
+
+    /**
+     * Adds experience points to the user.
+     *
      * @param amount the amount of experience points to add, as a string
      * @param multiply whether to apply the user's multiplier to the added experience
      */
@@ -143,6 +155,18 @@ public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
      * @param amount the experience points to set
      * @param checkLevel whether to check and update the user's level based on the new experience
      * @param sendMessage whether to send a message to the user about the experience change
+     * @param checkLeaderboard whether to update the leaderboard with the new experience
+     */
+    default void setExp(double amount, boolean checkLevel, boolean sendMessage, boolean checkLeaderboard) {
+        setExp(String.valueOf(amount), checkLevel, sendMessage, checkLeaderboard);
+    }
+
+    /**
+     * Sets the user's experience points to a specific value.
+     *
+     * @param amount the experience points to set
+     * @param checkLevel whether to check and update the user's level based on the new experience
+     * @param sendMessage whether to send a message to the user about the experience change
      */
     default void setExp(N amount, boolean checkLevel, boolean sendMessage) {
         setExp(amount, checkLevel, sendMessage, true);
@@ -164,6 +188,17 @@ public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
      * @param amount the amount of experience points to remove
      */
     void removeExp(N amount);
+
+    /**
+     * Removes experience points from the user.
+     *
+     * <p>This overload avoids unnecessary string conversions in hot event paths.
+     *
+     * @param amount the amount of experience points to remove
+     */
+    default void removeExp(double amount) {
+        removeExp(String.valueOf(amount));
+    }
 
     /**
      * Removes experience points from the user.

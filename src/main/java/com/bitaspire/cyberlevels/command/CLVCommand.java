@@ -4,16 +4,21 @@ import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.level.LevelSystem;
 import com.bitaspire.cyberlevels.user.LevelUser;
+import com.bitaspire.libs.common.util.ReplaceUtils;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import lombok.Getter;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.function.Function;
 
 public class CLVCommand implements CommandExecutor {
 
@@ -22,15 +27,32 @@ public class CLVCommand implements CommandExecutor {
 
     public CLVCommand(CyberLevels main) {
         this.main = main;
-        this.consoleCmds = Arrays.asList("about", "reload", "addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel", "purge");
+        this.consoleCmds = Arrays.asList(
+            "about",
+            "reload",
+            "addexp",
+            "setexp",
+            "removeexp",
+            "addlevel",
+            "setlevel",
+            "removelevel",
+            "purge"
+        );
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, String[] args) {
+    public boolean onCommand(
+        @NotNull CommandSender sender,
+        @NotNull Command cmd,
+        @NotNull String label,
+        String[] args
+    ) {
         Player player = (sender instanceof Player) ? (Player) sender : null;
 
-        // Console restrictions
-        if (player == null && (args.length == 0 || !consoleCmds.contains(args[0].toLowerCase()))) {
+        if (
+            player == null &&
+            (args.length == 0 || !consoleCmds.contains(args[0].toLowerCase()))
+        ) {
             main.logger("&cConsole cannot use this command!");
             return true;
         }
@@ -41,39 +63,53 @@ public class CLVCommand implements CommandExecutor {
         if (args.length == 1) {
             switch (sub) {
                 case "about":
-                    return isRestricted(player, "player.about") || main.createSender(player).send(
-                            " &d&lCyber&f&lLevels &fv" + main.getDescription().getVersion() + " &7(&7&nhttps://bit.ly/2YSlqYq&7).",
+                    if (isRestricted(player, "player.about")) return true;
+                    if (player == null) {
+                        main.logger(
+                            " &d&lCyber&f&lLevels &fv" +
+                            main.getDescription().getVersion() +
+                            " &7(&7&nhttps://bit.ly/2YSlqYq&7).",
                             " &fDeveloped by &d" + main.getAuthors() + "&f.",
                             " A leveling system plugin with MySQL support and custom events."
+                        );
+                        return true;
+                    }
+                    return main.createSender(player).send(
+                        " &d&lCyber&f&lLevels &fv" +
+                        main.getDescription().getVersion() +
+                        " &7(&7&nhttps://bit.ly/2YSlqYq&7).",
+                        " &fDeveloped by &d" + main.getAuthors() + "&f.",
+                        " A leveling system plugin with MySQL support and custom events."
                     );
-
                 case "reload":
                     if (isRestricted(player, "admin.reload")) return true;
 
-                    main.cache().lang().sendMessage(player, Lang::getReloading);
+                    sendLangMessage(sender, player, Lang::getReloading);
                     main.reloadPlugin();
-
-                    return main.cache().lang().sendMessage(player, Lang::getReloaded);
-
-                case "info": return sendLevelInfo(player);
-
+                    return sendLangMessage(sender, player, Lang::getReloaded);
+                case "info":
+                    return sendLevelInfo(player);
                 case "top":
                     if (isRestricted(player, "player.top")) return true;
 
-                    main.cache().lang().sendMessage(player, Lang::getTopHeader);
+                    sendLangMessage(sender, player, Lang::getTopHeader);
                     int i = 1;
-
-                    for (LevelUser<?> user : main.levelSystem().getLeaderboard().getTopTenPlayers()) {
-                        main.cache().lang().sendMessage(
-                                player, Lang::getTopContent,
-                                new String[] {"position", "player", "level", "exp"},
-                                i++, user.getName(),
-                                user.getLevel(), user.getExp()
+                    for (LevelUser<?> user : main
+                        .levelSystem()
+                        .getLeaderboard()
+                        .getTopTenPlayers()) {
+                        sendLangMessage(
+                            sender,
+                            player,
+                            Lang::getTopContent,
+                            new String[] { "position", "player", "level", "exp" },
+                            i++,
+                            user.getName(),
+                            user.getLevel(),
+                            user.getExp()
                         );
                     }
-
-                    main.cache().lang().sendMessage(player, Lang::getTopFooter);
-                    return true;
+                    return sendLangMessage(sender, player, Lang::getTopFooter);
             }
         }
 
@@ -82,7 +118,13 @@ public class CLVCommand implements CommandExecutor {
             if (target != null) {
                 main.userManager().removeUser(target.getUuid());
                 main.levelSystem().getLeaderboard().update();
-                return main.cache().lang().sendMessage(player, Lang::getPurgePlayer, "player", args[1]);
+                return sendLangMessage(
+                    sender,
+                    player,
+                    Lang::getPurgePlayer,
+                    "player",
+                    args[1]
+                );
             }
 
             return isRestricted(player, "admin.info") || sendLevelInfo(player);
@@ -92,59 +134,225 @@ public class CLVCommand implements CommandExecutor {
             if (isRestricted(player, "admin.info")) return true;
 
             LevelUser<?> target = main.userManager().getUser(args[1]);
-            if (target == null)
-                return main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", args[1]);
+            if (target == null) {
+                return sendLangMessage(
+                    sender,
+                    player,
+                    Lang::getPlayerNotFound,
+                    "player",
+                    args[1]
+                );
+            }
 
             return sendLevelInfo(player, target);
         }
 
         if (args.length >= 2) {
-            LevelUser<?> user = null;
+            final String targetName = args.length >= 3 ? args[2] : null;
 
-            if (args.length == 3)
-                user = main.userManager().getUser(args[2]);
-
-            if (user == null && player != null)
+            LevelUser<?> user;
+            if (targetName != null) {
+                user = resolveUserByName(targetName);
+                if (user == null) {
+                    return sendLangMessage(
+                        sender,
+                        player,
+                        Lang::getPlayerNotFound,
+                        "player",
+                        targetName
+                    );
+                }
+            } else {
+                if (player == null) {
+                    main.logger(
+                        "&cConsole must specify a player name for this command."
+                    );
+                    return true;
+                }
                 user = main.userManager().getUser(player);
-
-            if (user == null) {
-                String target = args.length > 2 ? args[2] : (player == null ? "<none>" : player.getName());
-                main.cache().lang().sendMessage(player, Lang::getPlayerNotFound, "player", target);
-                return true;
+                if (user == null) {
+                    return sendLangMessage(
+                        sender,
+                        player,
+                        Lang::getPlayerNotFound,
+                        "player",
+                        player.getName()
+                    );
+                }
             }
 
             String value = args[1];
-
             switch (sub) {
                 case "addexp":
-                    return handleExp(player, user, value, "exp.add", true, ExpAction.ADD);
-
+                    return handleExp(
+                        sender,
+                        player,
+                        user,
+                        value,
+                        "exp.add",
+                        true,
+                        ExpAction.ADD
+                    );
                 case "setexp":
-                    return handleExp(player, user, value, "exp.set", true, ExpAction.SET);
-
+                    return handleExp(
+                        sender,
+                        player,
+                        user,
+                        value,
+                        "exp.set",
+                        true,
+                        ExpAction.SET
+                    );
                 case "removeexp":
-                    return handleExp(player, user, value, "exp.remove", false, ExpAction.REMOVE);
-
+                    return handleExp(
+                        sender,
+                        player,
+                        user,
+                        value,
+                        "exp.remove",
+                        false,
+                        ExpAction.REMOVE
+                    );
                 case "addlevel":
-                    return handleLevel(player, user, value, "level.add", LevelAction.ADD);
-
+                    return handleLevel(
+                        sender,
+                        player,
+                        user,
+                        value,
+                        "level.add",
+                        LevelAction.ADD
+                    );
                 case "setlevel":
-                    return handleLevel(player, user, value, "level.set", LevelAction.SET);
-
+                    return handleLevel(
+                        sender,
+                        player,
+                        user,
+                        value,
+                        "level.set",
+                        LevelAction.SET
+                    );
                 case "removelevel":
-                    return handleLevel(player, user, value, "level.remove", LevelAction.REMOVE);
+                    return handleLevel(
+                        sender,
+                        player,
+                        user,
+                        value,
+                        "level.remove",
+                        LevelAction.REMOVE
+                    );
             }
         }
 
         if (player != null) {
-            if (player.hasPermission("CyberLevels.admin.help"))
+            if (player.hasPermission("CyberLevels.admin.help")) {
                 return main.cache().lang().sendMessage(player, Lang::getHelpAdmin);
+            }
 
-            if (player.hasPermission("CyberLevels.player.help"))
-                return main.cache().lang().sendMessage(player, Lang::getHelpPlayer);
+            if (player.hasPermission("CyberLevels.player.help")) {
+                return main
+                    .cache()
+                    .lang()
+                    .sendMessage(player, Lang::getHelpPlayer);
+            }
         }
 
-        return main.cache().lang().sendMessage(player, Lang::getNoPermission);
+        return sendLangMessage(sender, player, Lang::getNoPermission);
+    }
+
+    private boolean sendLangMessage(
+        CommandSender cmdSender,
+        Player player,
+        Function<Lang, List<String>> langFn
+    ) {
+        if (player != null) {
+            return main.cache().lang().sendMessage(player, langFn);
+        }
+
+        List<String> lines = langFn.apply(main.cache().lang());
+        if (lines == null || lines.isEmpty()) return true;
+
+        for (String line : lines) {
+            String out = stripConsoleChannels(line);
+            if (!out.isEmpty()) {
+                cmdSender.sendMessage(
+                    ChatColor.translateAlternateColorCodes('&', out)
+                );
+            }
+        }
+        return true;
+    }
+
+    private boolean sendLangMessage(
+        CommandSender cmdSender,
+        Player player,
+        Function<Lang, List<String>> langFn,
+        String key,
+        Object value
+    ) {
+        return sendLangMessage(
+            cmdSender,
+            player,
+            langFn,
+            new String[] { key },
+            value
+        );
+    }
+
+    private boolean sendLangMessage(
+        CommandSender cmdSender,
+        Player player,
+        Function<Lang, List<String>> langFn,
+        String[] keys,
+        Object... values
+    ) {
+        if (player != null) {
+            return main.cache().lang().sendMessage(player, langFn, keys, values);
+        }
+
+        List<String> lines = langFn.apply(main.cache().lang());
+        if (lines == null || lines.isEmpty()) return true;
+
+        Map<String, String> placeholders = new LinkedHashMap<>();
+        if (keys != null && values != null && keys.length == values.length) {
+            for (int i = 0; i < keys.length; i++) {
+                placeholders.put(
+                    '{' + keys[i] + '}',
+                    String.valueOf(values[i])
+                );
+            }
+        }
+
+        for (String line : lines) {
+            String out = ReplaceUtils.replaceEach(placeholders, line);
+            out = stripConsoleChannels(out);
+            if (!out.isEmpty()) {
+                cmdSender.sendMessage(
+                    ChatColor.translateAlternateColorCodes('&', out)
+                );
+            }
+        }
+        return true;
+    }
+
+    private static String stripConsoleChannels(String line) {
+        if (line == null) return "";
+        String stripped = line.replaceFirst("^\\[C\\]\\s*", "");
+        return stripped.replace("[actionbar]", "").replace("[action-bar]", "").trim();
+    }
+
+    private LevelUser<?> resolveUserByName(String name) {
+        if (name == null || name.trim().isEmpty()) return null;
+
+        LevelUser<?> user = main.userManager().getUser(name);
+        if (user != null) return user;
+
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) return main.userManager().getUser(online);
+
+        OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
+        if (!offline.hasPlayedBefore() && !offline.isOnline()) return null;
+
+        return main.userManager().getUser(offline.getUniqueId());
     }
 
     private boolean sendLevelInfo(Player player) {
@@ -152,14 +360,24 @@ public class CLVCommand implements CommandExecutor {
         LevelSystem<?> system = main.levelSystem();
 
         return main.cache().lang().sendMessage(
-                player, Lang::getLevelInfo,
-                new String[] {"player", "level", "maxLevel", "playerEXP", "requiredEXP", "percent", "progressBar"},
-                user.getName(), user.getLevel(),
-                main.cache().levels().getMaxLevel(),
-                system.formatNumber(user.getExp()),
-                system.formatNumber(user.getRequiredExp()),
-                user.getPercent(),
-                user.getProgressBar()
+            player,
+            Lang::getLevelInfo,
+            new String[] {
+                "player",
+                "level",
+                "maxLevel",
+                "playerEXP",
+                "requiredEXP",
+                "percent",
+                "progressBar",
+            },
+            user.getName(),
+            user.getLevel(),
+            main.cache().levels().getMaxLevel(),
+            system.formatNumber(user.getExp()),
+            system.formatNumber(user.getRequiredExp()),
+            user.getPercent(),
+            user.getProgressBar()
         );
     }
 
@@ -167,22 +385,41 @@ public class CLVCommand implements CommandExecutor {
         LevelSystem<?> system = main.levelSystem();
 
         return main.cache().lang().sendMessage(
-                viewer, Lang::getLevelInfo,
-                new String[]{"player","level","maxLevel","playerEXP","requiredEXP","percent","progressBar"},
-                target.getName(),
-                target.getLevel(),
-                main.cache().levels().getMaxLevel(),
-                system.formatNumber(target.getExp()),
-                system.formatNumber(target.getRequiredExp()),
-                target.getPercent(),
-                target.getProgressBar()
+            viewer,
+            Lang::getLevelInfo,
+            new String[] {
+                "player",
+                "level",
+                "maxLevel",
+                "playerEXP",
+                "requiredEXP",
+                "percent",
+                "progressBar",
+            },
+            target.getName(),
+            target.getLevel(),
+            main.cache().levels().getMaxLevel(),
+            system.formatNumber(target.getExp()),
+            system.formatNumber(target.getRequiredExp()),
+            target.getPercent(),
+            target.getProgressBar()
         );
     }
 
-    private boolean handleExp(Player player, LevelUser<?> user, String arg, String perm, boolean allowMultiplier, ExpAction action) {
+    private boolean handleExp(
+        CommandSender sender,
+        Player player,
+        LevelUser<?> user,
+        String arg,
+        String perm,
+        boolean allowMultiplier,
+        ExpAction action
+    ) {
         perm = "admin.levels." + perm;
 
-        if (isRestricted(player, perm) || notDouble(player, arg)) return true;
+        if (isRestricted(player, perm) || notDouble(sender, player, arg)) {
+            return true;
+        }
 
         double value;
         try {
@@ -193,27 +430,44 @@ public class CLVCommand implements CommandExecutor {
 
         switch (action) {
             case ADD:
-                user.addExp(value + "", main.cache().config().isMultiplierCommands());
+                user.addExp(
+                    value,
+                    main.cache().config().isMultiplierCommands()
+                );
                 break;
             case SET:
-                user.setExp(value + "", allowMultiplier, true, true);
+                user.setExp(value, allowMultiplier, true, true);
                 break;
             case REMOVE:
-                user.removeExp(value + "");
+                user.removeExp(value);
                 break;
         }
 
         LevelSystem<?> system = main.levelSystem();
 
-        return main.cache().lang().sendMessage(
-                player, action.getMessage(),
-                new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), system.formatNumber(user.getExp())
+        return sendLangMessage(
+            sender,
+            player,
+            action.getMessage(),
+            new String[] { "player", action.getPlaceholder(), "level", "playerEXP" },
+            user.getName(),
+            arg,
+            user.getLevel(),
+            system.formatNumber(user.getExp())
         );
     }
 
-    private boolean handleLevel(Player player, LevelUser<?> user, String arg, String perm, LevelAction action) {
-        if (isRestricted(player, perm) || notLong(player, arg)) return true;
+    private boolean handleLevel(
+        CommandSender sender,
+        Player player,
+        LevelUser<?> user,
+        String arg,
+        String perm,
+        LevelAction action
+    ) {
+        if (isRestricted(player, perm) || notLong(sender, player, arg)) {
+            return true;
+        }
 
         long value;
         try {
@@ -236,35 +490,41 @@ public class CLVCommand implements CommandExecutor {
 
         LevelSystem<?> system = main.levelSystem();
 
-        return main.cache().lang().sendMessage(
-                player, action.getMessage(),
-                new String[] {"player", action.getPlaceholder(), "level", "playerEXP"},
-                user.getName(), arg, user.getLevel(), system.formatNumber(user.getExp())
+        return sendLangMessage(
+            sender,
+            player,
+            action.getMessage(),
+            new String[] { "player", action.getPlaceholder(), "level", "playerEXP" },
+            user.getName(),
+            arg,
+            user.getLevel(),
+            system.formatNumber(user.getExp())
         );
     }
 
     private boolean isRestricted(Player player, String permissionKey) {
-        return player != null && (!player.hasPermission("CyberLevels." + permissionKey) &&
-                main.cache().lang().sendMessage(player, Lang::getNoPermission));
+        return (
+            player != null &&
+            (!player.hasPermission("CyberLevels." + permissionKey) &&
+                main.cache().lang().sendMessage(player, Lang::getNoPermission))
+        );
     }
 
-    private boolean notLong(Player player, String arg) {
+    private boolean notLong(CommandSender sender, Player player, String arg) {
         try {
             Long.parseLong(arg);
             return false;
         } catch (Exception e) {
-            main.cache().lang().sendMessage(player, Lang::getNotNumber);
-            return true;
+            return sendLangMessage(sender, player, Lang::getNotNumber);
         }
     }
 
-    private boolean notDouble(Player player, String arg) {
+    private boolean notDouble(CommandSender sender, Player player, String arg) {
         try {
             Double.parseDouble(arg);
             return false;
         } catch (Exception e) {
-            main.cache().lang().sendMessage(player, Lang::getNotNumber);
-            return true;
+            return sendLangMessage(sender, player, Lang::getNotNumber);
         }
     }
 
@@ -274,6 +534,7 @@ public class CLVCommand implements CommandExecutor {
         REMOVE(Lang::getRemovedExp, "removedEXP");
 
         private final Function<Lang, List<String>> lang;
+
         @Getter
         private final String placeholder;
 
@@ -293,6 +554,7 @@ public class CLVCommand implements CommandExecutor {
         REMOVE(Lang::getRemovedLevels, "removedLevels");
 
         private final Function<Lang, List<String>> lang;
+
         @Getter
         private final String placeholder;
 

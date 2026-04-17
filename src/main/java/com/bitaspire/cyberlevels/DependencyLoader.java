@@ -3,7 +3,7 @@ package com.bitaspire.cyberlevels;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
-import com.bitaspire.file.YAMLFile;
+import com.bitaspire.libs.file.YAMLFile;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;

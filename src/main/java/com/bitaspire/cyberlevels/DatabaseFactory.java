@@ -124,6 +124,31 @@ class DatabaseFactory {
             main.logger("&dAttempting to disconnect from " + type + "...");
             long l = System.currentTimeMillis();
 
+            Runnable close = () -> {
+                try {
+                    dataSource.close();
+                    main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
+                } catch (Exception e) {
+                    main.logger("&cThere was an issue disconnecting from " + type + " Database.");
+                    e.printStackTrace();
+                } finally {
+                    dataSource = null;
+                }
+            };
+
+            if (main.isEnabled()) {
+                main.scheduler().runTaskAsynchronously(close);
+            } else {
+                close.run();
+            }
+        }
+
+        void disconnectSync() {
+            if (!isConnected()) return;
+
+            main.logger("&dAttempting to disconnect from " + type + "...");
+            long l = System.currentTimeMillis();
+
             try {
                 dataSource.close();
                 main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");

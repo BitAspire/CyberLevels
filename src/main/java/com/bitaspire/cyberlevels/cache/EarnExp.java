@@ -7,7 +7,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import com.bitaspire.scheduler.GlobalTask;
+import com.bitaspire.libs.scheduler.GlobalTask;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -276,11 +276,11 @@ public class EarnExp {
                     LevelUser<?> user = main.userManager().getUser(player);
 
                     if (counter > 0) {
-                        user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+                        user.addExp(counter, main.cache().config().isMultiplierEvents());
                         return;
                     }
 
-                    if (counter < 0) user.removeExp(Math.abs(counter) + "");
+                    if (counter < 0) user.removeExp(Math.abs(counter));
                 }, 1L);
             }
         });
@@ -306,11 +306,11 @@ public class EarnExp {
                 LevelUser<?> user = main.userManager().getUser(event.getEnchanter());
 
                 if (counter > 0) {
-                    user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+                    user.addExp(counter, main.cache().config().isMultiplierEvents());
                     return;
                 }
 
-                if (counter < 0) user.removeExp(Math.abs(counter) + "");
+                if (counter < 0) user.removeExp(Math.abs(counter));
             }
         });
 
@@ -359,11 +359,11 @@ public class EarnExp {
                     LevelUser<?> user = main.userManager().getUser(player);
 
                     if (finalCounter > 0) {
-                        user.addExp(finalCounter + "", main.cache().config().isMultiplierEvents());
+                        user.addExp(finalCounter, main.cache().config().isMultiplierEvents());
                         return;
                     }
 
-                    if (finalCounter < 0) user.removeExp(Math.abs(finalCounter) + "");
+                    if (finalCounter < 0) user.removeExp(Math.abs(finalCounter));
                 });
             }
         });
@@ -441,11 +441,11 @@ public class EarnExp {
 
         LevelUser<?> user = main.userManager().getUser(player);
         if (counter > 0) {
-            user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+            user.addExp(counter, main.cache().config().isMultiplierEvents());
             return;
         }
 
-        user.removeExp(Math.abs(counter) + "");
+        user.removeExp(Math.abs(counter));
     }
 
     void sendPermissionExp(Player player, ExpSource source) {
@@ -469,11 +469,11 @@ public class EarnExp {
 
         LevelUser<?> user = main.userManager().getUser(player);
         if (counter > 0) {
-            user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+            user.addExp(counter, main.cache().config().isMultiplierEvents());
             return;
         }
 
-        user.removeExp(Math.abs(counter) + "");
+        user.removeExp(Math.abs(counter));
     }
 
     @NotNull

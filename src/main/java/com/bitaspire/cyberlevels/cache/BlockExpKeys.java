@@ -70,7 +70,10 @@ public final class BlockExpKeys {
             Class<?> ageableClass = Class.forName("org.bukkit.material.Ageable");
             Object data = block.getState().getData();
             if (ageableClass.isInstance(data)) {
-                return (Integer) ageableClass.getMethod("getAge").invoke(data);
+                Object age = ageableClass.getMethod("getAge").invoke(data);
+                if (age instanceof Number) {
+                    return ((Number) age).intValue();
+                }
             }
         } catch (Throwable ignored) {}
         return null;

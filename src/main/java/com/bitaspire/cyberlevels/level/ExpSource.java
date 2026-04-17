@@ -2,6 +2,7 @@ package com.bitaspire.cyberlevels.level;
 
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -87,6 +88,17 @@ public interface ExpSource {
      * @return true if the value is in the list, false otherwise
      */
     boolean isInList(String value, boolean specific);
+
+    /**
+     * Resolves which specific-list key matches the runtime value (e.g. exact {@code WHEAT[AGE=7]} or fallback {@code WHEAT}).
+     *
+     * @param value runtime token (material name, block state key, player name, etc.)
+     * @return the key present in the specific map, or null if none
+     */
+    @Nullable
+    default String matchSpecificKey(String value) {
+        return null;
+    }
 
     /**
      * Checks if a given value is in the include/exclude list of the experience source.

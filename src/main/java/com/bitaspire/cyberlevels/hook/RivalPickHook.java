@@ -2,6 +2,7 @@ package com.bitaspire.cyberlevels.hook;
 
 import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.cache.AntiAbuse;
+import com.bitaspire.cyberlevels.cache.BlockExpKeys;
 import me.rivaldev.pickaxes.api.events.RivalPickaxesBlockBreakEvent;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
@@ -45,7 +46,7 @@ final class RivalPickHook implements Hook, Listener {
 
         manager.sendExp(
                 player, main.cache().earnExp().getExpSources().get("rivalpick-breaking"),
-                block.getType().toString()
+                BlockExpKeys.blockKey(block, main.serverVersion())
         );
     }
 

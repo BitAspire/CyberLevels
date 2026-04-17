@@ -53,7 +53,8 @@ public class HookManager {
         double counter = 0;
 
         if (source.useSpecifics()) {
-            if (source.isInList(item, true)) counter = source.getSpecificRange(item).getRandom();
+            String matched = source.matchSpecificKey(item);
+            if (matched != null) counter = source.getSpecificRange(matched).getRandom();
         }
         else if (source.isEnabled()) {
             if (source.isInList(item)) counter = source.getRange().getRandom();

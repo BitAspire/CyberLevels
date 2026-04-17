@@ -1,5 +1,6 @@
 package com.bitaspire.cyberlevels;
 
+import net.zerotoil.dev.cyberlevels.api.events.XPChangeEvent;
 import com.bitaspire.cyberlevels.user.UserManager;
 import com.bitaspire.cyberlevels.cache.Cache;
 import com.bitaspire.cyberlevels.cache.Lang;
@@ -310,11 +311,12 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 for (LevelUser<T> user : users) list.add(toEntry(user));
 
                 list.sort(Comparator.naturalOrder());
-                List<Entry<T>> top10 = list.subList(0, Math.min(10, list.size()));
+                int max = cache.config().getLeaderboardMaxPositions();
+                List<Entry<T>> top = list.subList(0, Math.min(max, list.size()));
 
                 main.scheduler().runTask(() -> {
                     topTenPlayers.clear();
-                    topTenPlayers.addAll(top10);
+                    topTenPlayers.addAll(top);
                     updating = false;
                 });
             });
@@ -322,7 +324,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public LevelUser<T> getTopPlayer(int position) {
-            if (updating || position < 1 || position > 10) return null;
+            int max = cache.config().getLeaderboardMaxPositions();
+            if (updating || position < 1 || position > max) return null;
 
             int index = position - 1;
             List<Entry<T>> snapshot = new ArrayList<>(topTenPlayers);
@@ -478,6 +481,16 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (doMultiplier && operator.compare(amount, operator.zero()) > 0 &&
                     hasParentPerm("CyberLevels.player.multiplier.", false))
                 amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
+
+            if (operator.compare(amount, operator.zero()) > 0 && isOnline()) {
+                double oldXP = exp.doubleValue();
+                double changedAmount = amount.doubleValue();
+
+                XPChangeEvent event = new XPChangeEvent(getPlayer(), oldXP, changedAmount);
+                Bukkit.getPluginManager().callEvent(event);
+
+                amount = operator.fromDouble(event.getAmount());
+            }
 
             final T totalAmount = amount;
 

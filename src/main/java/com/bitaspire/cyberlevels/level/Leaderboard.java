@@ -28,8 +28,9 @@ public interface Leaderboard<N extends Number> {
     void update();
 
     /**
-     * Retrieves a list of the top ten players on the leaderboard.
-     * @return a list of the top ten LevelUser objects
+     * Retrieves the top players on the leaderboard, up to {@code config.leaderboard.max-positions}.
+     *
+     * @return ordered list from rank 1 upward (length at most the configured maximum)
      */
     @NotNull
     List<LevelUser<N>> getTopTenPlayers();
@@ -37,7 +38,7 @@ public interface Leaderboard<N extends Number> {
     /**
      * Retrieves the player at the specified position on the leaderboard.
      *
-     * @param position the position of the player to retrieve (1-based index)
+     * @param position the position of the player to retrieve (1-based index, up to configured max-positions)
      * @return the LevelUser object at the specified position, or null if not found
      */
     LevelUser<N> getTopPlayer(int position);

@@ -31,6 +31,7 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.*;
@@ -145,7 +146,8 @@ public class EarnExp {
                 if (main.cache().antiAbuse().onlyNaturalBlocks())
                     event.getBlock().setMetadata("CLV_PLACED", new FixedMetadataValue(main, true));
 
-                sendExp(event.getPlayer(), s, event.getBlock().getType().toString());
+                sendExp(event.getPlayer(), s,
+                        BlockExpKeys.blockKey(event.getBlock(), main.serverVersion()));
             }
         });
 
@@ -184,7 +186,7 @@ public class EarnExp {
                     }
                 }
 
-                sendExp(event.getPlayer(), s, block.getType().toString());
+                sendExp(event.getPlayer(), s, BlockExpKeys.blockKey(block, version));
             }
         });
 
@@ -431,7 +433,8 @@ public class EarnExp {
         double counter = 0;
 
         if (source.useSpecifics()) {
-            if (source.isInList(value, true)) counter = source.getSpecificRange(value).getRandom();
+            String matched = source.matchSpecificKey(value);
+            if (matched != null) counter = source.getSpecificRange(matched).getRandom();
         }
         else if (source.isEnabled()) {
             if (source.isInList(value)) counter = source.getRange().getRandom();
@@ -493,6 +496,19 @@ public class EarnExp {
         });
     }
 
+    private static String normalizeEntryKey(String specificName, String raw) {
+        String key = raw.trim();
+        switch (specificName) {
+            case "blocks":
+                return BlockExpKeys.normalizeSpecificKey(key);
+            case "players":
+            case "permissions":
+                return key;
+            default:
+                return key.toUpperCase(Locale.ENGLISH);
+        }
+    }
+
     @Getter
     class SourceImpl implements ExpSource {
 
@@ -534,7 +550,7 @@ public class EarnExp {
                 for (String key : getList("specific-" + specificName + "." + specificName)) {
                     String[] array = key.split(":", 2);
 
-                    key = array[0].trim();
+                    key = normalizeEntryKey(specificName, array[0]);
                     String value = array[1].trim();
 
                     specifics.put(key, new RangeImpl(null, value));
@@ -589,11 +605,41 @@ public class EarnExp {
             return new ArrayList<>(specifics.keySet());
         }
 
+        private boolean includeListMatches(String value) {
+            String u = value.toUpperCase(Locale.ENGLISH);
+            String base = BlockExpKeys.baseMaterialKey(value).toUpperCase(Locale.ENGLISH);
+            for (String s : list) {
+                if (s == null) continue;
+                String sl = s.toUpperCase(Locale.ENGLISH);
+                if (sl.equals(u) || sl.equals(base)) return true;
+            }
+            return false;
+        }
+
+        @Override
+        @Nullable
+        public String matchSpecificKey(String value) {
+            if (!specific || specifics.isEmpty() || value == null) return null;
+            if ("blocks".equals(name)) {
+                String normalized = BlockExpKeys.normalizeSpecificKey(value);
+                if (specifics.containsKey(normalized)) return normalized;
+                String base = BlockExpKeys.baseMaterialKey(normalized);
+                if (!base.equals(normalized) && specifics.containsKey(base)) return base;
+                return null;
+            }
+            if (specifics.containsKey(value)) return value;
+            if (!"players".equals(name) && !"permissions".equals(name)) {
+                String u = value.toUpperCase(Locale.ENGLISH);
+                if (specifics.containsKey(u)) return u;
+            }
+            return null;
+        }
+
         @Override
         public boolean isInList(String value, boolean specific) {
             return !specific ?
-                    (!includes || whitelist == list.contains(value.toUpperCase())) :
-                    (this.specific && specifics.containsKey(value));
+                    (!includes || whitelist == includeListMatches(value)) :
+                    (this.specific && matchSpecificKey(value) != null);
         }
 
         @Override

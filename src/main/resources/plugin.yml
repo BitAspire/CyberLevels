@@ -4,6 +4,7 @@ main: com.bitaspire.cyberlevels.CyberLevels
 api-version: 1.13
 prefix: CLV
 authors: [ Kihsomray, CroaBeast ]
+contributors: [ Klema_LP ]
 description: A leveling system plugin
 folia-supported: true
 website: https://wiki.bitaspire.com/en/docs/cyberlevels

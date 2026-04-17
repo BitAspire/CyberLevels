@@ -47,6 +47,10 @@ public class Config {
             autoUpdateLang = true,
             autoUpdateEarnExp = true;
 
+    private boolean spigotUpdateCheckEnabled = true;
+    @Accessors(fluent = true)
+    private boolean spigotUpdateCheckNotifyOpsChat = true;
+
     private boolean messagesOnAutoSave = true;
     private boolean messagesOnConsole = true;
 
@@ -82,6 +86,9 @@ public class Config {
             autoUpdateConfig = file.get("config.auto-update.config", true);
             autoUpdateLang = file.get("config.auto-update.lang", true);
             autoUpdateEarnExp = file.get("config.auto-update.earn-exp", true);
+
+            spigotUpdateCheckEnabled = file.get("config.spigot-update-check.enabled", true);
+            spigotUpdateCheckNotifyOpsChat = file.get("config.spigot-update-check.notify-ops-chat", true);
 
             messagesOnAutoSave = file.get("config.messages.auto-save", true);
             messagesOnConsole = file.get("config.messages.message-console", true);

@@ -77,6 +77,14 @@ config:
     lang: true
     earn-exp: true
 
+  # Contacts SpigotMC once on startup (async) to compare your JAR
+  # version with the resource listing (resource ID 98826).
+  spigot-update-check:
+    enabled: true
+
+    # When an update or early-access notice is shown in console, also message online operators in chat.
+    notify-ops-chat: true
+
   messages:
     # Should auto-save messages send to console?
     auto-save: true

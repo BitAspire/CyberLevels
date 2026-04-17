@@ -83,6 +83,15 @@ public class Lang {
     private List<String> topContent = Collections.singletonList("&f[{position}] &d{player}&7: &7level: &f{level}&7, exp: &f{exp}");
     private List<String> topFooter = Collections.singletonList("[C] &8&m――――――――――――――――――――――――――――――――");
 
+    private List<String> spigotUpdateNewerChat = Arrays.asList(
+            "[C] &7A newer version is listed on Spigot: &d{remoteVersion}&7 (you are on &f{localVersion}&7).",
+            "[C] &7Download: &f{resourceUrl}"
+    );
+    private List<String> spigotUpdateEarlyAccessChat = Arrays.asList(
+            "[C] &7Early access build (&f{localVersion}&7).",
+            "[C] &7If you encounter issues, report on Discord: &d{discordUrl}"
+    );
+
     @Getter(AccessLevel.NONE)
     private final CyberLevels main;
 
@@ -129,6 +138,9 @@ public class Lang {
             topHeader = Configurable.toStringList(file.getConfiguration(), "messages.top-header", topHeader);
             topContent = Configurable.toStringList(file.getConfiguration(), "messages.top-content", topContent);
             topFooter = Configurable.toStringList(file.getConfiguration(), "messages.top-footer", topFooter);
+
+            spigotUpdateNewerChat = Configurable.toStringList(file.getConfiguration(), "messages.spigot-update-newer-chat", spigotUpdateNewerChat);
+            spigotUpdateEarlyAccessChat = Configurable.toStringList(file.getConfiguration(), "messages.spigot-update-early-access-chat", spigotUpdateEarlyAccessChat);
 
             leaderboardKeys = new LeaderboardKeys(file.getSection("messages.leaderboard-placeholders"));
         }

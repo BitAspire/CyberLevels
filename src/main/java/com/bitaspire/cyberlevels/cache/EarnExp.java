@@ -37,6 +37,14 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+/**
+ * Runtime registry of configurable EXP sources defined in {@code earn-exp.yml}.
+ *
+ * <p>This cache parses the earn-exp configuration into source descriptors and then wires the
+ * matching Bukkit listeners or scheduled tasks required to award or remove EXP during gameplay.
+ * Each source can operate as a general range, a specific-value map, or a permission-based source
+ * depending on how it is defined in the configuration.
+ */
 public class EarnExp {
 
     private static final Random random = new Random();
@@ -74,6 +82,10 @@ public class EarnExp {
         setDefaultEvents();
     }
 
+    /**
+     * Persists automatic updates for the backing earn-exp file when supported by the configuration
+     * wrapper.
+     */
     public void update() {
         if (file != null) file.update();
     }
@@ -476,17 +488,34 @@ public class EarnExp {
         user.removeExp(Math.abs(counter));
     }
 
+    /**
+     * Returns a defensive copy of the currently loaded EXP sources.
+     *
+     * @return EXP sources keyed by their configuration category
+     */
     @NotNull
     public Map<String, ExpSource> getExpSources() {
         return new HashMap<>(events);
     }
 
+    /**
+     * Registers every active EXP source with Bukkit or with the scheduler.
+     *
+     * <p>Sources that are disabled in configuration are skipped so they do not consume runtime
+     * listeners or tasks.
+     */
     public void register() {
         events.values().forEach(source -> {
             if (source.isActive()) source.getRegistrable().register();
         });
     }
 
+    /**
+     * Unregisters every active EXP source from Bukkit and cancels any scheduler-backed source.
+     *
+     * <p>This is part of the safe reload/shutdown path and ensures listeners do not remain attached
+     * after the runtime is rebuilt.
+     */
     public void unregister() {
         events.values().forEach(source -> {
             if (source.isActive()) source.getRegistrable().unregister();

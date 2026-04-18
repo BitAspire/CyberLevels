@@ -7,93 +7,107 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * Represents a source of experience points in a leveling system.
+ * Describes one configurable source of EXP gains or losses.
  *
- * <p> This interface provides methods to manage experience sources, including
- * categories, names, intervals, ranges, inclusion/exclusion lists, permissions,
- * and experience calculations.
+ * <p>An EXP source corresponds to an entry from {@code earn-exp.yml}. Depending on configuration,
+ * a source can represent a flat reward range, a permission-based source, or a map of specific
+ * values such as block states, item names, players, or entity types.
  */
 public interface ExpSource {
 
     /**
-     * Gets the category of the experience source.
-     * @return the category as a non-null string
+     * Returns the unique configuration category of this source.
+     *
+     * @return source category id
      */
     @NotNull
     String getCategory();
 
     /**
-     * Gets the name of the experience source.
-     * @return the name as a non-null string
+     * Returns the specific subsection name used by this source, when applicable.
+     *
+     * @return specific subsection identifier, or an empty string when unused
      */
     @NotNull
     String getName();
 
     /**
-     * Checks if the experience source is enabled.
-     * @return true if enabled, false otherwise
+     * Indicates whether the source's general reward mode is enabled.
+     *
+     * @return {@code true} when the base range is active
      */
     boolean isEnabled();
 
     /**
-     * Gets the interval for the experience source.
-     * @return the interval as an integer
+     * Returns the configured interval for timer-based sources.
+     *
+     * @return source interval in seconds or ticks depending on the implementation context
      */
     int getInterval();
 
     /**
-     * Gets the range of experience points for the source.
-     * @return a non-null Range object representing the experience range
+     * Returns the general reward range for this source.
+     *
+     * @return numeric range used when the source is not in specific mode
      */
     @NotNull
     Range getRange();
 
     /**
-     * Checks if the experience source includes specific items or actions.
-     * @return true if it includes, false otherwise
+     * Indicates whether the source uses an include/exclude list.
+     *
+     * @return {@code true} when include-list filtering is enabled
      */
     boolean includes();
 
     /**
-     * Checks if the experience source operates as a whitelist.
-     * @return true if it is a whitelist, false if it is a blacklist
+     * Indicates how the include list should be interpreted.
+     *
+     * @return {@code true} when the include list acts as a whitelist, otherwise a blacklist
      */
     boolean isWhitelist();
 
     /**
-     * Gets the list of items or actions included in the experience source.
-     * @return a non-null list of strings representing the included items/actions
+     * Returns the configured include-list entries for this source.
+     *
+     * @return include-list values in their configured order
      */
     @NotNull
     List<String> getIncludeList();
 
     /**
-     * Checks if the experience source uses specific values.
-     * @return true if it uses specific values, false otherwise
+     * Indicates whether the source uses a specific-value map instead of a single general range.
+     *
+     * @return {@code true} when specific values are enabled
      */
     boolean useSpecifics();
 
     /**
-     * Gets the list of specific values used by the experience source.
-     * @return a non-null list of strings representing the specific values
+     * Returns the configured specific keys for this source.
+     *
+     * @return specific map keys available for matching
      */
     @NotNull
     List<String> getSpecificList();
 
     /**
-     * Checks if a given value is in the include/exclude list of the experience source.
+     * Checks whether a runtime value is accepted by this source.
      *
-     * @param value the value to check
-     * @param specific whether to check in the specific list
-     * @return true if the value is in the list, false otherwise
+     * @param value runtime value to evaluate
+     * @param specific whether the lookup should use the specific-value map instead of the general
+     *        include/exclude list
+     * @return {@code true} when the value matches the requested lookup mode
      */
     boolean isInList(String value, boolean specific);
 
     /**
-     * Resolves which specific-list key matches the runtime value (e.g. exact {@code WHEAT[AGE=7]} or fallback {@code WHEAT}).
+     * Resolves which configured specific key should be used for a runtime value.
      *
-     * @param value runtime token (material name, block state key, player name, etc.)
-     * @return the key present in the specific map, or null if none
+     * <p>Implementations may return exact matches, compatibility fallbacks, or {@code null} when no
+     * specific key is suitable.
+     *
+     * @param value runtime token such as a material, block-state key, player name, or entity type
+     * @return matching configured key, or {@code null} when none applies
      */
     @Nullable
     default String matchSpecificKey(String value) {
@@ -101,96 +115,107 @@ public interface ExpSource {
     }
 
     /**
-     * Checks if a given value is in the include/exclude list of the experience source.
+     * Convenience overload for checking the general include/exclude rules of this source.
      *
-     * @param value the value to check
-     * @return true if the value is in the list, false otherwise
+     * @param value runtime value to evaluate
+     * @return {@code true} when the value matches the general include rules
      */
     default boolean isInList(String value) {
         return isInList(value, false);
     }
 
     /**
-     * Checks if a player has permission for the experience source.
+     * Checks whether a player satisfies the source's permission rules.
      *
-     * @param player the player to check
-     * @param specific whether to check for specific permissions
-     *
-     * @return true if the player has permission, false otherwise
+     * @param player player to evaluate
+     * @param specific whether to test the specific-value permission map instead of the general
+     *        include list
+     * @return {@code true} when the player matches the configured permission logic
      */
     boolean hasPermission(Player player, boolean specific);
 
     /**
-     * Checks if a player has permission for the experience source.
+     * Convenience overload for checking the source's general permission rules.
      *
-     * @param player the player to check
-     * @return true if the player has permission, false otherwise
+     * @param player player to evaluate
+     * @return {@code true} when the player matches the general permission logic
      */
     default boolean hasPermission(Player player) {
         return hasPermission(player, false);
     }
 
     /**
-     * Gets a specific range of experience points based on a given value.
+     * Returns the reward range associated with a specific configured key.
      *
-     * @param value the value to determine the specific range
-     * @return a Range object representing the specific experience range
+     * @param value specific key to resolve
+     * @return reward range for that key
      */
     Range getSpecificRange(String value);
 
     /**
-     * Calculates the experience points for a given string input.
+     * Calculates EXP based on a partial string match operation.
      *
-     * @param string the input string to calculate experience from
-     * @return the calculated experience points as a double
+     * <p>This is primarily used by free-form sources such as chat, enchanting, and brewing where
+     * one runtime string may match multiple configured fragments.
+     *
+     * @param string runtime text to inspect
+     * @return resulting EXP amount after partial-match evaluation
      */
     double getPartialMatchesExp(String string);
 
     /**
-     * Gets the registrable object associated with the experience source.
-     * @return a non-null Registrable object
+     * Returns the lifecycle adapter used to register and unregister this source at runtime.
+     *
+     * @return registrable responsible for activating the source
      */
     @NotNull
     Registrable getRegistrable();
 
     /**
-     * Represents a numerical range with minimum and maximum values,
-     * and provides a method to get a random value within that range.
+     * Represents a numeric reward range.
+     *
+     * <p>Implementations may represent a fixed value, a min/max interval, or any custom random
+     * generation strategy compatible with CyberLevels.
      */
     interface Range {
 
         /**
-         * Gets the minimum value of the range.
-         * @return the minimum value as a double
+         * Returns the minimum possible value of the range.
+         *
+         * @return lower bound
          */
         double getMin();
 
         /**
-         * Gets the maximum value of the range.
-         * @return the maximum value as a double
+         * Returns the maximum possible value of the range.
+         *
+         * @return upper bound
          */
         double getMax();
 
         /**
-         * Gets a random value within the range.
-         * @return a random double value between min and max
+         * Produces a value from the range according to the implementation's selection rules.
+         *
+         * @return generated reward value
          */
         double getRandom();
     }
 
     /**
-     * Represents an object that can be registered and unregistered,
-     * typically for event handling or similar purposes.
+     * Lifecycle adapter used to activate and deactivate an EXP source.
+     *
+     * <p>This abstraction lets sources register Bukkit listeners, scheduler tasks, or any other
+     * runtime resource without exposing those details to the outer cache.
      */
     interface Registrable {
 
         /**
-         * Registers the object, enabling its functionality.
+         * Activates the source and allocates any required runtime resources.
          */
         void register();
 
         /**
-         * Unregisters the object, disabling its functionality.
+         * Deactivates the source and releases any runtime resources it owns.
          */
         void unregister();
     }

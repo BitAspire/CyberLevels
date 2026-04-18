@@ -7,54 +7,60 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 
 /**
- * Represents a leaderboard that tracks and manages player rankings based on their levels and experience points.
+ * Read-only view of the ranking system maintained by CyberLevels.
  *
- * <p> This interface provides methods to check if the leaderboard is updating, to update the leaderboard,
- * to retrieve the top players, and to check a player's position on the leaderboard.
+ * <p>The leaderboard is built from the currently known user data and is typically refreshed
+ * asynchronously. Consumers can inspect the cached ranking, query individual positions, or trigger
+ * a new refresh when they need the latest standings.
  *
- * @param <N> the numeric type used for experience points and calculations
+ * @param <N> numeric type used by the active level engine
  */
 public interface Leaderboard<N extends Number> {
 
     /**
-     * Checks if the leaderboard is currently updating.
-     * @return true if the leaderboard is updating, false otherwise
+     * Indicates whether a refresh operation is currently in progress.
+     *
+     * @return {@code true} while the leaderboard is being recomputed
      */
     boolean isUpdating();
 
     /**
-     * Updates the leaderboard asynchronously.
+     * Requests a refresh of the cached leaderboard ordering.
+     *
+     * <p>Implementations are free to perform the actual work asynchronously when ranking data
+     * needs to be loaded or sorted outside of the main server thread.
      */
     void update();
 
     /**
-     * Retrieves the top players on the leaderboard, up to {@code config.leaderboard.max-positions}.
+     * Returns the cached top players up to the configured leaderboard size limit.
      *
-     * @return ordered list from rank 1 upward (length at most the configured maximum)
+     * @return ordered list starting at rank {@code 1}
      */
     @NotNull
     List<LevelUser<N>> getTopTenPlayers();
 
     /**
-     * Retrieves the player at the specified position on the leaderboard.
+     * Returns the cached player entry at a specific leaderboard position.
      *
-     * @param position the position of the player to retrieve (1-based index, up to configured max-positions)
-     * @return the LevelUser object at the specified position, or null if not found
+     * @param position one-based leaderboard position
+     * @return ranked user at that position, or {@code null} when unavailable
      */
     LevelUser<N> getTopPlayer(int position);
 
     /**
-     * Checks the position of a specific user on the leaderboard.
+     * Resolves the cached position of a user currently known to the leaderboard.
      *
-     * @param user the user whose position to check
-     * @return the position of the user on the leaderboard (1-based index), or -1 if not found
+     * @param user user whose position should be checked
+     * @return one-based position, or {@code -1} when the user is not ranked
      */
     int checkPosition(LevelUser<N> user);
 
     /**
-     * Checks the position of a specific player on the leaderboard.
-     * @param player the player whose position to check
-     * @return the position of the player on the leaderboard (1-based index), or -1 if not found
+     * Convenience overload that resolves a position from a live Bukkit player.
+     *
+     * @param player player whose position should be checked
+     * @return one-based position, or {@code -1} when the player is not ranked
      */
     int checkPosition(Player player);
 }

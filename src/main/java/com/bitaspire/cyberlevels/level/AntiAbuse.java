@@ -10,112 +10,123 @@ import java.time.*;
 import java.util.*;
 
 /**
- * Represents an anti-abuse mechanism for managing cooldowns and limiters in a leveling system.
+ * Public view of one anti-abuse module configured in CyberLevels.
  *
- * <p> This interface provides methods to check and manage cooldowns, limiters, and world restrictions
- * for players based on experience sources.
+ * <p>An anti-abuse module can limit how frequently a player is rewarded, cap how many rewards they
+ * can receive within a time window, and restrict operation to specific worlds. Implementations are
+ * expected to be stateful because they track per-player counters and cooldowns across gameplay.
  */
 public interface AntiAbuse {
 
     /**
-     * Checks if the cooldown feature is enabled.
-     * @return true if cooldown is enabled, false otherwise
+     * Indicates whether cooldown enforcement is enabled for this module.
+     *
+     * @return {@code true} when cooldown checks should run
      */
     boolean isCooldownEnabled();
 
     /**
-     * Gets the cooldown time in milliseconds.
-     * @return the cooldown time
+     * Returns the configured cooldown duration in seconds.
+     *
+     * @return cooldown length as configured by the module
      */
     int getCooldownTime();
 
     /**
-     * Gets the remaining cooldown time for a player in milliseconds.
+     * Returns the remaining cooldown for a player.
      *
-     * @param player the player to check
-     * @return the remaining cooldown time, or 0 if no cooldown is active
+     * @param player player whose cooldown should be checked
+     * @return remaining cooldown in seconds, or {@code 0} when none is active
      */
     int getCooldownLeft(Player player);
 
     /**
-     * Resets all cooldowns for all players.
+     * Clears every tracked cooldown entry in this module.
      */
     void resetCooldowns();
 
     /**
-     * Resets the cooldown for a specific player.
-     * @param player the player whose cooldown is to be reset
+     * Clears the tracked cooldown for a specific player.
+     *
+     * @param player player whose cooldown should be removed
      */
     void resetCooldown(Player player);
 
     /**
-     * Checks if the limiter feature is enabled.
-     * @return true if limiter is enabled, false otherwise
+     * Indicates whether limiter enforcement is enabled for this module.
+     *
+     * @return {@code true} when limiter checks should run
      */
     boolean isLimiterEnabled();
 
     /**
-     * Gets the maximum amount allowed by the limiter.
-     * @return the limiter amount
+     * Returns the configured limiter budget.
+     *
+     * @return maximum number of allowed reward operations before the limiter blocks them
      */
     long getLimiterAmount();
 
     /**
-     * Gets the current amount used by the limiter for a specific player.
+     * Returns the remaining limiter budget for a player.
      *
-     * @param player the player to check
-     * @return the current amount used by the limiter
+     * @param player player whose limiter state should be checked
+     * @return remaining allowed operations before the limiter triggers
      */
     int getLimiter(Player player);
 
     /**
-     * Resets all limiters for all players.
+     * Clears the limiter state for every tracked player.
      */
     void resetLimiters();
 
     /**
-     * Resets the limiter for a specific player.
-     * @param player the player whose limiter is to be reset
+     * Clears the limiter state for a specific player.
+     *
+     * @param player player whose limiter should be removed
      */
     void resetLimiter(Player player);
 
     /**
-     * Gets the timer associated with this anti-abuse mechanism.
-     * @return the Timer instance
+     * Returns the scheduled reset timer associated with this module.
+     *
+     * @return timer controlling automatic limiter resets, or {@code null} when none is configured
      */
     Timer getTimer();
 
     /**
-     * Cancels the timer and purges any scheduled tasks.
+     * Stops and purges the configured reset timer, if any.
      */
     void cancelTimer();
 
     /**
-     * Checks if world restrictions are enabled.
-     * @return true if world restrictions are enabled, false otherwise
+     * Indicates whether this module restricts itself to a configured world list.
+     *
+     * @return {@code true} when world filtering is enabled
      */
     boolean isWorldsEnabled();
 
     /**
-     * Checks if the world list is a whitelist.
-     * @return true if the world list is a whitelist, false if it's a blacklist
+     * Indicates how the configured world list should be interpreted.
+     *
+     * @return {@code true} when the world list acts as a whitelist, otherwise a blacklist
      */
     boolean isWorldsWhitelist();
 
     /**
-     * Checks if a player is limited in a specific experience source.
+     * Evaluates whether this module should block a reward attempt.
      *
-     * @param player the player to check
-     * @param source the experience source
-     *
-     * @return true if the player is limited, false otherwise
+     * @param player player attempting to receive EXP
+     * @param source EXP source being processed
+     * @return {@code true} when the action should be denied by this module
      */
     boolean isLimited(Player player, ExpSource source);
 
     /**
-     * Timer class to handle scheduled resets for anti-abuse limiters.
+     * Scheduler helper used by anti-abuse modules that need periodic limiter resets.
      *
-     * <p> This class parses a formatted string to determine reset intervals and schedules tasks accordingly.
+     * <p>The timer accepts the date/time expression format used in the plugin configuration, parses
+     * the first execution time plus any repeat intervals, and then re-schedules itself after each
+     * completed reset.
      */
     class Timer {
 
@@ -129,17 +140,17 @@ public interface AntiAbuse {
         private String[] intervals;
 
         /**
-         * The next reset epoch time in milliseconds.
-         * */
+         * Absolute epoch time, in milliseconds, when the next limiter reset is expected to happen.
+         */
         @Getter
         private long resetEpochTime = Long.MAX_VALUE;
 
         /**
-         * Constructs a Timer instance with the specified parameters.
+         * Creates a timer from the raw anti-abuse schedule string.
          *
-         * @param main       the main CyberLevels instance
-         * @param antiAbuse  the AntiAbuse instance associated with this timer
-         * @param unformatted the unformatted string representing the reset schedule
+         * @param main owning plugin instance used for scheduling callbacks
+         * @param antiAbuse anti-abuse module whose limiters should be reset
+         * @param unformatted raw schedule expression from the configuration
          */
         public Timer(CyberLevels main, AntiAbuse antiAbuse, String unformatted) {
             this.main = main;
@@ -155,7 +166,10 @@ public interface AntiAbuse {
         }
 
         /**
-         * Starts the timer asynchronously.
+         * Starts the scheduler asynchronously.
+         *
+         * <p>The actual parsing and scheduling work is performed off the main thread, while the
+         * limiter reset callback itself is marshalled back to the scheduler supplied by the plugin.
          */
         public void start() {
             main.scheduler().runTaskAsynchronously(() -> startScheduler(false));
@@ -186,7 +200,7 @@ public interface AntiAbuse {
         }
 
         /**
-         * Cancels the timer and purges any scheduled tasks.
+         * Cancels the currently scheduled timer task and purges the underlying timer queue.
          */
         public void purge() {
             timer.cancel();

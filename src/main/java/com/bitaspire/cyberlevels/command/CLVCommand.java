@@ -20,11 +20,24 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Handles the main {@code /clv} command tree.
+ *
+ * <p>This executor is responsible for player-facing informational commands, administrative EXP and
+ * level mutations, reloads, leaderboard output, and console-compatible fallbacks. It also bridges
+ * configurable language messages to both players and the console so command feedback stays aligned
+ * with {@code lang.yml}.
+ */
 public class CLVCommand implements CommandExecutor {
 
     private final CyberLevels main;
     private final List<String> consoleCmds;
 
+    /**
+     * Creates the command executor bound to the current plugin runtime.
+     *
+     * @param main owning plugin instance
+     */
     public CLVCommand(CyberLevels main) {
         this.main = main;
         this.consoleCmds = Arrays.asList(
@@ -40,6 +53,19 @@ public class CLVCommand implements CommandExecutor {
         );
     }
 
+    /**
+     * Executes the {@code /clv} command and its subcommands.
+     *
+     * <p>The method supports both player and console senders, validates permissions, resolves the
+     * target player when needed, applies EXP or level changes, and renders feedback using the
+     * configured language cache.
+     *
+     * @param sender command sender invoking the command
+     * @param cmd Bukkit command metadata
+     * @param label alias used to invoke the command
+     * @param args raw subcommand arguments
+     * @return always {@code true} because the command handles its own usage feedback
+     */
     @Override
     public boolean onCommand(
         @NotNull CommandSender sender,
@@ -122,8 +148,7 @@ public class CLVCommand implements CommandExecutor {
                     sender,
                     player,
                     Lang::getPurgePlayer,
-                    "player",
-                    args[1]
+                        args[1]
                 );
             }
 
@@ -139,8 +164,7 @@ public class CLVCommand implements CommandExecutor {
                     sender,
                     player,
                     Lang::getPlayerNotFound,
-                    "player",
-                    args[1]
+                        args[1]
                 );
             }
 
@@ -158,8 +182,7 @@ public class CLVCommand implements CommandExecutor {
                         sender,
                         player,
                         Lang::getPlayerNotFound,
-                        "player",
-                        targetName
+                            targetName
                     );
                 }
             } else {
@@ -175,8 +198,7 @@ public class CLVCommand implements CommandExecutor {
                         sender,
                         player,
                         Lang::getPlayerNotFound,
-                        "player",
-                        player.getName()
+                            player.getName()
                     );
                 }
             }
@@ -286,14 +308,13 @@ public class CLVCommand implements CommandExecutor {
         CommandSender cmdSender,
         Player player,
         Function<Lang, List<String>> langFn,
-        String key,
         Object value
     ) {
         return sendLangMessage(
             cmdSender,
             player,
             langFn,
-            new String[] { key },
+            new String[] {"player"},
             value
         );
     }
@@ -336,7 +357,7 @@ public class CLVCommand implements CommandExecutor {
 
     private static String stripConsoleChannels(String line) {
         if (line == null) return "";
-        String stripped = line.replaceFirst("^\\[C\\]\\s*", "");
+        String stripped = line.replaceFirst("^\\[C]\\s*", "");
         return stripped.replace("[actionbar]", "").replace("[action-bar]", "").trim();
     }
 

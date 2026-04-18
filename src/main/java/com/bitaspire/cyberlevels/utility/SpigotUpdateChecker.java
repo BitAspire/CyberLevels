@@ -12,8 +12,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Compares the running plugin version with the SpigotMC resource listing (legacy API).
- * Runs network I/O asynchronously and posts results on the main thread.
+ * Utility responsible for checking the public Spigot listing against the running plugin version.
+ *
+ * <p>The checker performs network I/O asynchronously, compares the remote and local version
+ * numbers, logs the outcome to console, and stores a compact notice snapshot that can later be
+ * delivered to operators through configurable language messages.
  */
 public final class SpigotUpdateChecker {
 
@@ -29,10 +32,14 @@ public final class SpigotUpdateChecker {
     private SpigotUpdateChecker() {}
 
     /**
-     * Schedules an async fetch of the Spigot-listed version; logs a warning if the listing is newer,
-     * or an info line if the local JAR is ahead (early access). No-op when versions match or on failure.
+     * Starts an asynchronous update check against the legacy Spigot resource API.
      *
-     * @param main plugin instance used for scheduling, version metadata, and config
+     * <p>When a difference is detected, the result is posted back to the main thread so the plugin
+     * can safely update its cached notice state, log the result, and optionally notify online
+     * operators through chat. Matching versions and transient lookup failures are treated as
+     * non-fatal no-ops.
+     *
+     * @param main plugin instance used for scheduling, config access, and version metadata
      */
     public static void checkAsync(CyberLevels main) {
         main.scheduler().runTaskAsynchronously(() -> {
@@ -42,6 +49,7 @@ public final class SpigotUpdateChecker {
             } catch (Exception ignored) {
                 return;
             }
+
             if (remote == null || remote.isEmpty()) return;
 
             final String local = main.getDescription().getVersion();
@@ -97,10 +105,13 @@ public final class SpigotUpdateChecker {
     }
 
     /**
-     * Sends the cached Spigot update notice to one operator after join (if enabled in config).
+     * Delivers the cached update notice to a joining operator when chat notifications are enabled.
      *
-     * @param main plugin
-     * @param player joining player
+     * <p>This method is designed for use from join listeners so operators who connect after the
+     * asynchronous check still receive the latest notice without requiring another network request.
+     *
+     * @param main plugin instance holding the cached notice and language config
+     * @param player player who just joined the server
      */
     public static void deliverPendingOpChatOnJoin(
         CyberLevels main,
@@ -177,12 +188,16 @@ public final class SpigotUpdateChecker {
     }
 
     /**
-     * Semver-style comparison on the numeric core (strip {@code -prerelease} suffix from the full string).
-     * Each dot segment uses its leading digits; missing segments count as 0.
+     * Compares two version strings using the numeric core of each dot-separated segment.
      *
-     * @param a first version (e.g. from Spigot API)
-     * @param b second version (e.g. plugin.yml)
-     * @return positive if {@code a} > {@code b}, negative if {@code a} < {@code b}, else 0
+     * <p>Prerelease suffixes are ignored by stripping everything after the first dash. Each segment
+     * then contributes only its leading digits, which keeps the comparison tolerant of mixed labels
+     * such as {@code 2.0.0-beta1}.
+     *
+     * @param a first version, typically the value returned by the Spigot API
+     * @param b second version, typically the running plugin version
+     * @return a positive value when {@code a} is newer, a negative value when {@code b} is newer,
+     *         or {@code 0} when both numeric cores are equivalent
      */
     private static int compareVersions(String a, String b) {
         final String[] pa = normalizeVersionCore(a).split("\\.");

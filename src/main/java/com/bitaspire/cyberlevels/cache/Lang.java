@@ -14,6 +14,14 @@ import lombok.experimental.Accessors;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
+/**
+ * In-memory representation of {@code lang.yml}.
+ *
+ * <p>This cache exposes every configurable message used by CyberLevels, including command output,
+ * level progress views, reward broadcasts, and update-check notifications. The methods in this
+ * class intentionally work with message lists because Takion can deliver multi-line chat, action
+ * bar, and console output from the same source structure.
+ */
 @Getter
 public class Lang {
 
@@ -297,10 +305,27 @@ public class Lang {
         } catch (IOException ignored) {}
     }
 
+    /**
+     * Persists automatic updates for the underlying language file when supported by the backing
+     * {@link CLVFile}.
+     *
+     * <p>This keeps the physical file aligned with the current template but does not reconstruct the
+     * current cache instance.
+     */
     public void update() {
         if (file != null) file.update();
     }
 
+    /**
+     * Sends a configurable multi-line message to a player using a language accessor and an ordered
+     * placeholder set.
+     *
+     * @param player player that should receive the message
+     * @param function language accessor used to resolve the message lines
+     * @param keys placeholder keys that should be populated
+     * @param values placeholder values in the same order as {@code keys}
+     * @return {@code true} when the message was dispatched successfully
+     */
     public boolean sendMessage(
         Player player,
         Function<Lang, List<String>> function,
@@ -315,6 +340,15 @@ public class Lang {
             .send();
     }
 
+    /**
+     * Sends a configurable message to a player using a single placeholder pair.
+     *
+     * @param player player that should receive the message
+     * @param function language accessor used to resolve the message lines
+     * @param key placeholder key that should be populated
+     * @param value placeholder value to insert
+     * @return {@code true} when the message was dispatched successfully
+     */
     public boolean sendMessage(
         Player player,
         Function<Lang, List<String>> function,
@@ -324,6 +358,13 @@ public class Lang {
         return sendMessage(player, function, new String[] { key }, value.toString());
     }
 
+    /**
+     * Sends a configurable message to a player without placeholders.
+     *
+     * @param player player that should receive the message
+     * @param function language accessor used to resolve the message lines
+     * @return {@code true} when the message was dispatched successfully
+     */
     public boolean sendMessage(
         Player player,
         Function<Lang, List<String>> function
@@ -331,6 +372,12 @@ public class Lang {
         return sendMessage(player, function, null);
     }
 
+    /**
+     * Placeholder defaults used when the leaderboard is empty or still loading.
+     *
+     * <p>These values back placeholder expansions such as the top player name, level, and EXP for a
+     * position that has not been resolved yet.
+     */
     @Getter
     public static class LeaderboardKeys {
 

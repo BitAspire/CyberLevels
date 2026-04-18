@@ -5,17 +5,25 @@ import org.bukkit.block.Block;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Builds normalized keys for earn-exp block matching (Material + optional {@code age} state).
+ * Utility methods for building normalized earn-exp lookup keys for blocks.
+ *
+ * <p>CyberLevels can reward different amounts of EXP for the same material depending on extra
+ * state, most notably crop age. This helper centralizes the conversion from Bukkit block data to
+ * the normalized string keys stored in the earn-exp configuration, so matching remains consistent
+ * across runtime checks, cache loading, and version-specific compatibility branches.
  */
 public final class BlockExpKeys {
 
     private BlockExpKeys() {}
 
     /**
-     * Returns the material name segment before the first {@code '['}, or the full string if absent.
+     * Extracts the material portion of a normalized specific key.
      *
-     * @param key key such as {@code WHEAT} or {@code WHEAT[AGE=7]}
-     * @return base material token
+     * <p>This is useful when code needs to compare a fully qualified key such as
+     * {@code WHEAT[AGE=7]} against a more general fallback key such as {@code WHEAT}.
+     *
+     * @param key normalized key such as {@code WHEAT} or {@code WHEAT[AGE=7]}
+     * @return base material token without any state suffix
      */
     @NotNull
     public static String baseMaterialKey(@NotNull String key) {
@@ -24,10 +32,10 @@ public final class BlockExpKeys {
     }
 
     /**
-     * Normalizes a key from config or runtime (trim + uppercase).
+     * Normalizes a config or runtime key into the canonical format used by the earn-exp cache.
      *
-     * @param key raw key
-     * @return normalized key
+     * @param key raw key taken from config or from a runtime block lookup
+     * @return trimmed, uppercased key suitable for map lookups
      */
     @NotNull
     public static String normalizeSpecificKey(@NotNull String key) {
@@ -35,11 +43,16 @@ public final class BlockExpKeys {
     }
 
     /**
-     * Builds the lookup key for a block: {@code MATERIAL} or {@code MATERIAL[AGE=n]} for ageable crops.
+     * Builds the earn-exp lookup key for a live Bukkit block.
      *
-     * @param block Bukkit block
-     * @param serverVersion {@link com.bitaspire.cyberlevels.CyberLevels#serverVersion()}
-     * @return normalized key
+     * <p>Ageable crops produce a more specific key in the form {@code MATERIAL[AGE=n]} so
+     * configurations can distinguish mature crops from immature ones. Non-ageable blocks fall back
+     * to the plain material name.
+     *
+     * @param block Bukkit block to inspect
+     * @param serverVersion server version reported by
+     *        {@link com.bitaspire.cyberlevels.CyberLevels#serverVersion()}
+     * @return normalized key suitable for EXP source matching
      */
     @NotNull
     public static String blockKey(@NotNull Block block, double serverVersion) {
@@ -60,10 +73,12 @@ public final class BlockExpKeys {
     }
 
     /**
-     * Reads crop age on pre-1.13 servers via {@code org.bukkit.material.Ageable} without a compile-time
-     * dependency (some API versions omit that class from the classpath).
+     * Attempts to read crop age from legacy pre-1.13 material data without introducing a hard
+     * compile-time dependency on classes that may be absent from newer APIs.
+     *
+     * @param block block whose legacy state should be inspected
+     * @return detected age value, or {@code null} when the block is not ageable in the legacy API
      */
-    @SuppressWarnings("deprecation")
     private static Integer legacyMaterialAge(@NotNull Block block) {
         try {
             Class<?> ageableClass = Class.forName("org.bukkit.material.Ageable");

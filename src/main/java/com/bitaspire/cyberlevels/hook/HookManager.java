@@ -9,11 +9,23 @@ import org.bukkit.entity.Player;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Detects, initializes, and manages optional third-party integrations.
+ *
+ * <p>The hook manager is responsible for loading supported integrations only when their
+ * dependencies are present on the server. It also initializes plugin metrics and offers a shared
+ * helper path for integrations that need to forward EXP gains back into the active level system.
+ */
 public class HookManager {
 
     private final Set<Hook> hooks = new HashSet<>();
     private final CyberLevels main;
 
+    /**
+     * Creates and eagerly loads every supported integration that is available on the server.
+     *
+     * @param main owning plugin instance
+     */
     public HookManager(CyberLevels main) {
         (this.main = main).logger("&dLoading plugin hooks...");
 
@@ -72,10 +84,19 @@ public class HookManager {
         user.removeExp(Math.abs(counter));
     }
 
+    /**
+     * Registers all loaded hooks with their respective target plugins or services.
+     */
     public void register() {
         hooks.forEach(Hook::register);
     }
 
+    /**
+     * Unregisters all loaded hooks and clears the hook registry.
+     *
+     * <p>This is called during runtime shutdown so no old integration state remains attached after a
+     * reload.
+     */
     public void unregister() {
         hooks.forEach(Hook::unregister);
         hooks.clear();

@@ -4,7 +4,7 @@ import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.level.ExpSource;
 import lombok.Getter;
 import lombok.experimental.Accessors;
-import com.bitaspire.file.Configurable;
+import com.bitaspire.libs.file.Configurable;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -13,6 +13,13 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Cache and runtime controller for the anti-abuse configuration.
+ *
+ * <p>This component loads every anti-abuse module defined in {@code anti-abuse.yml}, exposes them
+ * as the public {@link com.bitaspire.cyberlevels.level.AntiAbuse} API, and manages the lifecycle
+ * of their scheduled limiter reset timers during plugin startup and shutdown.
+ */
 @Getter
 public class AntiAbuse {
 
@@ -49,17 +56,34 @@ public class AntiAbuse {
         catch (IOException ignored) {}
     }
 
+    /**
+     * Returns a defensive copy of the loaded anti-abuse modules keyed by their configuration id.
+     *
+     * @return snapshot of loaded anti-abuse modules
+     */
     @NotNull
     public Map<String, com.bitaspire.cyberlevels.level.AntiAbuse> getAntiAbuses() {
         return new HashMap<>(modules);
     }
 
+    /**
+     * Starts every configured limiter timer.
+     *
+     * <p>This is typically called once after the plugin runtime finishes loading so timed limiter
+     * resets can begin running in the background.
+     */
     public void register() {
         for (Module module : modules.values()) {
             module.getTimer().start();
         }
     }
 
+    /**
+     * Stops all anti-abuse timers and clears every tracked cooldown/limiter state.
+     *
+     * <p>This is used during plugin shutdown and reload so transient anti-abuse state does not leak
+     * from an old runtime into a freshly loaded one.
+     */
     public void unregister() {
         for (Module module : modules.values()) {
             module.cancelTimer();

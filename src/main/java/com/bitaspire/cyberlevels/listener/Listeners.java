@@ -18,11 +18,24 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Bundles the core Bukkit listeners used by CyberLevels.
+ *
+ * <p>This class groups the plugin's always-on listeners, such as player load/save hooks and the
+ * piston metadata fix used by the anti-abuse system. The actual listener instances are created in
+ * the constructor and then registered or unregistered as one unit during runtime startup and
+ * shutdown.
+ */
 public class Listeners {
 
     private final Set<ExpListener> listeners = new HashSet<>();
     private final CyberLevels main;
 
+    /**
+     * Creates the listener bundle for the current plugin runtime.
+     *
+     * @param main owning plugin instance
+     */
     public Listeners(CyberLevels main) {
         this.main = main;
 
@@ -53,10 +66,16 @@ public class Listeners {
 
     }
 
+    /**
+     * Registers every bundled listener with Bukkit.
+     */
     public void register() {
         listeners.forEach(ExpListener::register);
     }
 
+    /**
+     * Unregisters every bundled listener from Bukkit.
+     */
     public void unregister() {
         listeners.forEach(ExpListener::unregister);
     }

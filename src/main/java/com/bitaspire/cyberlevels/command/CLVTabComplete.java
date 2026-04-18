@@ -13,6 +13,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
+/**
+ * Tab completer for the {@code /clv} command tree.
+ *
+ * <p>The completer filters suggestions by permission, offers common numeric examples for mutation
+ * commands, and can resolve either online-only or online-plus-offline player names depending on
+ * the current configuration.
+ */
 @RequiredArgsConstructor
 public class CLVTabComplete implements TabCompleter {
 
@@ -42,6 +49,15 @@ public class CLVTabComplete implements TabCompleter {
 
     private final CyberLevels main;
 
+    /**
+     * Produces context-aware tab completions for the CyberLevels command set.
+     *
+     * @param sender command sender requesting completions
+     * @param command Bukkit command metadata
+     * @param alias alias used to invoke the command
+     * @param args current partial arguments
+     * @return ordered list of suggested completions for the current argument position
+     */
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
         if (!(sender instanceof Player)) return Collections.emptyList();

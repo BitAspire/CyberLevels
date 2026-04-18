@@ -7,7 +7,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import com.bitaspire.scheduler.GlobalTask;
+import com.bitaspire.libs.scheduler.GlobalTask;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -31,13 +31,20 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionType;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+/**
+ * Runtime registry of configurable EXP sources defined in {@code earn-exp.yml}.
+ *
+ * <p>This cache parses the earn-exp configuration into source descriptors and then wires the
+ * matching Bukkit listeners or scheduled tasks required to award or remove EXP during gameplay.
+ * Each source can operate as a general range, a specific-value map, or a permission-based source
+ * depending on how it is defined in the configuration.
+ */
 public class EarnExp {
 
     private static final Random random = new Random();
@@ -75,6 +82,10 @@ public class EarnExp {
         setDefaultEvents();
     }
 
+    /**
+     * Persists automatic updates for the backing earn-exp file when supported by the configuration
+     * wrapper.
+     */
     public void update() {
         if (file != null) file.update();
     }
@@ -146,8 +157,7 @@ public class EarnExp {
                 if (main.cache().antiAbuse().onlyNaturalBlocks())
                     event.getBlock().setMetadata("CLV_PLACED", new FixedMetadataValue(main, true));
 
-                sendExp(event.getPlayer(), s,
-                        BlockExpKeys.blockKey(event.getBlock(), main.serverVersion()));
+                sendExp(event.getPlayer(), s, event.getBlock().getType().toString());
             }
         });
 
@@ -186,7 +196,7 @@ public class EarnExp {
                     }
                 }
 
-                sendExp(event.getPlayer(), s, BlockExpKeys.blockKey(block, version));
+                sendExp(event.getPlayer(), s, block.getType().toString());
             }
         });
 
@@ -278,11 +288,11 @@ public class EarnExp {
                     LevelUser<?> user = main.userManager().getUser(player);
 
                     if (counter > 0) {
-                        user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+                        user.addExp(counter, main.cache().config().isMultiplierEvents());
                         return;
                     }
 
-                    if (counter < 0) user.removeExp(Math.abs(counter) + "");
+                    if (counter < 0) user.removeExp(Math.abs(counter));
                 }, 1L);
             }
         });
@@ -308,11 +318,11 @@ public class EarnExp {
                 LevelUser<?> user = main.userManager().getUser(event.getEnchanter());
 
                 if (counter > 0) {
-                    user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+                    user.addExp(counter, main.cache().config().isMultiplierEvents());
                     return;
                 }
 
-                if (counter < 0) user.removeExp(Math.abs(counter) + "");
+                if (counter < 0) user.removeExp(Math.abs(counter));
             }
         });
 
@@ -361,11 +371,11 @@ public class EarnExp {
                     LevelUser<?> user = main.userManager().getUser(player);
 
                     if (finalCounter > 0) {
-                        user.addExp(finalCounter + "", main.cache().config().isMultiplierEvents());
+                        user.addExp(finalCounter, main.cache().config().isMultiplierEvents());
                         return;
                     }
 
-                    if (finalCounter < 0) user.removeExp(Math.abs(finalCounter) + "");
+                    if (finalCounter < 0) user.removeExp(Math.abs(finalCounter));
                 });
             }
         });
@@ -433,8 +443,7 @@ public class EarnExp {
         double counter = 0;
 
         if (source.useSpecifics()) {
-            String matched = source.matchSpecificKey(value);
-            if (matched != null) counter = source.getSpecificRange(matched).getRandom();
+            if (source.isInList(value, true)) counter = source.getSpecificRange(value).getRandom();
         }
         else if (source.isEnabled()) {
             if (source.isInList(value)) counter = source.getRange().getRandom();
@@ -444,11 +453,11 @@ public class EarnExp {
 
         LevelUser<?> user = main.userManager().getUser(player);
         if (counter > 0) {
-            user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+            user.addExp(counter, main.cache().config().isMultiplierEvents());
             return;
         }
 
-        user.removeExp(Math.abs(counter) + "");
+        user.removeExp(Math.abs(counter));
     }
 
     void sendPermissionExp(Player player, ExpSource source) {
@@ -472,41 +481,45 @@ public class EarnExp {
 
         LevelUser<?> user = main.userManager().getUser(player);
         if (counter > 0) {
-            user.addExp(counter + "", main.cache().config().isMultiplierEvents());
+            user.addExp(counter, main.cache().config().isMultiplierEvents());
             return;
         }
 
-        user.removeExp(Math.abs(counter) + "");
+        user.removeExp(Math.abs(counter));
     }
 
+    /**
+     * Returns a defensive copy of the currently loaded EXP sources.
+     *
+     * @return EXP sources keyed by their configuration category
+     */
     @NotNull
     public Map<String, ExpSource> getExpSources() {
         return new HashMap<>(events);
     }
 
+    /**
+     * Registers every active EXP source with Bukkit or with the scheduler.
+     *
+     * <p>Sources that are disabled in configuration are skipped so they do not consume runtime
+     * listeners or tasks.
+     */
     public void register() {
         events.values().forEach(source -> {
             if (source.isActive()) source.getRegistrable().register();
         });
     }
 
+    /**
+     * Unregisters every active EXP source from Bukkit and cancels any scheduler-backed source.
+     *
+     * <p>This is part of the safe reload/shutdown path and ensures listeners do not remain attached
+     * after the runtime is rebuilt.
+     */
     public void unregister() {
         events.values().forEach(source -> {
             if (source.isActive()) source.getRegistrable().unregister();
         });
-    }
-
-    private static String normalizeEntryKey(String specificName, String raw) {
-        String key = raw.trim();
-        switch (specificName) {
-            case "blocks":
-                return BlockExpKeys.normalizeSpecificKey(key);
-            case "players":
-            case "permissions":
-                return key;
-            default:
-                return key.toUpperCase(Locale.ENGLISH);
-        }
     }
 
     @Getter
@@ -550,7 +563,7 @@ public class EarnExp {
                 for (String key : getList("specific-" + specificName + "." + specificName)) {
                     String[] array = key.split(":", 2);
 
-                    key = normalizeEntryKey(specificName, array[0]);
+                    key = array[0].trim();
                     String value = array[1].trim();
 
                     specifics.put(key, new RangeImpl(null, value));
@@ -605,41 +618,11 @@ public class EarnExp {
             return new ArrayList<>(specifics.keySet());
         }
 
-        private boolean includeListMatches(String value) {
-            String u = value.toUpperCase(Locale.ENGLISH);
-            String base = BlockExpKeys.baseMaterialKey(value).toUpperCase(Locale.ENGLISH);
-            for (String s : list) {
-                if (s == null) continue;
-                String sl = s.toUpperCase(Locale.ENGLISH);
-                if (sl.equals(u) || sl.equals(base)) return true;
-            }
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public String matchSpecificKey(String value) {
-            if (!specific || specifics.isEmpty() || value == null) return null;
-            if ("blocks".equals(name)) {
-                String normalized = BlockExpKeys.normalizeSpecificKey(value);
-                if (specifics.containsKey(normalized)) return normalized;
-                String base = BlockExpKeys.baseMaterialKey(normalized);
-                if (!base.equals(normalized) && specifics.containsKey(base)) return base;
-                return null;
-            }
-            if (specifics.containsKey(value)) return value;
-            if (!"players".equals(name) && !"permissions".equals(name)) {
-                String u = value.toUpperCase(Locale.ENGLISH);
-                if (specifics.containsKey(u)) return u;
-            }
-            return null;
-        }
-
         @Override
         public boolean isInList(String value, boolean specific) {
             return !specific ?
-                    (!includes || whitelist == includeListMatches(value)) :
-                    (this.specific && matchSpecificKey(value) != null);
+                    (!includes || whitelist == list.contains(value.toUpperCase())) :
+                    (this.specific && specifics.containsKey(value));
         }
 
         @Override

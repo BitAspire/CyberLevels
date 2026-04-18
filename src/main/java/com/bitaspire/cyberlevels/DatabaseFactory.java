@@ -5,19 +5,18 @@ import com.bitaspire.cyberlevels.user.Database;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import lombok.experimental.UtilityClass;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+
 @UtilityClass
 class DatabaseFactory {
 
-    abstract static class DatabaseImpl<
-        N extends Number
-    > implements Database<N> {
+    abstract static class DatabaseImpl<N extends Number> implements Database<N> {
 
         final CyberLevels main;
         final BaseSystem<N> system;
@@ -32,7 +31,6 @@ class DatabaseFactory {
         }
 
         abstract String getTable();
-
         abstract HikariConfig createConfig();
 
         String qCol(String name) {
@@ -43,37 +41,16 @@ class DatabaseFactory {
             return name;
         }
 
-        abstract PreparedStatement prepareUpsert(
-            Connection c,
-            UUID uuid,
-            long level,
-            String exp,
-            long updatedAt
-        ) throws SQLException;
+        abstract PreparedStatement prepareUpsert(Connection c, UUID uuid, long level, String exp, long updatedAt) throws SQLException;
+        abstract PreparedStatement prepareUpsertMeta(Connection c, UUID uuid, long highestRewarded, long updatedAt) throws SQLException;
 
-        abstract PreparedStatement prepareUpsertMeta(
-            Connection c,
-            UUID uuid,
-            long highestRewarded,
-            long updatedAt
-        ) throws SQLException;
-
-        abstract Set<String> getExistingColumns(Connection conn)
-            throws SQLException;
-
-        abstract boolean isExpColumnTextual(Connection conn)
-            throws SQLException;
-
-        abstract boolean hasPrimaryKeyOnUuid(Connection conn)
-            throws SQLException;
+        abstract Set<String> getExistingColumns(Connection conn) throws SQLException;
+        abstract boolean isExpColumnTextual(Connection conn) throws SQLException;
+        abstract boolean hasPrimaryKeyOnUuid(Connection conn) throws SQLException;
 
         abstract void createTargetTable(Connection conn) throws SQLException;
-
-        abstract void dropTableIfExists(Connection conn, String table)
-            throws SQLException;
-
-        abstract void renameTable(Connection conn, String from, String to)
-            throws SQLException;
+        abstract void dropTableIfExists(Connection conn, String table) throws SQLException;
+        abstract void renameTable(Connection conn, String from, String to) throws SQLException;
 
         String metaTable() {
             return getTable() + "_meta";
@@ -84,37 +61,19 @@ class DatabaseFactory {
             String idType = sqlite ? "TEXT" : "VARCHAR(36)";
             String longType = sqlite ? "INTEGER" : "BIGINT";
 
-            String sql =
-                "CREATE TABLE IF NOT EXISTS " +
-                qTab(metaTable()) +
-                " (" +
-                qCol("UUID") +
-                " " +
-                idType +
-                " PRIMARY KEY," +
-                qCol("HIGHEST_REWARDED") +
-                " " +
-                longType +
-                "," +
-                qCol("UPDATED_AT") +
-                " " +
-                longType +
-                " NOT NULL DEFAULT 0" +
-                ")";
+            String sql = "CREATE TABLE IF NOT EXISTS " + qTab(metaTable()) + " (" +
+                    qCol("UUID") + " " + idType + " PRIMARY KEY," +
+                    qCol("HIGHEST_REWARDED") + " " + longType + "," +
+                    qCol("UPDATED_AT") + " " + longType + " NOT NULL DEFAULT 0" +
+                    ")";
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate(sql);
             }
         }
 
         long readHighestRewarded(Connection conn, UUID uuid) {
-            String sql =
-                "SELECT " +
-                qCol("HIGHEST_REWARDED") +
-                " FROM " +
-                qTab(metaTable()) +
-                " WHERE " +
-                qCol("UUID") +
-                "=?";
+            String sql = "SELECT " + qCol("HIGHEST_REWARDED") + " FROM " + qTab(metaTable()) +
+                    " WHERE " + qCol("UUID") + "=?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, uuid.toString());
                 try (ResultSet rs = ps.executeQuery()) {
@@ -144,22 +103,17 @@ class DatabaseFactory {
                     ensureMetaSchema(conn);
                 }
 
-                main.logger(
-                    "&7Connected to &e" +
-                        type +
-                        "&7 successfully in &a" +
-                        (System.currentTimeMillis() - l) +
-                        "ms&7."
-                );
+                main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
             } catch (Exception e) {
-                main.logger(
-                    "&cThere was an issue connecting to " + type + " Database."
-                );
-                try {
-                    if (dataSource != null) dataSource.close();
-                } catch (Exception ignored) {}
-                dataSource = null;
+                main.logger("&cThere was an issue connecting to " + type + " Database.");
                 e.printStackTrace();
+
+                if (dataSource != null) {
+                    try {
+                        dataSource.close();
+                    } catch (Exception ignored) {}
+                    dataSource = null;
+                }
             }
         }
 
@@ -173,19 +127,9 @@ class DatabaseFactory {
             Runnable close = () -> {
                 try {
                     dataSource.close();
-                    main.logger(
-                        "&7Disconnected from &e" +
-                            type +
-                            "&7 successfully in &a" +
-                            (System.currentTimeMillis() - l) +
-                            "ms&7."
-                    );
+                    main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
                 } catch (Exception e) {
-                    main.logger(
-                        "&cThere was an issue disconnecting from " +
-                            type +
-                            " Database."
-                    );
+                    main.logger("&cThere was an issue disconnecting from " + type + " Database.");
                     e.printStackTrace();
                 } finally {
                     dataSource = null;
@@ -207,19 +151,9 @@ class DatabaseFactory {
 
             try {
                 dataSource.close();
-                main.logger(
-                    "&7Disconnected from &e" +
-                        type +
-                        "&7 successfully in &a" +
-                        (System.currentTimeMillis() - l) +
-                        "ms&7."
-                );
+                main.logger("&7Disconnected from &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
             } catch (Exception e) {
-                main.logger(
-                    "&cThere was an issue disconnecting from " +
-                        type +
-                        " Database."
-                );
+                main.logger("&cThere was an issue disconnecting from " + type + " Database.");
                 e.printStackTrace();
             } finally {
                 dataSource = null;
@@ -233,27 +167,19 @@ class DatabaseFactory {
             }
 
             Set<String> cols = getExistingColumns(conn);
-            boolean needMigration =
-                !cols.contains("UUID") ||
-                !cols.contains("LEVEL") ||
-                !cols.contains("EXP");
+            boolean needMigration = !cols.contains("UUID") || !cols.contains("LEVEL") || !cols.contains("EXP");
 
-            if (
-                cols.contains("MAX_LEVEL") ||
-                !cols.contains("UPDATED_AT") ||
-                !isExpColumnTextual(conn) ||
-                !hasPrimaryKeyOnUuid(conn)
-            ) needMigration = true;
+            if (cols.contains("MAX_LEVEL") ||
+                    !cols.contains("UPDATED_AT") ||
+                    !isExpColumnTextual(conn) ||
+                    !hasPrimaryKeyOnUuid(conn))
+                needMigration = true;
 
             if (needMigration) migrateTableToCanonical(conn);
         }
 
         boolean tableExists(Connection conn, String table) throws SQLException {
-            try (
-                ResultSet rs = conn
-                    .getMetaData()
-                    .getTables(null, null, table, null)
-            ) {
+            try (ResultSet rs = conn.getMetaData().getTables(null, null, table, null)) {
                 return rs.next();
             }
         }
@@ -262,15 +188,7 @@ class DatabaseFactory {
             String table = getTable();
             String backup = table + "_backup_" + System.currentTimeMillis();
 
-            main.logger(
-                "&e" +
-                    type +
-                    ": migrating table '" +
-                    table +
-                    "' to canonical schema (backup: " +
-                    backup +
-                    ")..."
-            );
+            main.logger("&e" + type + ": migrating table '" + table + "' to canonical schema (backup: " + backup + ")...");
 
             conn.setAutoCommit(false);
             try (Statement ignored = conn.createStatement()) {
@@ -281,10 +199,9 @@ class DatabaseFactory {
                 Map<UUID, Row> bestByUuid = new LinkedHashMap<>();
 
                 String selectSQL = "SELECT * FROM " + qTab(backup);
-                try (
-                    PreparedStatement ps = conn.prepareStatement(selectSQL);
-                    ResultSet rs = ps.executeQuery()
-                ) {
+                try (PreparedStatement ps = conn.prepareStatement(selectSQL);
+                     ResultSet rs = ps.executeQuery()) {
+
                     while (rs.next()) {
                         String uuidStr = safeGet(rs, "UUID");
                         if (uuidStr == null || uuidStr.isEmpty()) continue;
@@ -309,46 +226,23 @@ class DatabaseFactory {
                         long updated = safeGetLong(rs, "UPDATED_AT", 0L);
                         long maxLevel = safeGetLong(rs, "MAX_LEVEL", -1L);
 
-                        Row row = new Row(
-                            uuid,
-                            level,
-                            expStr,
-                            updated,
-                            maxLevel
-                        );
+                        Row row = new Row(uuid, level, expStr, updated, maxLevel);
                         Row prev = bestByUuid.get(uuid);
-                        if (
-                            prev == null ||
-                            row.updatedAt > prev.updatedAt ||
-                            (row.updatedAt == prev.updatedAt &&
-                                row.level > prev.level)
-                        ) {
-                            if (prev != null) row.maxLevel = Math.max(
-                                row.maxLevel,
-                                prev.maxLevel
-                            );
+                        if (prev == null ||
+                                row.updatedAt > prev.updatedAt ||
+                                (row.updatedAt == prev.updatedAt && row.level > prev.level)) {
+                            if (prev != null)
+                                row.maxLevel = Math.max(row.maxLevel, prev.maxLevel);
                             bestByUuid.put(uuid, row);
                         } else {
-                            prev.maxLevel = Math.max(
-                                prev.maxLevel,
-                                row.maxLevel
-                            );
+                            prev.maxLevel = Math.max(prev.maxLevel, row.maxLevel);
                         }
                     }
                 }
 
-                String insertSQL =
-                    "INSERT INTO " +
-                    qTab(table) +
-                    " (" +
-                    qCol("UUID") +
-                    "," +
-                    qCol("LEVEL") +
-                    "," +
-                    qCol("EXP") +
-                    "," +
-                    qCol("UPDATED_AT") +
-                    ") VALUES (?,?,?,?)";
+                String insertSQL = "INSERT INTO " + qTab(table) + " (" +
+                        qCol("UUID") + "," + qCol("LEVEL") + "," + qCol("EXP") + "," + qCol("UPDATED_AT") +
+                        ") VALUES (?,?,?,?)";
 
                 try (PreparedStatement ins = conn.prepareStatement(insertSQL)) {
                     for (Row r : bestByUuid.values()) {
@@ -363,14 +257,7 @@ class DatabaseFactory {
 
                 for (Row r : bestByUuid.values()) {
                     long highest = (r.maxLevel >= 0 ? r.maxLevel : r.level);
-                    try (
-                        PreparedStatement up = prepareUpsertMeta(
-                            conn,
-                            r.uuid,
-                            highest,
-                            r.updatedAt
-                        )
-                    ) {
+                    try (PreparedStatement up = prepareUpsertMeta(conn, r.uuid, highest, r.updatedAt)) {
                         up.executeUpdate();
                     }
                 }
@@ -378,32 +265,15 @@ class DatabaseFactory {
                 dropTableIfExists(conn, backup);
 
                 conn.commit();
-                main.logger(
-                    "&a" +
-                        type +
-                        ": migration for '" +
-                        table +
-                        "' completed (" +
-                        bestByUuid.size() +
-                        " rows)."
-                );
+                main.logger("&a" + type + ": migration for '" + table + "' completed (" + bestByUuid.size() + " rows).");
             } catch (SQLException ex) {
                 conn.rollback();
-                main.logger(
-                    "&c" +
-                        type +
-                        ": migration failed, attempting rollback restore..."
-                );
+                main.logger("&c" + type + ": migration failed, attempting rollback restore...");
                 try {
                     dropTableIfExists(conn, getTable());
                     renameTable(conn, backup, getTable());
                 } catch (SQLException restoreEx) {
-                    main.logger(
-                        "&c" +
-                            type +
-                            ": failed to restore backup: " +
-                            restoreEx.getMessage()
-                    );
+                    main.logger("&c" + type + ": failed to restore backup: " + restoreEx.getMessage());
                 }
                 throw ex;
             } finally {
@@ -412,20 +282,13 @@ class DatabaseFactory {
         }
 
         static class Row {
-
             final UUID uuid;
             final long level;
             final String exp;
             final long updatedAt;
             long maxLevel;
 
-            Row(
-                UUID uuid,
-                long level,
-                String exp,
-                long updatedAt,
-                long maxLevel
-            ) {
+            Row(UUID uuid, long level, String exp, long updatedAt, long maxLevel) {
                 this.uuid = uuid;
                 this.level = level;
                 this.exp = exp;
@@ -483,32 +346,20 @@ class DatabaseFactory {
             if (!isConnected()) return false;
             CompletableFuture<Boolean> future = new CompletableFuture<>();
 
-            main
-                .scheduler()
-                .runTaskAsynchronously(() -> {
-                    try (
-                        Connection connection = dataSource.getConnection();
-                        PreparedStatement statement =
-                            connection.prepareStatement(
-                                "SELECT 1 FROM " +
-                                    qTab(getTable()) +
-                                    " WHERE " +
-                                    qCol("UUID") +
-                                    "=?"
-                            )
-                    ) {
-                        statement.setString(1, user.getUuid().toString());
-                        try (ResultSet rs = statement.executeQuery()) {
-                            future.complete(rs.next());
-                        }
-                    } catch (Exception e) {
-                        main.logger(
-                            "&cFailed to check if user exists in table."
-                        );
-                        e.printStackTrace();
-                        future.complete(false);
+            main.scheduler().runTaskAsynchronously(() -> {
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement statement = connection.prepareStatement(
+                             "SELECT 1 FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?")) {
+                    statement.setString(1, user.getUuid().toString());
+                    try (ResultSet rs = statement.executeQuery()) {
+                        future.complete(rs.next());
                     }
-                });
+                } catch (Exception e) {
+                    main.logger("&cFailed to check if user exists in table.");
+                    e.printStackTrace();
+                    future.complete(false);
+                }
+            });
 
             try {
                 return future.get();
@@ -519,21 +370,56 @@ class DatabaseFactory {
 
         void setRewardLevel(LevelUser<N> user, long level) {
             try {
-                user
-                    .getClass()
-                    .getMethod("setHighestRewardedLevel", long.class)
-                    .invoke(user, level);
+                user.getClass().getMethod("setHighestRewardedLevel", long.class).invoke(user, level);
             } catch (Exception ignored) {}
         }
 
         long getRewardLevel(LevelUser<N> user) {
             try {
-                return (long) user
-                    .getClass()
-                    .getMethod("getHighestRewardedLevel")
-                    .invoke(user);
+                return (long) user.getClass().getMethod("getHighestRewardedLevel").invoke(user);
             } catch (Exception ignored) {
                 return user.getLevel();
+            }
+        }
+
+        private long parseLevel(String raw, UUID uuid) {
+            long fallback = system.getStartLevel();
+            if (raw == null) return fallback;
+
+            String value = raw.trim();
+            if (value.isEmpty()) return fallback;
+
+            try {
+                return Long.parseLong(value);
+            } catch (Exception ignored) {
+                main.logger("&eInvalid level value '" + value + "' for " + uuid + " in " + type + " database. Using " + fallback + ".");
+                return fallback;
+            }
+        }
+
+        private String parseExp(String raw, UUID uuid) {
+            String fallback = String.valueOf(system.getStartExp());
+            if (raw == null) return fallback;
+
+            String value = raw.trim();
+            if (value.isEmpty()) return fallback;
+
+            try {
+                system.getOperator().valueOf(value);
+                return value;
+            } catch (Exception ignored) {
+                main.logger("&eInvalid exp value '" + value + "' for " + uuid + " in " + type + " database. Using " + fallback + ".");
+                return fallback;
+            }
+        }
+
+        private void upsertUser(Connection connection, UUID uuid, long level, String expStr, long highest, long now) throws SQLException {
+            try (PreparedStatement st = prepareUpsert(connection, uuid, level, expStr, now)) {
+                st.executeUpdate();
+            }
+
+            try (PreparedStatement stm = prepareUpsertMeta(connection, uuid, highest, now)) {
+                stm.executeUpdate();
             }
         }
 
@@ -542,9 +428,7 @@ class DatabaseFactory {
             if (!isConnected()) return;
             if (isUserLoaded(user)) return;
 
-            String levelStr = String.valueOf(
-                main.levelSystem().getStartLevel()
-            );
+            String levelStr = String.valueOf(main.levelSystem().getStartLevel());
             String expStr = String.valueOf(main.levelSystem().getStartExp());
 
             if (!defValues) {
@@ -555,26 +439,14 @@ class DatabaseFactory {
             final String finalLevelStr = levelStr;
             final String finalExpStr = expStr;
 
-            main
-                .scheduler()
-                .runTaskAsynchronously(() -> {
-                    String sql =
-                        "INSERT INTO " +
-                        qTab(getTable()) +
-                        " (" +
-                        qCol("UUID") +
-                        "," +
-                        qCol("LEVEL") +
-                        "," +
-                        qCol("EXP") +
-                        "," +
-                        qCol("UPDATED_AT") +
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "INSERT INTO " + qTab(getTable()) + " (" +
+                        qCol("UUID") + "," + qCol("LEVEL") + "," + qCol("EXP") + "," + qCol("UPDATED_AT") +
                         ") VALUES (?,?,?,?)";
 
-                    try (
-                        Connection connection = dataSource.getConnection();
-                        PreparedStatement st = connection.prepareStatement(sql)
-                    ) {
+                    try (Connection connection = dataSource.getConnection();
+                         PreparedStatement st = connection.prepareStatement(sql))
+                    {
                         st.setString(1, user.getUuid().toString());
                         st.setLong(2, Long.parseLong(finalLevelStr));
                         st.setString(3, finalExpStr);
@@ -583,34 +455,19 @@ class DatabaseFactory {
 
                         long now = System.currentTimeMillis();
                         long highest = getRewardLevel(user);
-                        try (
-                            PreparedStatement pm = prepareUpsertMeta(
-                                connection,
-                                user.getUuid(),
-                                highest,
-                                now
-                            )
-                        ) {
+                        try (PreparedStatement pm = prepareUpsertMeta(connection, user.getUuid(), highest, now)) {
                             pm.executeUpdate();
                         }
                     } catch (Exception e) {
-                        main.logger(
-                            "&cFailed to add user " + user.getName() + "."
-                        );
+                        main.logger("&cFailed to add user " + user.getName() + ".");
                         e.printStackTrace();
                     }
-                });
+            });
         }
 
         @Override
         public void updateUser(LevelUser<N> user) {
             if (!isConnected()) return;
-            main.scheduler().runTaskAsynchronously(() -> updateUserSync(user));
-        }
-
-        void updateUserSync(LevelUser<N> user) {
-            if (!isConnected()) return;
-
             final UUID uuid = user.getUuid();
             final long now = System.currentTimeMillis();
             final String expStr = String.valueOf(user.getExp());
@@ -618,31 +475,30 @@ class DatabaseFactory {
             final String name = user.getName();
             final long highest = getRewardLevel(user);
 
-            try (Connection connection = dataSource.getConnection()) {
-                try (
-                    PreparedStatement st = prepareUpsert(
-                        connection,
-                        uuid,
-                        level,
-                        expStr,
-                        now
-                    )
-                ) {
-                    st.executeUpdate();
+            main.scheduler().runTaskAsynchronously(() -> {
+                try (Connection connection = dataSource.getConnection()) {
+                    upsertUser(connection, uuid, level, expStr, highest, now);
+                } catch (Exception e) {
+                    main.logger("&cFailed to update user " + name + ".");
+                    e.printStackTrace();
                 }
+            });
+        }
 
-                try (
-                    PreparedStatement stm = prepareUpsertMeta(
-                        connection,
-                        uuid,
-                        highest,
-                        now
-                    )
-                ) {
-                    stm.executeUpdate();
-                }
+        @Override
+        public void updateUserSync(LevelUser<N> user) {
+            if (!isConnected()) return;
+
+            UUID uuid = user.getUuid();
+            long now = System.currentTimeMillis();
+            String expStr = String.valueOf(user.getExp());
+            long level = user.getLevel();
+            long highest = getRewardLevel(user);
+
+            try (Connection connection = dataSource.getConnection()) {
+                upsertUser(connection, uuid, level, expStr, highest, now);
             } catch (Exception e) {
-                main.logger("&cFailed to update user " + name + ".");
+                main.logger("&cFailed to update user " + user.getName() + " synchronously.");
                 e.printStackTrace();
             }
         }
@@ -651,51 +507,27 @@ class DatabaseFactory {
         public void removeUser(UUID uuid) {
             if (!isConnected()) return;
 
-            main
-                .scheduler()
-                .runTaskAsynchronously(() -> {
-                    String sql =
-                        "DELETE FROM " +
-                        qTab(getTable()) +
-                        " WHERE " +
-                        qCol("UUID") +
-                        "=?";
-                    String metaSql =
-                        "DELETE FROM " +
-                        qTab(metaTable()) +
-                        " WHERE " +
-                        qCol("UUID") +
-                        "=?";
-                    try (
-                        Connection connection = dataSource.getConnection();
-                        PreparedStatement st = connection.prepareStatement(sql);
-                        PreparedStatement sm = connection.prepareStatement(
-                            metaSql
-                        )
-                    ) {
-                        st.setString(1, uuid.toString());
-                        st.executeUpdate();
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "DELETE FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?";
+                String metaSql = "DELETE FROM " + qTab(metaTable()) + " WHERE " + qCol("UUID") + "=?";
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement st = connection.prepareStatement(sql);
+                     PreparedStatement sm = connection.prepareStatement(metaSql)) {
+                    st.setString(1, uuid.toString());
+                    st.executeUpdate();
 
-                        sm.setString(1, uuid.toString());
-                        sm.executeUpdate();
-                    } catch (Exception e) {
-                        main.logger(
-                            "&cFailed to remove user " +
-                                uuid +
-                                " from " +
-                                type +
-                                " database."
-                        );
-                        e.printStackTrace();
-                    }
-                });
+                    sm.setString(1, uuid.toString());
+                    sm.executeUpdate();
+                } catch (Exception e) {
+                    main.logger("&cFailed to remove user " + uuid + " from " + type + " database.");
+                    e.printStackTrace();
+                }
+            });
         }
 
         @Override
         public LevelUser<N> getUser(Player player) {
-            return !isConnected() || player == null
-                ? null
-                : getUser(player.getUniqueId());
+            return !isConnected() || player == null ? null : getUser(player.getUniqueId());
         }
 
         @Override
@@ -704,57 +536,34 @@ class DatabaseFactory {
 
             CompletableFuture<LevelUser<N>> future = new CompletableFuture<>();
 
-            main
-                .scheduler()
-                .runTaskAsynchronously(() -> {
-                    String sql =
-                        "SELECT " +
-                        qCol("LEVEL") +
-                        "," +
-                        qCol("EXP") +
-                        " FROM " +
-                        qTab(getTable()) +
-                        " WHERE " +
-                        qCol("UUID") +
-                        "=?";
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "SELECT " + qCol("LEVEL") + "," + qCol("EXP") + " FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?";
 
-                    try (
-                        Connection connection = dataSource.getConnection();
-                        PreparedStatement st = connection.prepareStatement(sql)
-                    ) {
-                        st.setString(1, uuid.toString());
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement st = connection.prepareStatement(sql)) {
+                    st.setString(1, uuid.toString());
 
-                        try (ResultSet rs = st.executeQuery()) {
-                            if (!rs.next()) {
-                                future.complete(null);
-                                return;
-                            }
-
-                            LevelUser<N> user = system.createUser(uuid);
-                            long level = rs.getLong("LEVEL");
-                            user.setLevel(level, false);
-
-                            String expStr = rs.getString("EXP");
-                            if (expStr == null) expStr = "0";
-                            user.setExp(expStr, false, false, false);
-
-                            long hr = readHighestRewarded(connection, uuid);
-                            setRewardLevel(
-                                user,
-                                hr >= 0 ? hr : user.getLevel()
-                            );
-
-                            future.complete(user);
+                    try (ResultSet rs = st.executeQuery()) {
+                        if (!rs.next()) {
+                            future.complete(null);
+                            return;
                         }
-                    } catch (Exception e) {
-                        main.logger(
-                            "&cFailed to get player data for " + uuid + ".",
-                            ""
-                        );
-                        e.printStackTrace();
-                        future.complete(null);
+
+                        LevelUser<N> user = system.createUser(uuid);
+                        user.setLevel(parseLevel(rs.getString("LEVEL"), uuid), false);
+                        user.setExp(parseExp(rs.getString("EXP"), uuid), false, false, false);
+
+                        long hr = readHighestRewarded(connection, uuid);
+                        setRewardLevel(user, hr >= 0 ? hr : user.getLevel());
+
+                        future.complete(user);
                     }
-                });
+                } catch (Exception e) {
+                    main.logger("&cFailed to get player data for " + uuid + ".", "");
+                    e.printStackTrace();
+                    future.complete(null);
+                }
+            });
 
             try {
                 return future.get();
@@ -770,35 +579,26 @@ class DatabaseFactory {
 
             CompletableFuture<Set<UUID>> future = new CompletableFuture<>();
 
-            main
-                .scheduler()
-                .runTaskAsynchronously(() -> {
-                    String sql =
-                        "SELECT " + qCol("UUID") + " FROM " + qTab(getTable());
+            main.scheduler().runTaskAsynchronously(() -> {
+                String sql = "SELECT " + qCol("UUID") + " FROM " + qTab(getTable());
 
-                    try (
-                        Connection connection = dataSource.getConnection();
-                        PreparedStatement statement =
-                            connection.prepareStatement(sql);
-                        ResultSet rs = statement.executeQuery()
-                    ) {
-                        Set<UUID> result = new LinkedHashSet<>();
-                        while (rs.next()) {
-                            try {
-                                result.add(
-                                    UUID.fromString(rs.getString("UUID"))
-                                );
-                            } catch (Exception ignored) {}
-                        }
-                        future.complete(result);
-                    } catch (SQLException e) {
-                        main.logger(
-                            "&cFailed to fetch UUIDs from " + type + "."
-                        );
-                        e.printStackTrace();
-                        future.complete(new LinkedHashSet<>());
+                try (Connection connection = dataSource.getConnection();
+                     PreparedStatement statement = connection.prepareStatement(sql);
+                     ResultSet rs = statement.executeQuery())
+                {
+                    Set<UUID> result = new LinkedHashSet<>();
+                    while (rs.next()) {
+                        try {
+                            result.add(UUID.fromString(rs.getString("UUID")));
+                        } catch (Exception ignored) {}
                     }
-                });
+                    future.complete(result);
+                } catch (SQLException e) {
+                    main.logger("&cFailed to fetch UUIDs from " + type + ".");
+                    e.printStackTrace();
+                    future.complete(new LinkedHashSet<>());
+                }
+            });
 
             try {
                 return future.get();
@@ -834,17 +634,7 @@ class DatabaseFactory {
         @Override
         HikariConfig createConfig() {
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl(
-                "jdbc:mysql://" +
-                    ip +
-                    ":" +
-                    port +
-                    "/" +
-                    database +
-                    "?useSSL=" +
-                    ssl +
-                    "&autoReconnect=true&useUnicode=true&characterEncoding=utf8"
-            );
+            config.setJdbcUrl("jdbc:mysql://" + ip + ":" + port + "/" + database + "?useSSL=" + ssl + "&autoReconnect=true&useUnicode=true&characterEncoding=utf8");
             config.setUsername(username);
             config.setPassword(password);
             config.setConnectionTimeout(10000);
@@ -875,53 +665,15 @@ class DatabaseFactory {
         }
 
         @Override
-        PreparedStatement prepareUpsert(
-            Connection c,
-            UUID uuid,
-            long level,
-            String exp,
-            long updatedAt
-        ) throws SQLException {
+        PreparedStatement prepareUpsert(Connection c, UUID uuid, long level, String exp, long updatedAt) throws SQLException {
             String sql =
-                "INSERT INTO " +
-                qTab(getTable()) +
-                " (" +
-                qCol("UUID") +
-                "," +
-                qCol("LEVEL") +
-                "," +
-                qCol("EXP") +
-                "," +
-                qCol("UPDATED_AT") +
-                ") " +
-                "VALUES (?,?,?,?) " +
-                "ON DUPLICATE KEY UPDATE " +
-                qCol("LEVEL") +
-                " = IF(VALUES(" +
-                qCol("UPDATED_AT") +
-                ") >= " +
-                qCol("UPDATED_AT") +
-                ", VALUES(" +
-                qCol("LEVEL") +
-                ")," +
-                qCol("LEVEL") +
-                ")," +
-                qCol("EXP") +
-                " = IF(VALUES(" +
-                qCol("UPDATED_AT") +
-                ") >= " +
-                qCol("UPDATED_AT") +
-                ", VALUES(" +
-                qCol("EXP") +
-                ")," +
-                qCol("EXP") +
-                ")," +
-                qCol("UPDATED_AT") +
-                " = GREATEST(" +
-                qCol("UPDATED_AT") +
-                ", VALUES(" +
-                qCol("UPDATED_AT") +
-                "))";
+                    "INSERT INTO " + qTab(getTable()) + " (" +
+                            qCol("UUID") + "," + qCol("LEVEL") + "," + qCol("EXP") + "," + qCol("UPDATED_AT") + ") " +
+                            "VALUES (?,?,?,?) " +
+                            "ON DUPLICATE KEY UPDATE " +
+                            qCol("LEVEL") + " = IF(VALUES(" + qCol("UPDATED_AT") + ") >= " + qCol("UPDATED_AT") + ", VALUES(" + qCol("LEVEL") + ")," + qCol("LEVEL") + ")," +
+                            qCol("EXP") + " = IF(VALUES(" + qCol("UPDATED_AT") + ") >= " + qCol("UPDATED_AT") + ", VALUES(" + qCol("EXP") + ")," + qCol("EXP") + ")," +
+                            qCol("UPDATED_AT") + " = GREATEST(" + qCol("UPDATED_AT") + ", VALUES(" + qCol("UPDATED_AT") + "))";
             PreparedStatement ps = c.prepareStatement(sql);
             ps.setString(1, uuid.toString());
             ps.setLong(2, level);
@@ -931,35 +683,13 @@ class DatabaseFactory {
         }
 
         @Override
-        PreparedStatement prepareUpsertMeta(
-            Connection c,
-            UUID uuid,
-            long highest,
-            long updatedAt
-        ) throws SQLException {
-            String sql =
-                "INSERT INTO " +
-                qTab(metaTable()) +
-                " (" +
-                qCol("UUID") +
-                "," +
-                qCol("HIGHEST_REWARDED") +
-                "," +
-                qCol("UPDATED_AT") +
-                ") VALUES (?,?,?) " +
-                "ON DUPLICATE KEY UPDATE " +
-                qCol("HIGHEST_REWARDED") +
-                " = GREATEST(" +
-                qCol("HIGHEST_REWARDED") +
-                ", VALUES(" +
-                qCol("HIGHEST_REWARDED") +
-                "))," +
-                qCol("UPDATED_AT") +
-                " = GREATEST(" +
-                qCol("UPDATED_AT") +
-                ", VALUES(" +
-                qCol("UPDATED_AT") +
-                "))";
+        PreparedStatement prepareUpsertMeta(Connection c, UUID uuid, long highest, long updatedAt) throws SQLException {
+            String sql = "INSERT INTO " + qTab(metaTable()) + " (" +
+                    qCol("UUID") + "," + qCol("HIGHEST_REWARDED") + "," + qCol("UPDATED_AT") +
+                    ") VALUES (?,?,?) " +
+                    "ON DUPLICATE KEY UPDATE " +
+                    qCol("HIGHEST_REWARDED") + " = GREATEST(" + qCol("HIGHEST_REWARDED") + ", VALUES(" + qCol("HIGHEST_REWARDED") + "))," +
+                    qCol("UPDATED_AT") + " = GREATEST(" + qCol("UPDATED_AT") + ", VALUES(" + qCol("UPDATED_AT") + "))";
             PreparedStatement ps = c.prepareStatement(sql);
             ps.setString(1, uuid.toString());
             ps.setLong(2, highest);
@@ -970,14 +700,11 @@ class DatabaseFactory {
         @Override
         Set<String> getExistingColumns(Connection conn) throws SQLException {
             Set<String> cols = new HashSet<>();
-            String sql =
-                "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?";
+            String sql = "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, getTable());
                 try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) cols.add(
-                        rs.getString(1).toUpperCase(Locale.ENGLISH)
-                    );
+                    while (rs.next()) cols.add(rs.getString(1).toUpperCase(Locale.ENGLISH));
                 }
             }
             return cols;
@@ -985,8 +712,7 @@ class DatabaseFactory {
 
         @Override
         boolean isExpColumnTextual(Connection conn) throws SQLException {
-            String sql =
-                "SELECT DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'EXP'";
+            String sql = "SELECT DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'EXP'";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, getTable());
                 try (ResultSet rs = ps.executeQuery()) {
@@ -1003,12 +729,11 @@ class DatabaseFactory {
 
         @Override
         boolean hasPrimaryKeyOnUuid(Connection conn) throws SQLException {
-            String sql =
-                "SELECT k.COLUMN_NAME " +
-                "FROM information_schema.table_constraints t " +
-                "JOIN information_schema.key_column_usage k " +
-                "ON t.constraint_name = k.constraint_name AND t.table_schema = k.table_schema AND t.table_name = k.table_name " +
-                "WHERE t.constraint_type = 'PRIMARY KEY' AND t.table_schema = DATABASE() AND t.table_name = ?";
+            String sql = "SELECT k.COLUMN_NAME " +
+                    "FROM information_schema.table_constraints t " +
+                    "JOIN information_schema.key_column_usage k " +
+                    "ON t.constraint_name = k.constraint_name AND t.table_schema = k.table_schema AND t.table_name = k.table_name " +
+                    "WHERE t.constraint_type = 'PRIMARY KEY' AND t.table_schema = DATABASE() AND t.table_name = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, getTable());
                 try (ResultSet rs = ps.executeQuery()) {
@@ -1023,42 +748,29 @@ class DatabaseFactory {
 
         @Override
         void createTargetTable(Connection conn) throws SQLException {
-            String sql =
-                "CREATE TABLE IF NOT EXISTS " +
-                qTab(getTable()) +
-                " (" +
-                qCol("UUID") +
-                " VARCHAR(36) NOT NULL," +
-                qCol("LEVEL") +
-                " BIGINT," +
-                qCol("EXP") +
-                " TEXT," +
-                qCol("UPDATED_AT") +
-                " BIGINT NOT NULL DEFAULT 0," +
-                "PRIMARY KEY (" +
-                qCol("UUID") +
-                ")) " +
-                "CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+            String sql = "CREATE TABLE IF NOT EXISTS " + qTab(getTable()) + " (" +
+                    qCol("UUID") + " VARCHAR(36) NOT NULL," +
+                    qCol("LEVEL") + " BIGINT," +
+                    qCol("EXP") + " TEXT," +
+                    qCol("UPDATED_AT") + " BIGINT NOT NULL DEFAULT 0," +
+                    "PRIMARY KEY (" + qCol("UUID") + ")) " +
+                    "CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate(sql);
             }
         }
 
         @Override
-        void dropTableIfExists(Connection conn, String table)
-            throws SQLException {
+        void dropTableIfExists(Connection conn, String table) throws SQLException {
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate("DROP TABLE IF EXISTS " + qTab(table));
             }
         }
 
         @Override
-        void renameTable(Connection conn, String from, String to)
-            throws SQLException {
+        void renameTable(Connection conn, String from, String to) throws SQLException {
             try (Statement st = conn.createStatement()) {
-                st.executeUpdate(
-                    "RENAME TABLE " + qTab(from) + " TO " + qTab(to)
-                );
+                st.executeUpdate("RENAME TABLE " + qTab(from) + " TO " + qTab(to));
             }
         }
     }
@@ -1074,19 +786,12 @@ class DatabaseFactory {
             this.table = db.getTable();
         }
 
-        @Override
-        String getTable() {
-            return table;
-        }
+        @Override String getTable() { return table; }
 
         @Override
         HikariConfig createConfig() {
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl(
-                "jdbc:sqlite:" +
-                    filePath +
-                    "?busy_timeout=5000&journal_mode=WAL&synchronous=NORMAL"
-            );
+            config.setJdbcUrl("jdbc:sqlite:" + filePath + "?busy_timeout=5000&journal_mode=WAL&synchronous=NORMAL");
             config.setMaximumPoolSize(2);
             config.setMinimumIdle(1);
             config.setConnectionTimeout(10000);
@@ -1109,65 +814,15 @@ class DatabaseFactory {
         }
 
         @Override
-        PreparedStatement prepareUpsert(
-            Connection c,
-            UUID uuid,
-            long level,
-            String exp,
-            long updatedAt
-        ) throws SQLException {
+        PreparedStatement prepareUpsert(Connection c, UUID uuid, long level, String exp, long updatedAt) throws SQLException {
             String sql =
-                "INSERT INTO " +
-                qTab(getTable()) +
-                " (" +
-                qCol("UUID") +
-                "," +
-                qCol("LEVEL") +
-                "," +
-                qCol("EXP") +
-                "," +
-                qCol("UPDATED_AT") +
-                ") " +
-                "VALUES (?,?,?,?) " +
-                "ON CONFLICT(" +
-                qCol("UUID") +
-                ") DO UPDATE SET " +
-                qCol("LEVEL") +
-                " = CASE WHEN excluded." +
-                qCol("UPDATED_AT") +
-                " >= " +
-                qTab(getTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                " THEN excluded." +
-                qCol("LEVEL") +
-                " ELSE " +
-                qTab(getTable()) +
-                "." +
-                qCol("LEVEL") +
-                " END," +
-                qCol("EXP") +
-                " = CASE WHEN excluded." +
-                qCol("UPDATED_AT") +
-                " >= " +
-                qTab(getTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                " THEN excluded." +
-                qCol("EXP") +
-                " ELSE " +
-                qTab(getTable()) +
-                "." +
-                qCol("EXP") +
-                " END," +
-                qCol("UPDATED_AT") +
-                " = MAX(" +
-                qTab(getTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                ", excluded." +
-                qCol("UPDATED_AT") +
-                ")";
+                    "INSERT INTO " + qTab(getTable()) + " (" +
+                            qCol("UUID") + "," + qCol("LEVEL") + "," + qCol("EXP") + "," + qCol("UPDATED_AT") + ") " +
+                            "VALUES (?,?,?,?) " +
+                            "ON CONFLICT(" + qCol("UUID") + ") DO UPDATE SET " +
+                            qCol("LEVEL") + " = CASE WHEN excluded." + qCol("UPDATED_AT") + " >= " + qTab(getTable()) + "." + qCol("UPDATED_AT") + " THEN excluded." + qCol("LEVEL") + " ELSE " + qTab(getTable()) + "." + qCol("LEVEL") + " END," +
+                            qCol("EXP") + " = CASE WHEN excluded." + qCol("UPDATED_AT") + " >= " + qTab(getTable()) + "." + qCol("UPDATED_AT") + " THEN excluded." + qCol("EXP") + " ELSE " + qTab(getTable()) + "." + qCol("EXP") + " END," +
+                            qCol("UPDATED_AT") + " = MAX(" + qTab(getTable()) + "." + qCol("UPDATED_AT") + ", excluded." + qCol("UPDATED_AT") + ")";
             PreparedStatement ps = c.prepareStatement(sql);
             ps.setString(1, uuid.toString());
             ps.setLong(2, level);
@@ -1177,41 +832,13 @@ class DatabaseFactory {
         }
 
         @Override
-        PreparedStatement prepareUpsertMeta(
-            Connection c,
-            UUID uuid,
-            long highest,
-            long updatedAt
-        ) throws SQLException {
-            String sql =
-                "INSERT INTO " +
-                qTab(metaTable()) +
-                " (" +
-                qCol("UUID") +
-                "," +
-                qCol("HIGHEST_REWARDED") +
-                "," +
-                qCol("UPDATED_AT") +
-                ") VALUES (?,?,?) " +
-                "ON CONFLICT(" +
-                qCol("UUID") +
-                ") DO UPDATE SET " +
-                qCol("HIGHEST_REWARDED") +
-                " = MAX(" +
-                qTab(metaTable()) +
-                "." +
-                qCol("HIGHEST_REWARDED") +
-                ", excluded." +
-                qCol("HIGHEST_REWARDED") +
-                ")," +
-                qCol("UPDATED_AT") +
-                " = MAX(" +
-                qTab(metaTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                ", excluded." +
-                qCol("UPDATED_AT") +
-                ")";
+        PreparedStatement prepareUpsertMeta(Connection c, UUID uuid, long highest, long updatedAt) throws SQLException {
+            String sql = "INSERT INTO " + qTab(metaTable()) + " (" +
+                    qCol("UUID") + "," + qCol("HIGHEST_REWARDED") + "," + qCol("UPDATED_AT") +
+                    ") VALUES (?,?,?) " +
+                    "ON CONFLICT(" + qCol("UUID") + ") DO UPDATE SET " +
+                    qCol("HIGHEST_REWARDED") + " = MAX(" + qTab(metaTable()) + "." + qCol("HIGHEST_REWARDED") + ", excluded." + qCol("HIGHEST_REWARDED") + ")," +
+                    qCol("UPDATED_AT") + " = MAX(" + qTab(metaTable()) + "." + qCol("UPDATED_AT") + ", excluded." + qCol("UPDATED_AT") + ")";
             PreparedStatement ps = c.prepareStatement(sql);
             ps.setString(1, uuid.toString());
             ps.setLong(2, highest);
@@ -1222,12 +849,8 @@ class DatabaseFactory {
         @Override
         Set<String> getExistingColumns(Connection conn) throws SQLException {
             Set<String> cols = new HashSet<>();
-            try (
-                PreparedStatement ps = conn.prepareStatement(
-                    "PRAGMA table_info(" + getTable() + ")"
-                );
-                ResultSet rs = ps.executeQuery()
-            ) {
+            try (PreparedStatement ps = conn.prepareStatement("PRAGMA table_info(" + getTable() + ")");
+                 ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     cols.add(rs.getString("name").toUpperCase(Locale.ENGLISH));
                 }
@@ -1237,12 +860,8 @@ class DatabaseFactory {
 
         @Override
         boolean isExpColumnTextual(Connection conn) throws SQLException {
-            try (
-                PreparedStatement ps = conn.prepareStatement(
-                    "PRAGMA table_info(" + getTable() + ")"
-                );
-                ResultSet rs = ps.executeQuery()
-            ) {
+            try (PreparedStatement ps = conn.prepareStatement("PRAGMA table_info(" + getTable() + ")");
+                 ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String name = rs.getString("name");
                     if (!"EXP".equalsIgnoreCase(name)) continue;
@@ -1257,12 +876,8 @@ class DatabaseFactory {
 
         @Override
         boolean hasPrimaryKeyOnUuid(Connection conn) throws SQLException {
-            try (
-                PreparedStatement ps = conn.prepareStatement(
-                    "PRAGMA table_info(" + getTable() + ")"
-                );
-                ResultSet rs = ps.executeQuery()
-            ) {
+            try (PreparedStatement ps = conn.prepareStatement("PRAGMA table_info(" + getTable() + ")");
+                 ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String name = rs.getString("name");
                     int pk = rs.getInt("pk");
@@ -1274,39 +889,28 @@ class DatabaseFactory {
 
         @Override
         void createTargetTable(Connection conn) throws SQLException {
-            String sql =
-                "CREATE TABLE IF NOT EXISTS " +
-                qTab(getTable()) +
-                " (" +
-                qCol("UUID") +
-                " TEXT PRIMARY KEY," +
-                qCol("LEVEL") +
-                " INTEGER," +
-                qCol("EXP") +
-                " TEXT," +
-                qCol("UPDATED_AT") +
-                " INTEGER NOT NULL DEFAULT 0" +
-                ")";
+            String sql = "CREATE TABLE IF NOT EXISTS " + qTab(getTable()) + " (" +
+                    qCol("UUID") + " TEXT PRIMARY KEY," +
+                    qCol("LEVEL") + " INTEGER," +
+                    qCol("EXP") + " TEXT," +
+                    qCol("UPDATED_AT") + " INTEGER NOT NULL DEFAULT 0" +
+                    ")";
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate(sql);
             }
         }
 
         @Override
-        void dropTableIfExists(Connection conn, String table)
-            throws SQLException {
+        void dropTableIfExists(Connection conn, String table) throws SQLException {
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate("DROP TABLE IF EXISTS " + qTab(table));
             }
         }
 
         @Override
-        void renameTable(Connection conn, String from, String to)
-            throws SQLException {
+        void renameTable(Connection conn, String from, String to) throws SQLException {
             try (Statement st = conn.createStatement()) {
-                st.executeUpdate(
-                    "ALTER TABLE " + qTab(from) + " RENAME TO " + qTab(to)
-                );
+                st.executeUpdate("ALTER TABLE " + qTab(from) + " RENAME TO " + qTab(to));
             }
         }
     }
@@ -1327,17 +931,14 @@ class DatabaseFactory {
             this.table = db.getTable();
         }
 
-        @Override
-        String getTable() {
+        @Override String getTable() {
             return table;
         }
 
         @Override
         HikariConfig createConfig() {
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl(
-                "jdbc:postgresql://" + ip + ":" + port + "/" + database
-            );
+            config.setJdbcUrl("jdbc:postgresql://" + ip + ":" + port + "/" + database);
             config.setUsername(username);
             config.setPassword(password);
             config.setConnectionTimeout(10000);
@@ -1363,65 +964,15 @@ class DatabaseFactory {
         }
 
         @Override
-        PreparedStatement prepareUpsert(
-            Connection c,
-            UUID uuid,
-            long level,
-            String exp,
-            long updatedAt
-        ) throws SQLException {
+        PreparedStatement prepareUpsert(Connection c, UUID uuid, long level, String exp, long updatedAt) throws SQLException {
             String sql =
-                "INSERT INTO " +
-                qTab(getTable()) +
-                " (" +
-                qCol("UUID") +
-                "," +
-                qCol("LEVEL") +
-                "," +
-                qCol("EXP") +
-                "," +
-                qCol("UPDATED_AT") +
-                ") " +
-                "VALUES (?,?,?,?) " +
-                "ON CONFLICT (" +
-                qCol("UUID") +
-                ") DO UPDATE SET " +
-                qCol("LEVEL") +
-                " = CASE WHEN EXCLUDED." +
-                qCol("UPDATED_AT") +
-                " >= " +
-                qTab(getTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                " THEN EXCLUDED." +
-                qCol("LEVEL") +
-                " ELSE " +
-                qTab(getTable()) +
-                "." +
-                qCol("LEVEL") +
-                " END," +
-                qCol("EXP") +
-                " = CASE WHEN EXCLUDED." +
-                qCol("UPDATED_AT") +
-                " >= " +
-                qTab(getTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                " THEN EXCLUDED." +
-                qCol("EXP") +
-                " ELSE " +
-                qTab(getTable()) +
-                "." +
-                qCol("EXP") +
-                " END," +
-                qCol("UPDATED_AT") +
-                " = GREATEST(" +
-                qTab(getTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                ", EXCLUDED." +
-                qCol("UPDATED_AT") +
-                ")";
+                    "INSERT INTO " + qTab(getTable()) + " (" +
+                            qCol("UUID") + "," + qCol("LEVEL") + "," + qCol("EXP") + "," + qCol("UPDATED_AT") + ") " +
+                            "VALUES (?,?,?,?) " +
+                            "ON CONFLICT (" + qCol("UUID") + ") DO UPDATE SET " +
+                            qCol("LEVEL") + " = CASE WHEN EXCLUDED." + qCol("UPDATED_AT") + " >= " + qTab(getTable()) + "." + qCol("UPDATED_AT") + " THEN EXCLUDED." + qCol("LEVEL") + " ELSE " + qTab(getTable()) + "." + qCol("LEVEL") + " END," +
+                            qCol("EXP") + " = CASE WHEN EXCLUDED." + qCol("UPDATED_AT") + " >= " + qTab(getTable()) + "." + qCol("UPDATED_AT") + " THEN EXCLUDED." + qCol("EXP") + " ELSE " + qTab(getTable()) + "." + qCol("EXP") + " END," +
+                            qCol("UPDATED_AT") + " = GREATEST(" + qTab(getTable()) + "." + qCol("UPDATED_AT") + ", EXCLUDED." + qCol("UPDATED_AT") + ")";
             PreparedStatement ps = c.prepareStatement(sql);
             ps.setString(1, uuid.toString());
             ps.setLong(2, level);
@@ -1431,42 +982,14 @@ class DatabaseFactory {
         }
 
         @Override
-        PreparedStatement prepareUpsertMeta(
-            Connection c,
-            UUID uuid,
-            long highest,
-            long updatedAt
-        ) throws SQLException {
+        PreparedStatement prepareUpsertMeta(Connection c, UUID uuid, long highest, long updatedAt) throws SQLException {
             String sql =
-                "INSERT INTO " +
-                qTab(metaTable()) +
-                " (" +
-                qCol("UUID") +
-                "," +
-                qCol("HIGHEST_REWARDED") +
-                "," +
-                qCol("UPDATED_AT") +
-                ") " +
-                "VALUES (?,?,?) " +
-                "ON CONFLICT (" +
-                qCol("UUID") +
-                ") DO UPDATE SET " +
-                qCol("HIGHEST_REWARDED") +
-                " = GREATEST(" +
-                qTab(metaTable()) +
-                "." +
-                qCol("HIGHEST_REWARDED") +
-                ", EXCLUDED." +
-                qCol("HIGHEST_REWARDED") +
-                ")," +
-                qCol("UPDATED_AT") +
-                " = GREATEST(" +
-                qTab(metaTable()) +
-                "." +
-                qCol("UPDATED_AT") +
-                ", EXCLUDED." +
-                qCol("UPDATED_AT") +
-                ")";
+                    "INSERT INTO " + qTab(metaTable()) + " (" +
+                            qCol("UUID") + "," + qCol("HIGHEST_REWARDED") + "," + qCol("UPDATED_AT") + ") " +
+                            "VALUES (?,?,?) " +
+                            "ON CONFLICT (" + qCol("UUID") + ") DO UPDATE SET " +
+                            qCol("HIGHEST_REWARDED") + " = GREATEST(" + qTab(metaTable()) + "." + qCol("HIGHEST_REWARDED") + ", EXCLUDED." + qCol("HIGHEST_REWARDED") + ")," +
+                            qCol("UPDATED_AT") + " = GREATEST(" + qTab(metaTable()) + "." + qCol("UPDATED_AT") + ", EXCLUDED." + qCol("UPDATED_AT") + ")";
             PreparedStatement ps = c.prepareStatement(sql);
             ps.setString(1, uuid.toString());
             ps.setLong(2, highest);
@@ -1477,14 +1000,11 @@ class DatabaseFactory {
         @Override
         Set<String> getExistingColumns(Connection conn) throws SQLException {
             Set<String> cols = new HashSet<>();
-            String sql =
-                "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ?";
+            String sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, getTable());
                 try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) cols.add(
-                        rs.getString(1).toUpperCase(Locale.ENGLISH)
-                    );
+                    while (rs.next()) cols.add(rs.getString(1).toUpperCase(Locale.ENGLISH));
                 }
             }
             return cols;
@@ -1492,8 +1012,7 @@ class DatabaseFactory {
 
         @Override
         boolean isExpColumnTextual(Connection conn) throws SQLException {
-            String sql =
-                "SELECT data_type FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = 'exp'";
+            String sql = "SELECT data_type FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = 'exp'";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, getTable());
                 try (ResultSet rs = ps.executeQuery()) {
@@ -1511,10 +1030,10 @@ class DatabaseFactory {
         @Override
         boolean hasPrimaryKeyOnUuid(Connection conn) throws SQLException {
             String sql =
-                "SELECT a.attname " +
-                "FROM pg_index i " +
-                "JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) " +
-                "WHERE i.indrelid = ?::regclass AND i.indisprimary";
+                    "SELECT a.attname " +
+                            "FROM pg_index i " +
+                            "JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) " +
+                            "WHERE i.indrelid = ?::regclass AND i.indisprimary";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, getTable());
                 try (ResultSet rs = ps.executeQuery()) {
@@ -1529,47 +1048,33 @@ class DatabaseFactory {
 
         @Override
         void createTargetTable(Connection conn) throws SQLException {
-            String sql =
-                "CREATE TABLE IF NOT EXISTS " +
-                qTab(getTable()) +
-                " (" +
-                qCol("UUID") +
-                " VARCHAR(36) PRIMARY KEY," +
-                qCol("LEVEL") +
-                " BIGINT," +
-                qCol("EXP") +
-                " TEXT," +
-                qCol("UPDATED_AT") +
-                " BIGINT NOT NULL DEFAULT 0" +
-                ")";
+            String sql = "CREATE TABLE IF NOT EXISTS " + qTab(getTable()) + " (" +
+                    qCol("UUID") + " VARCHAR(36) PRIMARY KEY," +
+                    qCol("LEVEL") + " BIGINT," +
+                    qCol("EXP") + " TEXT," +
+                    qCol("UPDATED_AT") + " BIGINT NOT NULL DEFAULT 0" +
+                    ")";
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate(sql);
             }
         }
 
         @Override
-        void dropTableIfExists(Connection conn, String table)
-            throws SQLException {
+        void dropTableIfExists(Connection conn, String table) throws SQLException {
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate("DROP TABLE IF EXISTS " + qTab(table));
             }
         }
 
         @Override
-        void renameTable(Connection conn, String from, String to)
-            throws SQLException {
+        void renameTable(Connection conn, String from, String to) throws SQLException {
             try (Statement st = conn.createStatement()) {
-                st.executeUpdate(
-                    "ALTER TABLE " + qTab(from) + " RENAME TO " + qTab(to)
-                );
+                st.executeUpdate("ALTER TABLE " + qTab(from) + " RENAME TO " + qTab(to));
             }
         }
     }
 
-    static <N extends Number> Database<N> createDatabase(
-        CyberLevels main,
-        BaseSystem<N> system
-    ) {
+    static <N extends Number> Database<N> createDatabase(CyberLevels main, BaseSystem<N> system) {
         String type = main.cache().config().database().getType();
 
         switch (type.toUpperCase(Locale.ENGLISH)) {

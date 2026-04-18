@@ -1,6 +1,6 @@
 package com.bitaspire.cyberlevels;
 
-import net.zerotoil.dev.cyberlevels.api.events.XPChangeEvent;
+import com.bitaspire.cyberlevels.event.ExpChangeEvent;
 import com.bitaspire.cyberlevels.user.UserManager;
 import com.bitaspire.cyberlevels.cache.Cache;
 import com.bitaspire.cyberlevels.cache.Lang;
@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import net.zerotoil.dev.cyberlevels.api.events.XPChangeEvent;
 
 @Getter
 abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
@@ -118,7 +119,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
     @NotNull
     public List<Reward> getRewards(long level) {
-        return rewardMap.getOrDefault(level, new ArrayList<>());
+        return rewardMap.getOrDefault(level, Collections.emptyList());
     }
 
     @NotNull
@@ -475,36 +476,38 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (operator.compare(amount, operator.zero()) == 0) return;
 
             long startingLevel = level;
+            Player player = sendMessage && isOnline() ? getPlayer() : null;
+            boolean shouldSendMessage = sendMessage && player != null;
             if (operator.compare(amount, operator.zero()) > 0 && level >= getMaxLevel())
                 return;
 
-            if (doMultiplier && operator.compare(amount, operator.zero()) > 0 &&
-                    hasParentPerm("CyberLevels.player.multiplier.", false))
-                amount = operator.multiply(amount, operator.fromDouble(getMultiplier()));
+            if (doMultiplier && operator.compare(amount, operator.zero()) > 0) {
+                double multiplier = getMultiplier();
+                if (multiplier != 1D) {
+                    amount = operator.multiply(amount, operator.fromDouble(multiplier));
+                }
+            }
 
             if (operator.compare(amount, operator.zero()) > 0 && isOnline()) {
-                double oldXP = exp.doubleValue();
-                double changedAmount = amount.doubleValue();
-
-                XPChangeEvent event = new XPChangeEvent(getPlayer(), oldXP, changedAmount);
-                Bukkit.getPluginManager().callEvent(event);
-
-                amount = operator.fromDouble(event.getAmount());
+                amount = fireExpEvents(amount);
+                if (operator.compare(amount, operator.zero()) == 0) return;
             }
 
             final T totalAmount = amount;
 
             if (operator.compare(amount, operator.zero()) > 0) {
-                while (operator.compare(operator.add(exp, amount), rawRequiredExp()) >= 0) {
+                T requiredExp = rawRequiredExp();
+                while (operator.compare(operator.add(exp, amount), requiredExp) >= 0) {
                     if (level == getMaxLevel()) {
                         exp = operator.zero();
                         return;
                     }
 
-                    amount = operator.add(operator.subtract(amount, rawRequiredExp()), exp);
+                    amount = operator.add(operator.subtract(amount, requiredExp), exp);
                     exp = operator.zero();
                     level++;
                     sendLevelReward(level);
+                    requiredExp = rawRequiredExp();
                 }
 
                 exp = operator.add(exp, amount);
@@ -525,45 +528,112 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 }
             }
 
-            T displayTotal = (cache.config().stackComboExp() && System.currentTimeMillis() - lastTime <= 650)
+            long now = System.currentTimeMillis();
+            T displayTotal = (cache.config().stackComboExp() && now - lastTime <= 650)
                     ? operator.add(amount, lastAmount) : amount;
 
-            if (sendMessage && isOnline()) {
+            if (shouldSendMessage) {
                 T diff = operator.subtract(Objects.equals(displayTotal, operator.zero()) ? operator.zero() : displayTotal, difference);
 
                 if (operator.compare(totalAmount, operator.zero()) > 0) {
                     cache.lang().sendMessage(
-                            getPlayer(), Lang::getGainedExp, new String[] {"gainedEXP", "totalGainedEXP"},
+                            player, Lang::getGainedExp, new String[] {"gainedEXP", "totalGainedEXP"},
                             system.roundString(diff), system.roundString(totalAmount)
                     );
                 } else if (operator.compare(totalAmount, operator.zero()) < 0) {
                     cache.lang().sendMessage(
-                            getPlayer(), Lang::getLostExp, new String[] {"lostEXP", "totalLostEXP"},
+                            player, Lang::getLostExp, new String[] {"lostEXP", "totalLostEXP"},
                             system.roundString(operator.abs(diff)), system.roundString(operator.abs(totalAmount))
                     );
                 }
             }
 
             lastAmount = displayTotal;
-            lastTime = System.currentTimeMillis();
+            lastTime = now;
 
             level = Math.max(getStartLevel(), Math.min(level, getMaxLevel()));
             if (operator.compare(exp, operator.zero()) < 0) exp = operator.zero();
 
-            if (sendMessage && isOnline()) {
+            if (shouldSendMessage) {
                 long levelDifference = level - startingLevel;
                 if (levelDifference > 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, levelDifference, level);
+                    cache.lang().sendMessage(player, Lang::getGainedLevels, new String[] {"gainedLevels", "level"}, levelDifference, level);
                 } else if (levelDifference < 0) {
-                    cache.lang().sendMessage(getPlayer(), Lang::getLostLevels, new String[] {"lostLevels", "level"}, Math.abs(levelDifference), level);
+                    cache.lang().sendMessage(player, Lang::getLostLevels, new String[] {"lostLevels", "level"}, Math.abs(levelDifference), level);
                 }
             }
 
             if (checkLeaderboard) system.updateLeaderboard();
         }
 
+        private T fireExpEvents(T amount) {
+            double oldExp = exp.doubleValue();
+            long oldLevel = level;
+
+            XPChangeEvent legacyEvent = new XPChangeEvent(getPlayer(), oldExp, amount.doubleValue());
+            Bukkit.getPluginManager().callEvent(legacyEvent);
+            amount = operator.max(operator.fromDouble(legacyEvent.getAmount()), operator.zero());
+            if (operator.compare(amount, operator.zero()) == 0) return amount;
+
+            ExpPreview preview = previewPositiveExpChange(oldExp, oldLevel, amount.doubleValue());
+            ExpChangeEvent event = new ExpChangeEvent(
+                    this,
+                    oldExp,
+                    oldLevel,
+                    preview.exp,
+                    preview.level,
+                    amount.doubleValue()
+            );
+            event.call();
+            return operator.max(operator.fromDouble(event.getExpAmount()), operator.zero());
+        }
+
+        private ExpPreview previewPositiveExpChange(double oldExp, long oldLevel, double amount) {
+            double previewExp = Math.max(0D, oldExp);
+            long previewLevel = Math.max(getStartLevel(), Math.min(oldLevel, getMaxLevel()));
+            double remaining = Math.max(0D, amount);
+
+            while (remaining > 0D && previewLevel < getMaxLevel()) {
+                double required = system.getRequiredExp(previewLevel, uuid).doubleValue();
+                if (required <= 0D) {
+                    previewLevel++;
+                    previewExp = 0D;
+                    continue;
+                }
+
+                if (previewExp + remaining < required) {
+                    previewExp += remaining;
+                    remaining = 0D;
+                    break;
+                }
+
+                remaining = (previewExp + remaining) - required;
+                previewExp = 0D;
+                previewLevel++;
+            }
+
+            if (previewLevel >= getMaxLevel()) {
+                previewLevel = getMaxLevel();
+                previewExp = 0D;
+            }
+
+            return new ExpPreview(previewExp, previewLevel);
+        }
+
+        @RequiredArgsConstructor
+        private final class ExpPreview {
+
+            final double exp;
+            final long level;
+        }
+
         public void addExp(T amount, boolean doMultiplier) {
             changeExp(amount, operator.zero(), true, doMultiplier, true);
+        }
+
+        @Override
+        public void addExp(double amount, boolean doMultiplier) {
+            addExp(operator.fromDouble(amount), doMultiplier);
         }
 
         @Override
@@ -577,7 +647,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (checkLevel) {
                 T oldExp = this.exp;
                 exp = operator.zero();
-                changeExp(amount, oldExp, sendMessage, false, checkLeaderboard);
+                changeExp(amount, oldExp, sendMessage, false, false);
             }
             else this.exp = amount;
 
@@ -589,10 +659,20 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             setExp(operator.valueOf(amount), checkLevel, sendMessage, checkLeaderboard);
         }
 
+        @Override
+        public void setExp(double amount, boolean checkLevel, boolean sendMessage, boolean checkLeaderboard) {
+            setExp(operator.fromDouble(amount), checkLevel, sendMessage, checkLeaderboard);
+        }
+
         public void removeExp(T amount) {
             T positive = operator.max(amount, operator.zero());
             T negative = operator.negate(positive);
             changeExp(negative, operator.zero(), true, false, true);
+        }
+
+        @Override
+        public void removeExp(double amount) {
+            removeExp(operator.fromDouble(amount));
         }
 
         @Override

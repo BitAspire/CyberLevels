@@ -4,7 +4,7 @@ import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.level.Reward;
 import lombok.Getter;
 import me.clip.placeholderapi.PlaceholderAPI;
-import com.bitaspire.file.Configurable;
+import com.bitaspire.libs.file.Configurable;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
@@ -15,6 +15,14 @@ import org.bukkit.permissions.PermissionAttachmentInfo;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * Cache of level rewards loaded from {@code rewards.yml}.
+ *
+ * <p>Rewards are grouped by level and can bundle console/player commands, chat output, and an
+ * optional sound effect. The outer cache is responsible for parsing the configuration into
+ * executable reward objects, while each individual reward implementation knows how to deliver its
+ * side effects to a player.
+ */
 public final class Rewards {
 
     private final CyberLevels main;

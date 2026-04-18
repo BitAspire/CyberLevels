@@ -5,6 +5,14 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 import org.bukkit.configuration.ConfigurationSection;
 
+/**
+ * In-memory view of the plugin's main configuration file.
+ *
+ * <p>This type exposes the normalized settings that influence persistence, rounding, leaderboard
+ * behaviour, automatic updates, chat output, and several quality-of-life toggles used across the
+ * runtime. Values are read once on load and can be refreshed from disk through {@link #update()}
+ * when the configuration file itself is auto-updated.
+ */
 @Getter
 public class Config {
 
@@ -102,10 +110,23 @@ public class Config {
         return value;
     }
 
+    /**
+     * Persists any automatic schema or comment updates supported by the backing {@link CLVFile}.
+     *
+     * <p>This does not re-read values into the current instance. It only delegates the update
+     * operation to the configuration wrapper so the on-disk file can receive missing keys or
+     * template changes.
+     */
     public void update() {
         if (file != null) file.update();
     }
 
+    /**
+     * Parsed database subsection from {@code config.yml}.
+     *
+     * <p>This nested type stores every connection parameter required by CyberLevels to decide
+     * whether it should run with flat-file persistence, SQLite, or an external SQL database.
+     */
     @Accessors(fluent = false)
     @Getter
     public static class Database {

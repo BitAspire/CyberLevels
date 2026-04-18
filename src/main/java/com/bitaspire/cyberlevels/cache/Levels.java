@@ -8,6 +8,14 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Parsed view of the level progression configuration.
+ *
+ * <p>This cache stores the starting point of the progression system, the configured maximum level,
+ * the default experience formula, and any per-level formula overrides defined in
+ * {@code levels.yml}. The values are later consumed by the active {@code LevelSystem}
+ * implementation when calculating required experience.
+ */
 @Getter
 public class Levels {
 

@@ -7,183 +7,247 @@ import org.jetbrains.annotations.NotNull;
 import java.util.UUID;
 
 /**
- * Represents a user in the leveling system, providing methods to manage levels and experience points.
+ * Mutable view of one player's progression data.
  *
- * <p> This interface includes functionalities for retrieving player information, managing levels,
- * experience points, and checking permissions.
+ * <p>A {@code LevelUser} wraps identity, online state, current level, current EXP, progression
+ * helpers, and mutation operations such as adding EXP or changing levels. Implementations are
+ * expected to keep the in-memory state synchronized with the active level system and persistence
+ * backend.
  *
- * @param <N> the numeric type used for experience points and calculations
+ * @param <N> numeric type used by the active level engine
  */
 public interface LevelUser<N extends Number> extends Comparable<LevelUser<N>> {
 
     /**
-     * Gets the UUID of the user.
-     * @return the UUID
+     * Returns the unique identifier of this user.
+     *
+     * @return player UUID
      */
     @NotNull
     UUID getUuid();
 
     /**
-     * Gets the OfflinePlayer object associated with this user.
-     * @return the OfflinePlayer object
+     * Returns the Bukkit offline player handle associated with this user.
+     *
+     * @return offline player view
      */
     OfflinePlayer getOffline();
 
     /**
-     * Gets the Player object associated with this user.
-     * @return the Player object
+     * Returns the live Bukkit player handle.
+     *
+     * <p>Implementations may throw if the user is currently offline, so callers that are not sure
+     * about connection state should prefer {@link #isOnline()} or {@link #getOffline()} first.
+     *
+     * @return live player handle
      */
     @NotNull
     Player getPlayer();
 
+    /**
+     * Returns the most relevant player name for this user.
+     *
+     * @return player name as stored or resolved by the implementation
+     */
     @NotNull
     String getName();
 
+    /**
+     * Indicates whether the player is currently online.
+     *
+     * @return {@code true} when a live Bukkit player is available
+     */
     boolean isOnline();
 
     /**
-     * Gets the current level of the user.
-     * @return the current level
+     * Returns the user's current level.
+     *
+     * @return current level
      */
     long getLevel();
 
     /**
-     * Adds levels to the user's current level.
-     * @param amount the number of levels to add
+     * Adds one or more levels to the user.
+     *
+     * @param amount number of levels to add
      */
     void addLevel(long amount);
 
     /**
-     * Sets the user's level to a specific value.
-     * @param amount the level to set
-     * @param sendMessage whether to send a message to the user about the level change
+     * Sets the user's level to an explicit value.
+     *
+     * @param amount target level
+     * @param sendMessage whether the user should receive the standard level-change feedback
      */
     void setLevel(long amount, boolean sendMessage);
 
     /**
-     * Removes levels from the user's current level.
-     * @param amount the number of levels to remove
+     * Removes one or more levels from the user.
+     *
+     * @param amount number of levels to remove
      */
     void removeLevel(long amount);
 
     /**
-     * Gets the current experience points of the user.
-     * @return the current experience points
+     * Returns the user's current EXP value.
+     *
+     * @return current EXP
      */
     @NotNull
     N getExp();
 
     /**
-     * Gets the experience points required for the user to reach the next level.
-     * @return the experience points required for the next level
+     * Returns the EXP required for the user to reach the next level.
+     *
+     * @return required EXP for the current level
      */
     @NotNull
     N getRequiredExp();
 
     /**
-     * Gets the remaining experience points needed for the user to reach the next level.
-     * @return the remaining experience points needed
+     * Returns how much EXP the user still needs before leveling up.
+     *
+     * @return remaining EXP to the next level
      */
     @NotNull
     N getRemainingExp();
 
     /**
-     * Gets the percentage of experience points the user has towards the next level.
-     * @return the percentage as a string
+     * Returns the formatted completion percentage toward the next level.
+     *
+     * @return percentage string ready for display
      */
     @NotNull
     String getPercent();
 
     /**
-     * Gets the progress bar representing the user's experience towards the next level.
-     * @return the progress bar as a string
+     * Returns the formatted progress bar for the user's current EXP state.
+     *
+     * @return progress bar string ready for display
      */
     @NotNull
     String getProgressBar();
 
     /**
-     * Adds experience points to the user.
+     * Adds EXP to the user.
      *
-     * @param amount the amount of experience points to add
-     * @param multiply whether to apply the user's multiplier to the added experience
+     * @param amount EXP amount to add
+     * @param multiply whether the player's multiplier should be applied first
      */
     void addExp(N amount, boolean multiply);
 
     /**
-     * Adds experience points to the user.
+     * Adds EXP to the user from a primitive {@code double} value.
      *
-     * @param amount the amount of experience points to add, as a string
-     * @param multiply whether to apply the user's multiplier to the added experience
+     * <p>This overload exists for hot event paths where a primitive value is already available.
+     *
+     * @param amount EXP amount to add
+     * @param multiply whether the player's multiplier should be applied first
+     */
+    default void addExp(double amount, boolean multiply) {
+        addExp(String.valueOf(amount), multiply);
+    }
+
+    /**
+     * Adds EXP to the user from a string representation.
+     *
+     * @param amount EXP amount to add as text
+     * @param multiply whether the player's multiplier should be applied first
      */
     void addExp(String amount, boolean multiply);
 
     /**
-     * Sets the user's experience points to a specific value.
+     * Sets the user's EXP to an explicit value.
      *
-     * @param amount the experience points to set
-     * @param checkLevel whether to check and update the user's level based on the new experience
-     * @param sendMessage whether to send a message to the user about the experience change
-     * @param checkLeaderboard whether to update the leaderboard with the new experience
+     * @param amount target EXP value
+     * @param checkLevel whether level-up or level-down logic should run afterward
+     * @param sendMessage whether the user should receive the standard EXP-change feedback
+     * @param checkLeaderboard whether the leaderboard should be refreshed or marked dirty
      */
     void setExp(N amount, boolean checkLevel, boolean sendMessage, boolean checkLeaderboard);
 
     /**
-     * Sets the user's experience points to a specific value.
+     * Sets the user's EXP from a string representation.
      *
-     * @param amount the experience points to set, as a string
-     * @param checkLevel whether to check and update the user's level based on the new experience
-     * @param sendMessage whether to send a message to the user about the experience change
-     * @param checkLeaderboard whether to update the leaderboard with the new experience
+     * @param amount target EXP value as text
+     * @param checkLevel whether level-up or level-down logic should run afterward
+     * @param sendMessage whether the user should receive the standard EXP-change feedback
+     * @param checkLeaderboard whether the leaderboard should be refreshed or marked dirty
      */
     void setExp(String amount, boolean checkLevel, boolean sendMessage, boolean checkLeaderboard);
 
     /**
-     * Sets the user's experience points to a specific value.
+     * Sets the user's EXP from a primitive {@code double}.
      *
-     * @param amount the experience points to set
-     * @param checkLevel whether to check and update the user's level based on the new experience
-     * @param sendMessage whether to send a message to the user about the experience change
+     * @param amount target EXP value
+     * @param checkLevel whether level-up or level-down logic should run afterward
+     * @param sendMessage whether the user should receive the standard EXP-change feedback
+     * @param checkLeaderboard whether the leaderboard should be refreshed or marked dirty
+     */
+    default void setExp(double amount, boolean checkLevel, boolean sendMessage, boolean checkLeaderboard) {
+        setExp(String.valueOf(amount), checkLevel, sendMessage, checkLeaderboard);
+    }
+
+    /**
+     * Sets the user's EXP and keeps leaderboard updates enabled by default.
+     *
+     * @param amount target EXP value
+     * @param checkLevel whether level-up or level-down logic should run afterward
+     * @param sendMessage whether the user should receive the standard EXP-change feedback
      */
     default void setExp(N amount, boolean checkLevel, boolean sendMessage) {
         setExp(amount, checkLevel, sendMessage, true);
     }
 
     /**
-     * Sets the user's experience points to a specific value.
+     * Sets the user's EXP from a string value and keeps leaderboard updates enabled by default.
      *
-     * @param amount the experience points to set, as a string
-     * @param checkLevel whether to check and update the user's level based on the new experience
-     * @param sendMessage whether to send a message to the user about the experience change
+     * @param amount target EXP value as text
+     * @param checkLevel whether level-up or level-down logic should run afterward
+     * @param sendMessage whether the user should receive the standard EXP-change feedback
      */
     default void setExp(String amount, boolean checkLevel, boolean sendMessage) {
         setExp(amount, checkLevel, sendMessage, true);
     }
 
     /**
-     * Removes experience points from the user.
-     * @param amount the amount of experience points to remove
+     * Removes EXP from the user.
+     *
+     * @param amount EXP amount to remove
      */
     void removeExp(N amount);
 
     /**
-     * Removes experience points from the user.
-     * @param amount the amount of experience points to remove, as a string
+     * Removes EXP from the user from a primitive {@code double}.
+     *
+     * <p>This overload exists for hot event paths where a primitive value is already available.
+     *
+     * @param amount EXP amount to remove
+     */
+    default void removeExp(double amount) {
+        removeExp(String.valueOf(amount));
+    }
+
+    /**
+     * Removes EXP from the user from a string representation.
+     *
+     * @param amount EXP amount to remove as text
      */
     void removeExp(String amount);
 
     /**
-     * Checks if the user has a specific permission.
+     * Checks whether the user has a permission, optionally treating operator status as a wildcard.
      *
-     * @param permission the permission to check
-     * @param checkOp whether to consider operator status as having all permissions
-     *
-     * @return true if the user has the permission, false otherwise
+     * @param permission permission node to check
+     * @param checkOp whether operator status should automatically pass the check
+     * @return {@code true} when the user satisfies the permission requirement
      */
     boolean hasParentPerm(String permission, boolean checkOp);
 
     /**
-     * Gets the experience multiplier for the user.
-     * @return the experience multiplier
+     * Returns the EXP multiplier currently applicable to the user.
+     *
+     * @return effective multiplier
      */
     double getMultiplier();
 }

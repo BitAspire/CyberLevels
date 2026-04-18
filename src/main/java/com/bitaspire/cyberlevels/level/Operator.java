@@ -3,141 +3,137 @@ package com.bitaspire.cyberlevels.level;
 import java.math.RoundingMode;
 
 /**
- * Represents a mathematical operator for performing arithmetic operations on numbers.
+ * Abstraction over the numeric engine used by CyberLevels.
  *
- * @param <N> the numeric type used for calculations
+ * <p>The plugin can run either on a lightweight {@code double}-based implementation or on a
+ * higher-precision big-decimal implementation. This interface hides those differences behind a
+ * shared arithmetic API so the rest of the level system can stay generic.
+ *
+ * @param <N> numeric type handled by the implementation
  */
 public interface Operator<N extends Number> {
 
     /**
-     * Returns the zero value of the numeric type.
-     * @return the zero value
+     * Returns the additive identity of the numeric type.
+     *
+     * @return zero value for the current numeric engine
      */
     N zero();
 
     /**
-     * Converts a string representation of a number to the numeric type.
+     * Parses a textual numeric value into the engine's native number type.
      *
-     * @param value the string representation of the number
-     *
-     * @return the numeric value
-     * @throws NumberFormatException if the string cannot be parsed to a number
+     * @param value textual number to parse
+     * @return parsed numeric value
+     * @throws NumberFormatException when the input cannot be parsed
      */
     N valueOf(String value) throws NumberFormatException;
 
     /**
-     * Converts a double value to the numeric type.
+     * Converts a primitive {@code double} into the engine's native number type.
      *
-     * @param value the double value
-     * @return the numeric value
+     * @param value primitive value to convert
+     * @return converted numeric value
      */
     N fromDouble(double value);
 
     /**
-     * Adds two numeric values.
+     * Adds two values using the engine's precision rules.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     *
-     * @return the sum of a and b
+     * @param a left operand
+     * @param b right operand
+     * @return addition result
      */
     N add(N a, N b);
 
     /**
-     * Subtracts the second numeric value from the first.
+     * Subtracts one value from another using the engine's precision rules.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     *
-     * @return the result of a - b
+     * @param a left operand
+     * @param b right operand
+     * @return subtraction result
      */
     N subtract(N a, N b);
 
     /**
-     * Multiplies two numeric values.
+     * Multiplies two values using the engine's precision rules.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     *
-     * @return the product of a and b
+     * @param a left operand
+     * @param b right operand
+     * @return multiplication result
      */
     N multiply(N a, N b);
 
     /**
-     * Divides the first numeric value by the second.
+     * Divides one value by another using the engine's default division strategy.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     *
-     * @return the result of a / b
-     * @throws ArithmeticException if division by zero occurs
+     * @param a dividend
+     * @param b divisor
+     * @return division result
+     * @throws ArithmeticException when the divisor is zero
      */
     N divide(N a, N b);
 
     /**
-     * Divides the first numeric value by the second with specified scale and rounding mode.
+     * Divides one value by another with an explicit scale and rounding policy.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     * @param scale the number of digits to the right of the decimal point
-     * @param mode the rounding mode to apply
-     *
-     * @return the result of a / b with specified scale and rounding
-     * @throws ArithmeticException if division by zero occurs
+     * @param a dividend
+     * @param b divisor
+     * @param scale amount of fractional precision to keep
+     * @param mode rounding mode to apply when needed
+     * @return scaled division result
+     * @throws ArithmeticException when the divisor is zero
      */
     N divide(N a, N b, int scale, RoundingMode mode);
 
     /**
-     * Compares two numeric values.
+     * Compares two values according to the engine's natural ordering.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     *
-     * @return a negative integer, zero, or a positive integer as a is less than, equal to, or greater than b
+     * @param a first value
+     * @param b second value
+     * @return negative, zero, or positive depending on the ordering of {@code a} and {@code b}
      */
     int compare(N a, N b);
 
     /**
-     * Returns the minimum of two numeric values.
+     * Returns the smaller of the two supplied values.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     *
-     * @return the minimum of a and b
+     * @param a first value
+     * @param b second value
+     * @return smaller value
      */
     N min(N a, N b);
 
     /**
-     * Returns the maximum of two numeric values.
+     * Returns the larger of the two supplied values.
      *
-     * @param a the first numeric value
-     * @param b the second numeric value
-     *
-     * @return the maximum of a and b
+     * @param a first value
+     * @param b second value
+     * @return larger value
      */
     N max(N a, N b);
 
     /**
-     * Returns the absolute value of the numeric value.
+     * Returns the absolute value of the supplied number.
      *
-     * @param a the numeric value
-     * @return the absolute value of a
+     * @param a value to normalize
+     * @return absolute value
      */
     N abs(N a);
 
     /**
-     * Returns the negation of the numeric value.
+     * Returns the additive inverse of the supplied number.
      *
-     * @param a the numeric value
-     * @return the negation of a
+     * @param a value to negate
+     * @return negated value
      */
     N negate(N a);
 
     /**
-     * Converts the numeric value to its string representation.
+     * Formats the supplied value using the engine's canonical string representation.
      *
-     * @param value the numeric value
-     * @return the string representation of the numeric value
+     * @param value numeric value to format
+     * @return engine-specific string form
      */
     String toString(N value);
 }

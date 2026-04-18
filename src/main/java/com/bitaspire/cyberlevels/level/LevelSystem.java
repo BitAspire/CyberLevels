@@ -8,89 +8,110 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Represents a level system with various configurations and functionalities.
+ * Central API for the active CyberLevels progression engine.
  *
- * <p> This interface provides methods to manage levels, experience points, formulas,
- * leaderboards, anti-abuse mechanisms, and placeholders.
+ * <p>The level system ties together numeric operations, required-EXP formulas, leaderboard
+ * calculation, anti-abuse checks, placeholder replacement, and formatting helpers. Most plugin and
+ * integration code should interact with this interface rather than with a concrete implementation.
  *
- * @param <N> the numeric type used for experience points and calculations
+ * @param <N> numeric type used by the active level engine
  */
 public interface LevelSystem<N extends Number> {
 
     /**
-     * Gets the starting level for the level system.
-     * @return the starting level
+     * Returns the configured starting level assigned to newly created users.
+     *
+     * @return first level in the progression curve
      */
     long getStartLevel();
 
     /**
-     * Gets the starting experience points for the level system.
-     * @return the starting experience points
+     * Returns the configured starting EXP assigned to newly created users.
+     *
+     * @return starting EXP value
      */
     int getStartExp();
 
     /**
-     * Gets the maximum level for the level system.
-     * @return the maximum level
+     * Returns the highest level reachable through this progression system.
+     *
+     * @return configured max level
      */
     long getMaxLevel();
 
     /**
-     * Gets the operator used for calculations in the level system.
-     * @return the operator
+     * Returns the numeric operator used by this engine.
+     *
+     * @return arithmetic abstraction for the active numeric backend
      */
     @NotNull
     Operator<N> getOperator();
 
     /**
-     * Gets the default formula used for experience calculations.
-     * @return the default formula
+     * Returns the fallback formula used when no per-level override exists.
+     *
+     * @return default required-EXP formula
      */
     @NotNull
     Formula<N> getFormula();
 
     /**
-     * Gets a custom formula for the specified level.
+     * Returns the custom formula override for a specific level, if one exists.
      *
-     * @param level the level number
-     * @return the custom formula for the specified level, or null if no custom formula is defined
+     * @param level level whose override should be resolved
+     * @return override formula, or {@code null} when the default formula should be used
      */
     Formula<N> getCustomFormula(long level);
 
+    /**
+     * Calculates the required EXP for a specific level and player context.
+     *
+     * @param level level whose requirement should be evaluated
+     * @param uuid player UUID used for placeholder-aware formulas
+     * @return required EXP for the supplied level
+     */
     @NotNull
     N getRequiredExp(long level, UUID uuid);
 
+    /**
+     * Returns every reward configured for the supplied level.
+     *
+     * @param level level whose rewards should be retrieved
+     * @return ordered list of rewards for that level
+     */
     @NotNull
     List<Reward> getRewards(long level);
 
     /**
-     * Gets the leaderboard associated with the level system.
-     * @return the leaderboard
+     * Returns the leaderboard maintained by this level system.
+     *
+     * @return active leaderboard instance
      */
     @NotNull
     Leaderboard<N> getLeaderboard();
 
     /**
-     * Gets a map of experience sources defined in the level system.
-     * @return a map of experience sources
+     * Returns the configured EXP sources available to the level system.
+     *
+     * @return EXP sources keyed by configuration id
      */
     @NotNull
     Map<String, ExpSource> getExpSources();
 
     /**
-     * Gets a map of anti-abuse mechanisms defined in the level system.
-     * @return a map of anti-abuse mechanisms
+     * Returns the configured anti-abuse modules currently enforced by the level system.
+     *
+     * @return anti-abuse modules keyed by configuration id
      */
     @NotNull
     Map<String, AntiAbuse> getAntiAbuses();
 
     /**
-     * Checks if the specified player is limited by any anti-abuse mechanism for the given experience source.
+     * Checks every configured anti-abuse module for a possible restriction.
      *
-     * @param player the player to check
-     * @param source the experience source
-     *
-     * @return true if the player is limited, false otherwise
+     * @param player player attempting to gain or lose EXP
+     * @param source EXP source being processed
+     * @return {@code true} when any anti-abuse module blocks the action
      */
     default boolean checkAntiAbuse(Player player, ExpSource source) {
         for (AntiAbuse abuse : getAntiAbuses().values())
@@ -100,70 +121,68 @@ public interface LevelSystem<N extends Number> {
     }
 
     /**
-     * Rounds the given amount of experience points according to the level system's rules.
+     * Applies the engine's configured rounding rules to a numeric value.
      *
-     * @param amount the amount of experience points to round
-     * @return the rounded amount of experience points
+     * @param amount numeric value to round
+     * @return rounded value in the engine's native number type
      */
     @NotNull
     N round(N amount);
 
     /**
-     * Rounds the given amount of experience points and returns it as a string representation.
+     * Applies rounding and formats the result as text.
      *
-     * @param amount the amount of experience points to round
-     * @return the rounded amount of experience points as a string
+     * @param amount numeric value to round and format
+     * @return rounded value rendered as a string
      */
     @NotNull
     String roundString(N amount);
 
     /**
-     * Rounds the given amount of experience points and returns it as a double representation.
+     * Applies rounding and returns the result as a primitive {@code double}.
      *
-     * @param amount the amount of experience points to round
-     * @return the rounded amount of experience points as a double
+     * @param amount numeric value to round
+     * @return rounded value converted to {@code double}
      */
     double roundDouble(N amount);
 
     /**
-     * Formats the provided numeric value according to the level system rounding rules.
+     * Formats an arbitrary numeric value using the same rules applied to player EXP values.
      *
-     * @param value the numeric value to format
-     * @return the formatted numeric value as a string
+     * @param value numeric value to format
+     * @return formatted number string
      */
     @NotNull
     String formatNumber(Number value);
 
     /**
-     * Generates a progress bar string representing the player's progress towards the next level.
+     * Builds the configured progress bar for a pair of current and required EXP values.
      *
-     * @param exp the current experience points of the player
-     * @param requiredExp the experience points required to reach the next level
-     *
-     * @return a string representing the progress bar
+     * @param exp current EXP value
+     * @param requiredExp EXP required for the next level
+     * @return formatted progress bar string
      */
     @NotNull
     String getProgressBar(N exp, N requiredExp);
 
     /**
-     * Calculates the percentage of experience points the player has towards the next level.
+     * Calculates a formatted completion percentage for the supplied EXP values.
      *
-     * @param exp the current experience points of the player
-     * @param requiredExp the experience points required to reach the next level
-     *
-     * @return a string representing the percentage of experience points
+     * @param exp current EXP value
+     * @param requiredExp EXP required for the next level
+     * @return percentage string ready for display
      */
     @NotNull
     String getPercent(N exp, N requiredExp);
 
     /**
-     * Replaces placeholders in the given string with actual values based on the player's data.
+     * Replaces CyberLevels placeholders inside a string using player data and system state.
      *
-     * @param string the string containing placeholders
-     * @param uuid the UUID of the player
-     * @param safeForFormula indicates whether the replacement should be safe for formula usage
-     *
-     * @return the string with placeholders replaced by actual values
+     * @param string source string containing placeholders
+     * @param uuid player UUID used for lookup context
+     * @param safeForFormula whether replacements should avoid formatting that could break formula
+     *        evaluation
+     * @return string with placeholders resolved
      */
     @NotNull
     String replacePlaceholders(String string, UUID uuid, boolean safeForFormula);

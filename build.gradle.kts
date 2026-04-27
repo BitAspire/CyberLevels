@@ -5,8 +5,8 @@ import org.gradle.external.javadoc.StandardJavadocDocletOptions
 
 plugins {
     id("java-library")
-    id("io.freefair.lombok") version "8.10"
-    id("com.gradleup.shadow") version "8.3.0"
+    id("io.freefair.lombok") version "9.4.0"
+    id("com.gradleup.shadow") version "9.4.1"
 }
 
 group = "com.bitaspire"
@@ -31,8 +31,8 @@ dependencies {
     annotationProcessor("org.jetbrains:annotations:26.0.2")
 
     // Lombok
-    compileOnly("org.projectlombok:lombok:1.18.38")
-    annotationProcessor("org.projectlombok:lombok:1.18.38")
+    compileOnly("org.projectlombok:lombok:1.18.44")
+    annotationProcessor("org.projectlombok:lombok:1.18.44")
 
     // Spigot API
     compileOnly("org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT")

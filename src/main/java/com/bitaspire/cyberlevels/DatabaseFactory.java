@@ -297,6 +297,105 @@ class DatabaseFactory {
             }
         }
 
+        static final class StoredUserData {
+            final UUID uuid;
+            final long level;
+            final String exp;
+            final long highestRewarded;
+            final long updatedAt;
+
+            StoredUserData(UUID uuid, long level, String exp, long highestRewarded, long updatedAt) {
+                this.uuid = uuid;
+                this.level = level;
+                this.exp = exp;
+                this.highestRewarded = highestRewarded;
+                this.updatedAt = updatedAt;
+            }
+        }
+
+        private String selectStoredUserSql(String whereClause) {
+            return "SELECT t." + qCol("UUID") + " AS UUID," +
+                    " t." + qCol("LEVEL") + " AS LEVEL," +
+                    " t." + qCol("EXP") + " AS EXP," +
+                    " t." + qCol("UPDATED_AT") + " AS UPDATED_AT," +
+                    " m." + qCol("HIGHEST_REWARDED") + " AS META_HIGHEST_REWARDED," +
+                    " m." + qCol("UPDATED_AT") + " AS META_UPDATED_AT " +
+                    "FROM " + qTab(getTable()) + " t " +
+                    "LEFT JOIN " + qTab(metaTable()) + " m ON t." + qCol("UUID") + " = m." + qCol("UUID") +
+                    " " + whereClause;
+        }
+
+        private StoredUserData readStoredUserData(ResultSet rs) throws SQLException {
+            UUID uuid = UUID.fromString(rs.getString("UUID"));
+            long level = parseLevel(rs.getString("LEVEL"), uuid);
+            String exp = parseExp(rs.getString("EXP"), uuid);
+
+            long highest = safeGetLong(rs, "META_HIGHEST_REWARDED", level);
+            if (highest < 0) highest = level;
+
+            long updatedAt = Math.max(
+                    safeGetLong(rs, "UPDATED_AT", 0L),
+                    safeGetLong(rs, "META_UPDATED_AT", 0L)
+            );
+
+            return new StoredUserData(uuid, level, exp, highest, updatedAt);
+        }
+
+        StoredUserData fetchUserData(UUID uuid) {
+            if (!isConnected() || uuid == null) return null;
+
+            String sql = selectStoredUserSql("WHERE t." + qCol("UUID") + "=?");
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement st = connection.prepareStatement(sql)) {
+                st.setString(1, uuid.toString());
+
+                try (ResultSet rs = st.executeQuery()) {
+                    if (!rs.next()) return null;
+                    return readStoredUserData(rs);
+                }
+            } catch (Exception e) {
+                main.logger("&cFailed to get player data for " + uuid + ".", "");
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        List<StoredUserData> getUsersUpdatedSince(long updatedAfter) {
+            if (!isConnected()) return Collections.emptyList();
+
+            String sql = selectStoredUserSql(
+                    "WHERE t." + qCol("UPDATED_AT") + " > ? OR m." + qCol("UPDATED_AT") + " > ?"
+            );
+
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement st = connection.prepareStatement(sql)) {
+                st.setLong(1, updatedAfter);
+                st.setLong(2, updatedAfter);
+
+                try (ResultSet rs = st.executeQuery()) {
+                    List<StoredUserData> users = new ArrayList<>();
+                    while (rs.next()) {
+                        try {
+                            users.add(readStoredUserData(rs));
+                        } catch (Exception ignored) {}
+                    }
+                    return users;
+                }
+            } catch (Exception e) {
+                main.logger("&cFailed to fetch recent player updates from " + type + ".", "");
+                e.printStackTrace();
+                return Collections.emptyList();
+            }
+        }
+
+        LevelUser<N> toLevelUser(StoredUserData data) {
+            if (data == null) return null;
+
+            LevelUser<N> user = system.createUser(data.uuid);
+            system.applyStoredState(user, data.level, data.exp, data.highestRewarded);
+            return user;
+        }
+
         static String safeGet(ResultSet rs, String col) {
             try {
                 return rs.getString(col);
@@ -537,32 +636,7 @@ class DatabaseFactory {
             CompletableFuture<LevelUser<N>> future = new CompletableFuture<>();
 
             main.scheduler().runTaskAsynchronously(() -> {
-                String sql = "SELECT " + qCol("LEVEL") + "," + qCol("EXP") + " FROM " + qTab(getTable()) + " WHERE " + qCol("UUID") + "=?";
-
-                try (Connection connection = dataSource.getConnection();
-                     PreparedStatement st = connection.prepareStatement(sql)) {
-                    st.setString(1, uuid.toString());
-
-                    try (ResultSet rs = st.executeQuery()) {
-                        if (!rs.next()) {
-                            future.complete(null);
-                            return;
-                        }
-
-                        LevelUser<N> user = system.createUser(uuid);
-                        user.setLevel(parseLevel(rs.getString("LEVEL"), uuid), false);
-                        user.setExp(parseExp(rs.getString("EXP"), uuid), false, false, false);
-
-                        long hr = readHighestRewarded(connection, uuid);
-                        setRewardLevel(user, hr >= 0 ? hr : user.getLevel());
-
-                        future.complete(user);
-                    }
-                } catch (Exception e) {
-                    main.logger("&cFailed to get player data for " + uuid + ".", "");
-                    e.printStackTrace();
-                    future.complete(null);
-                }
+                future.complete(toLevelUser(fetchUserData(uuid)));
             });
 
             try {

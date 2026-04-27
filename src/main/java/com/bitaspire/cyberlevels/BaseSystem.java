@@ -229,11 +229,28 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     @NotNull
     LevelUser<N> createUser(LevelUser<?> user) {
         LevelUser<N> newUser = createUser(user.getUuid());
+        long highestRewarded = user.getLevel();
+        try {
+            highestRewarded = (long) user.getClass().getMethod("getHighestRewardedLevel").invoke(user);
+        } catch (Exception ignored) {}
 
-        newUser.setLevel(user.getLevel(), false);
-        newUser.setExp(user.getExp() + "", true, false, false);
-
+        applyStoredState(newUser, user.getLevel(), String.valueOf(user.getExp()), highestRewarded);
         return newUser;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void applyStoredState(LevelUser<N> user, long level, String exp, long highestRewardedLevel) {
+        if (user instanceof BaseUser) {
+            ((BaseUser) user).applyStoredState(level, exp, highestRewardedLevel);
+            return;
+        }
+
+        user.setLevel(level, false);
+        user.setExp(exp, false, false, false);
+
+        try {
+            user.getClass().getMethod("setHighestRewardedLevel", long.class).invoke(user, highestRewardedLevel);
+        } catch (Exception ignored) {}
     }
 
     static class DecimalFormatter<T extends Number> {
@@ -400,6 +417,28 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         public void setHighestRewardedLevel(long value) {
             this.highestRewardedLevel = Math.max(0L, value);
+        }
+
+        void applyStoredState(long level, String expValue, long highestRewardedLevel) {
+            long min = getStartLevel();
+            long max = getMaxLevel();
+
+            this.level = Math.max(Math.min(level, max), min);
+
+            T parsed;
+            try {
+                parsed = operator.abs(operator.valueOf(expValue));
+            } catch (Exception ignored) {
+                parsed = operator.fromDouble(getStartExp());
+            }
+
+            exp = parsed;
+            if (operator.compare(exp, operator.zero()) < 0)
+                exp = operator.zero();
+
+            lastAmount = operator.zero();
+            lastTime = 0L;
+            this.highestRewardedLevel = Math.max(0L, highestRewardedLevel);
         }
 
         BaseUser(BaseSystem<T> system, UUID uuid) {

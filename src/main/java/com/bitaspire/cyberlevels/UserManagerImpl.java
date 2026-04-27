@@ -27,14 +27,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
+    private static final long DATABASE_SYNC_INTERVAL_TICKS = 20L;
+    private static final long LOCAL_OFFLINE_CACHE_TTL_MS = 15_000L;
+
     final CyberLevels main;
     final Cache cache;
 
     private final AtomicBoolean leaderboardQueued = new AtomicBoolean(false);
+    private final AtomicBoolean databaseSyncInFlight = new AtomicBoolean(false);
     private final BaseSystem<N> system;
     private final Map<UUID, LevelUser<N>> users = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> localOfflineSnapshots = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> knownDatabaseUpdatedAt = new ConcurrentHashMap<>();
+    private volatile long lastObservedDatabaseUpdateAt = System.currentTimeMillis();
 
     GlobalTask autoSaveTask = null;
+    GlobalTask databaseSyncTask = null;
     @Getter
     private Database<N> database = null;
 
@@ -178,25 +186,24 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     }
 
     private LevelUser<N> loadFromFlatFile(UUID uuid) {
-        LevelUser<N> user = system.createUser(uuid);
-
         Path file = new File(main.getDataFolder(), "player_data" + File.separator + uuid + ".clv").toPath();
         if (!Files.exists(file)) return null;
 
         try (BufferedReader reader = Files.newBufferedReader(file)) {
+            LevelUser<N> user = system.createUser(uuid);
             String line;
 
             line = reader.readLine();
             if (line == null) return null;
-            user.setLevel(parseLong(line, system.getStartLevel(), uuid, "level"), false);
+            long level = parseLong(line, system.getStartLevel(), uuid, "level");
 
             line = reader.readLine();
             if (line == null) return null;
-            user.setExp(parseExp(line, uuid), false, false, false);
+            String exp = parseExp(line, uuid);
 
             line = reader.readLine();
-            long claimed = (line != null) ? parseLong(line, user.getLevel(), uuid, "highest rewarded level") : user.getLevel();
-            setRewardLevel(user, claimed);
+            long claimed = (line != null) ? parseLong(line, level, uuid, "highest rewarded level") : level;
+            system.applyStoredState(user, level, exp, claimed);
 
             return user;
         } catch (Exception e) {
@@ -226,9 +233,18 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     private LoadResult loadUserData(UUID uuid) {
         LevelUser<N> user;
         String migrationMessage = "";
+        long databaseUpdatedAt = 0L;
 
         if (database != null) {
-            user = database.getUser(uuid);
+            DatabaseFactory.DatabaseImpl<N> databaseImpl = databaseImpl();
+            DatabaseFactory.DatabaseImpl.StoredUserData stored = databaseImpl != null ? databaseImpl.fetchUserData(uuid) : null;
+
+            if (stored != null) {
+                user = databaseImpl.toLevelUser(stored);
+                databaseUpdatedAt = stored.updatedAt;
+            } else {
+                user = database.getUser(uuid);
+            }
 
             if (user == null) {
                 if ((user = loadFromFlatFile(uuid)) != null) {
@@ -261,7 +277,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             if (user == null) user = system.createUser(uuid);
         }
 
-        return new LoadResult(user, migrationMessage);
+        return new LoadResult(user, migrationMessage, databaseUpdatedAt);
     }
 
     private void loadUserAsync(OfflinePlayer offline, boolean updateLeaderboard) {
@@ -271,21 +287,30 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         LevelUser<N> user = users.get(uuid);
 
         if (user != null && player != null && !user.isOnline()) {
-            LevelUser<N> newUser = system.createUser(uuid);
+            if (shouldReuseLocalOfflineSnapshot(uuid)) {
+                LevelUser<N> newUser = system.createUser(uuid);
+                system.applyStoredState(newUser, user.getLevel(), String.valueOf(user.getExp()), getRewardLevel(user));
 
-            newUser.setLevel(user.getLevel(), false);
-            newUser.setExp(user.getExp() + "", true, false, false);
-            setRewardLevel(newUser, getRewardLevel(user));
+                users.put(uuid, newUser);
+                localOfflineSnapshots.remove(uuid);
+                if (updateLeaderboard) scheduleLeaderboardUpdate();
+                return;
+            }
 
-            users.put(uuid, newUser);
-            if (updateLeaderboard) scheduleLeaderboardUpdate();
-            return;
+            users.remove(uuid, user);
         }
 
         main.scheduler().runTaskAsynchronously(() -> {
             LoadResult result = loadUserData(uuid);
             main.scheduler().runTask(() -> finishUserLoad(uuid, player, result, updateLeaderboard));
         });
+    }
+
+    private boolean shouldReuseLocalOfflineSnapshot(UUID uuid) {
+        if (database == null) return true;
+
+        Long savedAt = localOfflineSnapshots.get(uuid);
+        return savedAt != null && System.currentTimeMillis() - savedAt <= LOCAL_OFFLINE_CACHE_TTL_MS;
     }
 
     private LevelUser<N> loadUser(OfflinePlayer offline) {
@@ -298,9 +323,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     private LevelUser<N> toOnlineUser(UUID uuid, LevelUser<N> source) {
         LevelUser<N> online = system.createUser(uuid);
-        online.setLevel(source.getLevel(), false);
-        online.setExp(source.getExp() + "", true, false, false);
-        setRewardLevel(online, getRewardLevel(source));
+        system.applyStoredState(online, source.getLevel(), String.valueOf(source.getExp()), getRewardLevel(source));
         return online;
     }
 
@@ -313,6 +336,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             if (player != null && !existing.isOnline())
                 users.put(uuid, toOnlineUser(uuid, existing));
 
+            if (result.databaseUpdatedAt > 0L)
+                knownDatabaseUpdatedAt.put(uuid, result.databaseUpdatedAt);
+            if (player != null) localOfflineSnapshots.remove(uuid);
             if (updateLeaderboard) scheduleLeaderboardUpdate();
             return;
         }
@@ -321,6 +347,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (player != null && !loaded.isOnline()) loaded = toOnlineUser(uuid, loaded);
 
         users.put(uuid, loaded);
+        if (result.databaseUpdatedAt > 0L)
+            knownDatabaseUpdatedAt.put(uuid, result.databaseUpdatedAt);
+        if (player != null) localOfflineSnapshots.remove(uuid);
         if (updateLeaderboard) scheduleLeaderboardUpdate();
     }
 
@@ -336,6 +365,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     private class LoadResult {
         final LevelUser<N> user;
         final String migrationMessage;
+        final long databaseUpdatedAt;
     }
 
     @Override
@@ -369,20 +399,20 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
         if (syncSave) {
             users.remove(uuid);
+            localOfflineSnapshots.remove(uuid);
             return;
         }
 
         try {
             LevelUser<N> offline = system.createOffline(uuid);
-            offline.setLevel(user.getLevel(), false);
-            offline.setExp(user.getExp(), false, false, false);
-
-            setRewardLevel(offline, getRewardLevel(user));
+            system.applyStoredState(offline, user.getLevel(), String.valueOf(user.getExp()), getRewardLevel(user));
 
             users.put(uuid, offline);
+            localOfflineSnapshots.put(uuid, System.currentTimeMillis());
         }
         catch (Exception e) {
             users.remove(uuid);
+            localOfflineSnapshots.remove(uuid);
             main.logger("&cNot able to convert to OfflineUser for: " + user.getName() + ". Deleting cache...");
             e.printStackTrace();
         }
@@ -391,6 +421,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     @Override
     public void saveUser(LevelUser<N> user) {
         if (database != null) {
+            knownDatabaseUpdatedAt.put(user.getUuid(), System.currentTimeMillis());
             database.updateUser(user);
             return;
         }
@@ -399,6 +430,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     private void saveUserSync(LevelUser<N> user) {
         if (database != null) {
+            knownDatabaseUpdatedAt.put(user.getUuid(), System.currentTimeMillis());
             database.updateUserSync(user);
             return;
         }
@@ -412,6 +444,8 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     @Override
     public void removeUser(UUID uuid) {
         users.remove(uuid);
+        localOfflineSnapshots.remove(uuid);
+        knownDatabaseUpdatedAt.remove(uuid);
 
         if (database != null) {
             database.removeUser(uuid);
@@ -489,8 +523,83 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, clearData, false));
     }
 
-    void saveOnlinePlayersSync(boolean clearData) {
-        Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, clearData, true));
+    void saveOnlinePlayersSync() {
+        Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, true, true));
+    }
+
+    @SuppressWarnings("unchecked")
+    private DatabaseFactory.DatabaseImpl<N> databaseImpl() {
+        return database instanceof DatabaseFactory.DatabaseImpl<?> ?
+                (DatabaseFactory.DatabaseImpl<N>) database :
+                null;
+    }
+
+    void startDatabaseSync() {
+        if (databaseSyncTask != null || databaseImpl() == null) return;
+        scheduleDatabaseSync();
+    }
+
+    private void scheduleDatabaseSync() {
+        databaseSyncTask = main.scheduler().runTaskLaterAsynchronously(() -> {
+            try {
+                pollDatabaseUpdates();
+            } finally {
+                if (main.isEnabled() && databaseSyncTask != null)
+                    scheduleDatabaseSync();
+            }
+        }, DATABASE_SYNC_INTERVAL_TICKS);
+    }
+
+    private void pollDatabaseUpdates() {
+        DatabaseFactory.DatabaseImpl<N> databaseImpl = databaseImpl();
+        if (databaseImpl == null || users.isEmpty()) return;
+        if (!databaseSyncInFlight.compareAndSet(false, true)) return;
+
+        try {
+            List<DatabaseFactory.DatabaseImpl.StoredUserData> updates =
+                    databaseImpl.getUsersUpdatedSince(lastObservedDatabaseUpdateAt);
+
+            if (updates.isEmpty()) return;
+
+            List<DatabaseFactory.DatabaseImpl.StoredUserData> relevant = new ArrayList<>();
+            long watermark = lastObservedDatabaseUpdateAt;
+
+            for (DatabaseFactory.DatabaseImpl.StoredUserData update : updates) {
+                watermark = Math.max(watermark, update.updatedAt);
+
+                if (!users.containsKey(update.uuid)) continue;
+
+                long known = knownDatabaseUpdatedAt.getOrDefault(update.uuid, 0L);
+                if (update.updatedAt > known)
+                    relevant.add(update);
+            }
+
+            lastObservedDatabaseUpdateAt = watermark;
+            if (relevant.isEmpty()) return;
+
+            main.scheduler().runTask(() -> applyDatabaseUpdates(relevant));
+        } finally {
+            databaseSyncInFlight.set(false);
+        }
+    }
+
+    private void applyDatabaseUpdates(List<DatabaseFactory.DatabaseImpl.StoredUserData> updates) {
+        boolean changed = false;
+
+        for (DatabaseFactory.DatabaseImpl.StoredUserData update : updates) {
+            LevelUser<N> user = users.get(update.uuid);
+            if (user == null) continue;
+
+            long known = knownDatabaseUpdatedAt.getOrDefault(update.uuid, 0L);
+            if (update.updatedAt <= known) continue;
+
+            system.applyStoredState(user, update.level, update.exp, update.highestRewarded);
+            knownDatabaseUpdatedAt.put(update.uuid, update.updatedAt);
+            localOfflineSnapshots.remove(update.uuid);
+            changed = true;
+        }
+
+        if (changed) scheduleLeaderboardUpdate();
     }
 
     @Override
@@ -517,8 +626,14 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     @Override
     public void cancelAutoSave() {
-        if (autoSaveTask == null) return;
-        autoSaveTask.cancel();
-        autoSaveTask = null;
+        if (autoSaveTask != null) {
+            autoSaveTask.cancel();
+            autoSaveTask = null;
+        }
+
+        if (databaseSyncTask != null) {
+            databaseSyncTask.cancel();
+            databaseSyncTask = null;
+        }
     }
 }

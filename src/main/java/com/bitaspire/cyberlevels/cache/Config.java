@@ -106,8 +106,7 @@ public class Config {
 
     private static int clampLeaderboardPositions(int value) {
         if (value < 1) return 1;
-        if (value > 1000) return 1000;
-        return value;
+        return Math.min(value, 1000);
     }
 
     /**

@@ -93,11 +93,14 @@ tasks.named("build") {
 
 tasks.named<ShadowJar>("shadowJar") {
     archiveClassifier.set("")
+
+    relocate("me.croabeast.expr4j", "com.bitaspire.libs.expr4j")
+
     exclude(
         "META-INF/**",
         "org/apache/commons/**",
         "org/intellij/**",
         "org/jetbrains/**",
-        "me/croabeast/file/plugin/YAMLPlugin.*"
+        "**.json"
     )
 }

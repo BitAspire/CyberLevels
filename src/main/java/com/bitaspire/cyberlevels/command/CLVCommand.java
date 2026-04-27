@@ -356,9 +356,11 @@ public class CLVCommand implements CommandExecutor {
     }
 
     private static String stripConsoleChannels(String line) {
-        if (line == null) return "";
-        String stripped = line.replaceFirst("^\\[C]\\s*", "");
-        return stripped.replace("[actionbar]", "").replace("[action-bar]", "").trim();
+        return line == null ?
+                "" :
+                line.replaceFirst("^\\[C]\\s*", "")
+                    .replace("[actionbar]", "")
+                    .replace("[action-bar]", "").trim();
     }
 
     private LevelUser<?> resolveUserByName(String name) {

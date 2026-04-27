@@ -1,7 +1,7 @@
 package com.bitaspire.cyberlevels;
 
 import com.bitaspire.libs.common.CollectionBuilder;
-import com.bitaspire.libs.common.util.ServerInfoUtils;
+import com.bitaspire.libs.vnc.VNC;
 import com.bitaspire.cybercore.CoreSettings;
 import com.bitaspire.cybercore.CyberCore;
 import com.bitaspire.cyberlevels.cache.Cache;
@@ -265,7 +265,7 @@ public final class CyberLevels extends JavaPlugin {
      * @return parsed server version such as {@code 20.4}
      */
     public double serverVersion() {
-        return ServerInfoUtils.SERVER_VERSION;
+        return VNC.SERVER_VERSION;
     }
 
     /**

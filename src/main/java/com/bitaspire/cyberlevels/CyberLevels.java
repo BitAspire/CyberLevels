@@ -173,6 +173,8 @@ public final class CyberLevels extends JavaPlugin {
 
         (hookManager = new HookManager(this)).register();
         userManager.startAutoSave();
+        if (userManager instanceof UserManagerImpl<?>)
+            ((UserManagerImpl<?>) userManager).startDatabaseSync();
 
         levelSystem.getLeaderboard().update();
 
@@ -196,7 +198,7 @@ public final class CyberLevels extends JavaPlugin {
             userManager.cancelAutoSave();
 
             if (userManager instanceof UserManagerImpl<?>) {
-                ((UserManagerImpl<?>) userManager).saveOnlinePlayersSync(true);
+                ((UserManagerImpl<?>) userManager).saveOnlinePlayersSync();
             } else {
                 userManager.saveOnlinePlayers(true);
             }

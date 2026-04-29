@@ -20,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
@@ -307,7 +308,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         private final UserManager<T> userManager;
 
-        private volatile boolean updating = false;
+        private final AtomicBoolean updating = new AtomicBoolean(false);
+        private final AtomicBoolean dirty = new AtomicBoolean(false);
         protected final List<Entry<T>> topTenPlayers = new CopyOnWriteArrayList<>();
 
         BaseLeaderboard(UserManager<T> manager) {
@@ -321,8 +323,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Override
         public void update() {
+            dirty.set(true);
+            if (updating.compareAndSet(false, true))
+                runUpdatePass();
+        }
+
+        private void runUpdatePass() {
+            dirty.set(false);
             List<LevelUser<T>> users = userManager.getUsersList();
-            updating = true;
 
             main.scheduler().runTaskAsynchronously(() -> {
                 List<Entry<T>> list = new ArrayList<>();
@@ -330,20 +338,35 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
                 list.sort(Comparator.naturalOrder());
                 int max = cache.config().getLeaderboardMaxPositions();
-                List<Entry<T>> top = list.subList(0, Math.min(max, list.size()));
+                List<Entry<T>> top = new ArrayList<>(list.subList(0, Math.min(max, list.size())));
 
-                main.scheduler().runTask(() -> {
-                    topTenPlayers.clear();
-                    topTenPlayers.addAll(top);
-                    updating = false;
-                });
+                main.scheduler().runTask(() -> finishUpdatePass(top));
             });
+        }
+
+        private void finishUpdatePass(List<Entry<T>> top) {
+            topTenPlayers.clear();
+            topTenPlayers.addAll(top);
+
+            if (dirty.get()) {
+                runUpdatePass();
+                return;
+            }
+
+            updating.set(false);
+            if (dirty.get() && updating.compareAndSet(false, true))
+                runUpdatePass();
+        }
+
+        @Override
+        public boolean isUpdating() {
+            return updating.get();
         }
 
         @Override
         public LevelUser<T> getTopPlayer(int position) {
             int max = cache.config().getLeaderboardMaxPositions();
-            if (updating || position < 1 || position > max) return null;
+            if (updating.get() || position < 1 || position > max) return null;
 
             int index = position - 1;
             List<Entry<T>> snapshot = new ArrayList<>(topTenPlayers);

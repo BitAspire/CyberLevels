@@ -28,12 +28,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     private static final long DATABASE_SYNC_INTERVAL_TICKS = 20L;
+    private static final long DATABASE_SYNC_LOOKBACK_MS = 1_500L;
     private static final long LOCAL_OFFLINE_CACHE_TTL_MS = 15_000L;
 
     final CyberLevels main;
     final Cache cache;
 
     private final AtomicBoolean leaderboardQueued = new AtomicBoolean(false);
+    private final AtomicBoolean leaderboardDirty = new AtomicBoolean(false);
     private final AtomicBoolean databaseSyncInFlight = new AtomicBoolean(false);
     private final BaseSystem<N> system;
     private final Map<UUID, LevelUser<N>> users = new ConcurrentHashMap<>();
@@ -336,8 +338,11 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             if (player != null && !existing.isOnline())
                 users.put(uuid, toOnlineUser(uuid, existing));
 
-            if (result.databaseUpdatedAt > 0L)
+            if (result.databaseUpdatedAt > 0L) {
                 knownDatabaseUpdatedAt.put(uuid, result.databaseUpdatedAt);
+                lastObservedDatabaseUpdateAt = Math.max(lastObservedDatabaseUpdateAt, result.databaseUpdatedAt);
+            }
+
             if (player != null) localOfflineSnapshots.remove(uuid);
             if (updateLeaderboard) scheduleLeaderboardUpdate();
             return;
@@ -347,18 +352,30 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (player != null && !loaded.isOnline()) loaded = toOnlineUser(uuid, loaded);
 
         users.put(uuid, loaded);
-        if (result.databaseUpdatedAt > 0L)
+        if (result.databaseUpdatedAt > 0L) {
             knownDatabaseUpdatedAt.put(uuid, result.databaseUpdatedAt);
+            lastObservedDatabaseUpdateAt = Math.max(lastObservedDatabaseUpdateAt, result.databaseUpdatedAt);
+        }
+
         if (player != null) localOfflineSnapshots.remove(uuid);
         if (updateLeaderboard) scheduleLeaderboardUpdate();
     }
 
     private void scheduleLeaderboardUpdate() {
+        leaderboardDirty.set(true);
         if (!leaderboardQueued.compareAndSet(false, true)) return;
-        main.scheduler().runTask(() -> {
+        main.scheduler().runTask(this::drainLeaderboardUpdates);
+    }
+
+    private void drainLeaderboardUpdates() {
+        do {
+            leaderboardDirty.set(false);
             system.updateLeaderboard();
-            leaderboardQueued.set(false);
-        });
+        } while (leaderboardDirty.get());
+
+        leaderboardQueued.set(false);
+        if (leaderboardDirty.get() && leaderboardQueued.compareAndSet(false, true))
+            main.scheduler().runTask(this::drainLeaderboardUpdates);
     }
 
     @RequiredArgsConstructor
@@ -513,8 +530,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
         main.logger("&7Loaded data for &e" + counter +
                 " &7online player(s) in &a" +
-                (System.currentTimeMillis() - l) +
-                "ms&7.", "");
+                (System.currentTimeMillis() - l) + "ms&7.", "");
         scheduleLeaderboardUpdate();
     }
 
@@ -527,11 +543,8 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         Bukkit.getOnlinePlayers().forEach(p -> savePlayer(p, true, true));
     }
 
-    @SuppressWarnings("unchecked")
     private DatabaseFactory.DatabaseImpl<N> databaseImpl() {
-        return database instanceof DatabaseFactory.DatabaseImpl<?> ?
-                (DatabaseFactory.DatabaseImpl<N>) database :
-                null;
+        return (DatabaseFactory.DatabaseImpl<N>) database;
     }
 
     void startDatabaseSync() {
@@ -556,8 +569,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (!databaseSyncInFlight.compareAndSet(false, true)) return;
 
         try {
+            long queryAfter = Math.max(0L, lastObservedDatabaseUpdateAt - DATABASE_SYNC_LOOKBACK_MS);
             List<DatabaseFactory.DatabaseImpl.StoredUserData> updates =
-                    databaseImpl.getUsersUpdatedSince(lastObservedDatabaseUpdateAt);
+                    databaseImpl.getUsersUpdatedSince(queryAfter);
 
             if (updates.isEmpty()) return;
 

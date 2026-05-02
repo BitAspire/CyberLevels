@@ -18,6 +18,9 @@ class DatabaseFactory {
 
     abstract static class DatabaseImpl<N extends Number> implements Database<N> {
 
+        private static final String MYSQL_CHARSET = "utf8mb4";
+        private static final String MYSQL_COLLATION = "utf8mb4_unicode_ci";
+
         final CyberLevels main;
         final BaseSystem<N> system;
 
@@ -56,18 +59,71 @@ class DatabaseFactory {
             return getTable() + "_meta";
         }
 
+        boolean isMySqlFamily() {
+            return this instanceof MySQL;
+        }
+
+        String joinUuidOperand(String alias) {
+            String column = alias + "." + qCol("UUID");
+            if (!isMySqlFamily()) return column;
+
+            return "CONVERT(" + column + " USING " + MYSQL_CHARSET + ") COLLATE " + MYSQL_COLLATION;
+        }
+
         void ensureMetaSchema(Connection conn) throws SQLException {
             final boolean sqlite = (this instanceof SQLite);
             String idType = sqlite ? "TEXT" : "VARCHAR(36)";
             String longType = sqlite ? "INTEGER" : "BIGINT";
+            String suffix = isMySqlFamily() ?
+                    " CHARSET=" + MYSQL_CHARSET + " COLLATE=" + MYSQL_COLLATION :
+                    "";
 
             String sql = "CREATE TABLE IF NOT EXISTS " + qTab(metaTable()) + " (" +
                     qCol("UUID") + " " + idType + " PRIMARY KEY," +
                     qCol("HIGHEST_REWARDED") + " " + longType + "," +
                     qCol("UPDATED_AT") + " " + longType + " NOT NULL DEFAULT 0" +
-                    ")";
+                    ")" + suffix;
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate(sql);
+            }
+        }
+
+        void ensureCollationCompatibility(Connection conn) {
+            if (!isMySqlFamily()) return;
+
+            ensureMySqlTableCollation(conn, getTable());
+            ensureMySqlTableCollation(conn, metaTable());
+        }
+
+        private void ensureMySqlTableCollation(Connection conn, String table) {
+            try {
+                if (!tableExists(conn, table)) return;
+
+                String current = currentMySqlTableCollation(conn, table);
+                if (current != null && current.equalsIgnoreCase(MYSQL_COLLATION)) return;
+
+                try (Statement st = conn.createStatement()) {
+                    st.executeUpdate(
+                            "ALTER TABLE " + qTab(table) +
+                                    " CONVERT TO CHARACTER SET " + MYSQL_CHARSET +
+                                    " COLLATE " + MYSQL_COLLATION
+                    );
+                }
+
+                main.logger("&e" + type + ": normalized collation for table '" + table + "' to " + MYSQL_COLLATION + ".");
+            } catch (SQLException e) {
+                main.logger("&e" + type + ": unable to normalize collation for table '" + table + "'. Queries will use a compatibility path instead.");
+            }
+        }
+
+        private String currentMySqlTableCollation(Connection conn, String table) throws SQLException {
+            String sql = "SELECT TABLE_COLLATION FROM information_schema.TABLES " +
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, table);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getString(1) : null;
+                }
             }
         }
 
@@ -101,6 +157,7 @@ class DatabaseFactory {
                 try (Connection conn = dataSource.getConnection()) {
                     ensureTargetSchema(conn);
                     ensureMetaSchema(conn);
+                    ensureCollationCompatibility(conn);
                 }
 
                 main.logger("&7Connected to &e" + type + "&7 successfully in &a" + (System.currentTimeMillis() - l) + "ms&7.");
@@ -321,7 +378,7 @@ class DatabaseFactory {
                     " m." + qCol("HIGHEST_REWARDED") + " AS META_HIGHEST_REWARDED," +
                     " m." + qCol("UPDATED_AT") + " AS META_UPDATED_AT " +
                     "FROM " + qTab(getTable()) + " t " +
-                    "LEFT JOIN " + qTab(metaTable()) + " m ON t." + qCol("UUID") + " = m." + qCol("UUID") +
+                    "LEFT JOIN " + qTab(metaTable()) + " m ON " + joinUuidOperand("t") + " = " + joinUuidOperand("m") +
                     " " + whereClause;
         }
 

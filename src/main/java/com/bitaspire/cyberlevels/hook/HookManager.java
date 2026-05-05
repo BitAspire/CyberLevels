@@ -63,16 +63,15 @@ public class HookManager {
         if (main.levelSystem().checkAntiAbuse(player, source)) return;
 
         double counter = 0;
+        String matched = source.useSpecifics() ? source.matchSpecificKey(item) : null;
 
-        if (source.useSpecifics()) {
-            String matched = source.matchSpecificKey(item);
-            if (matched != null)
-                counter = source.getSpecificRange(matched).getRandom();
-        }
-        else if (source.isEnabled()) {
-            if (source.isInList(item))
-                counter = source.getRange().getRandom();
-        }
+        if (source.isEnabled() &&
+                source.isInList(item) &&
+                (matched == null || source.stackSpecificsWithGeneral()))
+            counter += source.getRange().getRandom();
+
+        if (matched != null)
+            counter += source.getSpecificRange(matched).getRandom();
 
         if (counter == 0) return;
 

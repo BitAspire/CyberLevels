@@ -83,6 +83,16 @@ public interface ExpSource {
     boolean useSpecifics();
 
     /**
+     * Indicates whether matching specific values should be added to the general reward.
+     *
+     * <p>When disabled, a matching specific value replaces the general reward for that runtime
+     * value. Values that do not match a specific entry may still receive the general reward.
+     *
+     * @return {@code true} when specific rewards stack with the general reward
+     */
+    boolean stackSpecificsWithGeneral();
+
+    /**
      * Returns the configured specific keys for this source.
      *
      * @return specific map keys available for matching

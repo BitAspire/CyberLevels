@@ -395,7 +395,10 @@ public class EarnExp {
         return new Listener() {
             @EventHandler(priority = EventPriority.HIGHEST)
             public void onDamage(EntityDamageByEntityEvent event) {
-                if (!source.isEnabled() || !filter.test(event.getEntity()) || event.isCancelled()) return;
+                if ((!source.isEnabled() && !source.useSpecifics()) ||
+                        !filter.test(event.getEntity()) ||
+                        event.isCancelled())
+                    return;
 
                 Entity attacker = event.getDamager();
                 if ((attacker instanceof Projectile) && (((Projectile) attacker).getShooter() instanceof Player))
@@ -418,7 +421,9 @@ public class EarnExp {
         return new Listener() {
             @EventHandler(priority = EventPriority.HIGHEST)
             public void onDeath(EntityDeathEvent event) {
-                if (!source.isEnabled() || !filter.test(event.getEntity())) return;
+                if ((!source.isEnabled() && !source.useSpecifics()) ||
+                        !filter.test(event.getEntity()))
+                    return;
 
                 EntityDamageEvent cause = event.getEntity().getLastDamageCause();
                 if (!(cause instanceof EntityDamageByEntityEvent)) return;
@@ -443,14 +448,15 @@ public class EarnExp {
     void sendExp(Player player, ExpSource source, String value) {
         if (main.levelSystem().checkAntiAbuse(player, source)) return;
         double counter = 0;
+        String matched = source.useSpecifics() ? source.matchSpecificKey(value) : null;
 
-        if (source.useSpecifics()) {
-            String matched = source.matchSpecificKey(value);
-            if (matched != null) counter = source.getSpecificRange(matched).getRandom();
-        }
-        else if (source.isEnabled()) {
-            if (source.isInList(value)) counter = source.getRange().getRandom();
-        }
+        if (source.isEnabled() &&
+                source.isInList(value) &&
+                (matched == null || source.stackSpecificsWithGeneral()))
+            counter += source.getRange().getRandom();
+
+        if (matched != null)
+            counter += source.getSpecificRange(matched).getRandom();
 
         if (counter == 0) return;
 
@@ -468,17 +474,18 @@ public class EarnExp {
             return;
 
         double counter = 0;
+        boolean hasSpecific = source.useSpecifics() && source.hasPermission(player, true);
 
-        if (source.useSpecifics()) {
-            if (source.hasPermission(player, true))
-                for (String s : source.getSpecificList()) {
-                    if (!player.hasPermission(s)) continue;
-                    counter += source.getSpecificRange(s).getRandom();
-                }
-        }
-        else if (source.isEnabled()) {
-            if (source.hasPermission(player)) counter = source.getRange().getRandom();
-        }
+        if (source.isEnabled() &&
+                source.hasPermission(player) &&
+                (!hasSpecific || source.stackSpecificsWithGeneral()))
+            counter += source.getRange().getRandom();
+
+        if (hasSpecific)
+            for (String s : source.getSpecificList()) {
+                if (!player.hasPermission(s)) continue;
+                counter += source.getSpecificRange(s).getRandom();
+            }
 
         if (counter == 0) return;
 
@@ -555,6 +562,7 @@ public class EarnExp {
         private final List<String> list;
 
         private final boolean specific;
+        private final boolean stackSpecificsWithGeneral;
         @Getter(AccessLevel.NONE)
         private final Map<String, Range> specifics = new HashMap<>();
 
@@ -575,6 +583,7 @@ public class EarnExp {
             list = getList("general.includes.list");
 
             specific = get("specific-" + specificName + ".enabled", false);
+            stackSpecificsWithGeneral = get("specific-" + specificName + ".stack-with-general", true);
             if (specific) {
                 for (String key : getList("specific-" + specificName + "." + specificName)) {
                     String[] array = key.split(":", 2);
@@ -627,6 +636,11 @@ public class EarnExp {
         @Override
         public boolean useSpecifics() {
             return specific;
+        }
+
+        @Override
+        public boolean stackSpecificsWithGeneral() {
+            return stackSpecificsWithGeneral;
         }
 
         @NotNull
@@ -705,29 +719,32 @@ public class EarnExp {
 
         public double getPartialMatchesExp(String string) {
             String upper = string.toUpperCase(Locale.ENGLISH);
-            if (!enabled) return 0.0;
+            double amount = 0.0;
+            boolean matchedSpecific = false;
 
             if (specific && !specifics.isEmpty()) {
-                double amount = 0.0;
-
-                for (String s : specifics.keySet())
-                    if (upper.contains(s.toUpperCase(Locale.ENGLISH)))
+                for (String s : specifics.keySet()) {
+                    if (upper.contains(s.toUpperCase(Locale.ENGLISH))) {
                         amount += getSpecificRange(s).getRandom();
-
-                return amount;
+                        matchedSpecific = true;
+                    }
+                }
             }
 
-            if (includes) return getRange().getRandom();
+            if (!enabled || (matchedSpecific && !stackSpecificsWithGeneral))
+                return amount;
+
+            if (!includes)
+                return amount + getRange().getRandom();
 
             boolean giveExp = true;
-            double amount = 0.0;
 
             for (String s : list) {
                 if (!upper.contains(s.toUpperCase(Locale.ENGLISH)))
                     continue;
 
                 if (whitelist)
-                    return getRange().getRandom();
+                    return amount + getRange().getRandom();
 
                 giveExp = false;
                 break;
@@ -751,6 +768,7 @@ public class EarnExp {
                     ", whitelist=" + whitelist +
                     ", list=" + list +
                     ", specific=" + specific +
+                    ", stackSpecificsWithGeneral=" + stackSpecificsWithGeneral +
                     ", specifics=" + specifics +
                     '}';
         }

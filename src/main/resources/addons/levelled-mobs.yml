@@ -20,6 +20,7 @@ earn-exp:
     specific-animals:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       animals:
         - '3:COW-1,6: 1, 2'
         - 'SHEEP: 1, 2'
@@ -41,6 +42,7 @@ earn-exp:
     specific-monsters:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       min-level: 2
       monsters:
         - 'SPIDER: 1, 2'

@@ -16,6 +16,7 @@ earn-exp:
     specific-permissions:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       permissions:
         - 'permission.vip: 2, 4'
         - 'permission.mvp: 3, 5'
@@ -35,6 +36,7 @@ earn-exp:
       # These WILL stack on the ones above. Could be
       # used to reduce EXP loss for special users.
       enabled: false
+      stack-with-general: true
       permissions:
         - 'permission.vip: 1, 2'
         - 'permission.mvp: 2, 3'
@@ -54,6 +56,7 @@ earn-exp:
     specific-players:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       players:
         - 'CroaBeast: 2, 4'
         - 'ThiccPickle: 3, 5'
@@ -73,6 +76,7 @@ earn-exp:
     specific-animals:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       animals:
         - 'COW: 1, 2'
         - 'SHEEP: 1, 2'
@@ -93,6 +97,7 @@ earn-exp:
     specific-monsters:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       monsters:
         - 'SPIDER: 1, 2'
         - 'CREEPER: 1, 2'
@@ -112,6 +117,7 @@ earn-exp:
     specific-players:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       players:
         - 'CroaBeast: 2, 4'
         - 'ThiccPickle: 3, 5'
@@ -131,6 +137,7 @@ earn-exp:
     specific-animals:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       animals:
         - 'COW: 1, 2'
         - 'SHEEP: 1, 2'
@@ -151,6 +158,7 @@ earn-exp:
     specific-monsters:
       # These WILL stack on the ones above.
       enabled: false
+      stack-with-general: true
       monsters:
         - 'SPIDER: 1, 2'
         - 'CREEPER: 1, 2'
@@ -170,6 +178,7 @@ earn-exp:
           - "NETHERRACK"
     specific-blocks:
       enabled: false
+      stack-with-general: true
       blocks:
         - 'DIAMOND_ORE: 4, 6'
 
@@ -188,6 +197,7 @@ earn-exp:
           - "NETHERRACK"
     specific-blocks:
       enabled: false
+      stack-with-general: true
       blocks:
         - 'DIAMOND_ORE: 4, 6'
 
@@ -205,6 +215,7 @@ earn-exp:
           - "MUTTON"
     specific-items:
       enabled: false
+      stack-with-general: true
       items:
         - 'GOLDEN_APPLE: 4, 6'
 
@@ -219,6 +230,7 @@ earn-exp:
           - 'permission.no.exp'
     specific-permissions:
       enabled: false
+      stack-with-general: true
       permissions:
         - 'permission.vip: 1, 2'
         - 'permission.mvp: 2, 3'
@@ -236,6 +248,7 @@ earn-exp:
           - "WOODEN_PICKAXE"
     specific-items:
       enabled: false
+      stack-with-general: true
       items:
         - 'DIAMOND_BLOCK: 10, 15'
 
@@ -251,6 +264,7 @@ earn-exp:
           - "HUNGER"
     specific-potions:
       enabled: false
+      stack-with-general: true
       potions:
         - 'SPEED: 1, 3'
         - 'HEAL: 1, 2'
@@ -268,6 +282,7 @@ earn-exp:
           - "UNBREAKING-2"
     specific-enchantments:
       enabled: false
+      stack-with-general: true
       enchantments:
         - 'KNOCKBACK-1: 1, 3'
         - 'LURE: 1, 2'
@@ -286,6 +301,7 @@ earn-exp:
           - "STRING"
     specific-fish:
       enabled: false
+      stack-with-general: true
       fish:
         - 'COD: 2, 3'
         - 'SALMON: 2, 3'
@@ -302,6 +318,7 @@ earn-exp:
           - "CHICKEN"
     specific-animals:
       enabled: false
+      stack-with-general: true
       animals:
         - 'SHEEP: 2, 3'
         - 'DOG: 2, 3'
@@ -321,6 +338,7 @@ earn-exp:
           - "oh hi mark"
     specific-words:
       enabled: false
+      stack-with-general: true
       words:
         - 'HELLO: 1, 2'
         - 'AWESOME: 1, 2'
@@ -342,6 +360,7 @@ earn-exp:
           - 2
     specific-amounts:
       enabled: false
+      stack-with-general: true
       # If a player earns 5 via vanilla system, they
       # will earn between 2 and 3 EXP in CLV for the
       # first example below.
@@ -363,6 +382,7 @@ earn-exp:
           - "BEET_ROOT"
     specific-blocks:
       enabled: false
+      stack-with-general: true
       blocks:
         - 'CARROT: 4, 6'
 
@@ -379,5 +399,6 @@ earn-exp:
           - "GRASS_BLOCK"
     specific-blocks:
       enabled: false
+      stack-with-general: true
       blocks:
         - 'DIAMOND_ORE: 4, 6'

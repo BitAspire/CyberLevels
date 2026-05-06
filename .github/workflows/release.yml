@@ -1,0 +1,242 @@
+name: Publish CyberLevels Release
+
+on:
+  workflow_run:
+    workflows: [ "Package CyberLevels" ]
+    types: [ completed ]
+    branches: [ "master" ]
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: cyberlevels-release-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Download build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir downloaded-artifacts
+
+          JAR=$(find downloaded-artifacts -type f \
+            -name 'CyberLevels-*.jar' \
+            ! -name '*-sources.jar' \
+            ! -name '*-javadoc.jar' \
+            | head -n 1)
+
+          if [ -z "$JAR" ]; then
+            echo "Could not find final CyberLevels jar in downloaded artifacts."
+            find downloaded-artifacts -type f
+            exit 1
+          fi
+
+          VERSION=$(basename "$JAR" | sed -E 's/^CyberLevels-(.+)\.jar$/\1/')
+          mkdir -p release-assets
+          cp "$JAR" "release-assets/CyberLevels-$VERSION.jar"
+
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_JAR=release-assets/CyberLevels-$VERSION.jar" >> "$GITHUB_ENV"
+
+      - name: Build release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          OWNER="${GITHUB_REPOSITORY%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+
+          git fetch --tags --force
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release delete "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --cleanup-tag \
+              --yes
+          elif git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
+            gh api \
+              --method DELETE \
+              "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" || true
+          fi
+
+          BUMP_SUBJECT="chore: bump version to $VERSION"
+          BUMP_COMMIT=$(git log --format='%H%x09%s' "$HEAD_SHA" \
+            | awk -F '\t' -v subject="$BUMP_SUBJECT" '$2 == subject { print $1; exit }')
+
+          if [ -n "$BUMP_COMMIT" ]; then
+            if BUMP_PARENT=$(git rev-parse "$BUMP_COMMIT^" 2>/dev/null); then
+              RANGE="$BUMP_PARENT..$HEAD_SHA"
+              CHANGELOG_BASE="$BUMP_PARENT"
+            else
+              RANGE="$HEAD_SHA"
+              CHANGELOG_BASE="$BUMP_COMMIT"
+            fi
+          else
+            RELEASE_TAGS=$(gh release list \
+              --repo "$GITHUB_REPOSITORY" \
+              --exclude-drafts \
+              --limit 100 \
+              --json tagName \
+              --jq ".[].tagName | select(. != \"$TAG\")")
+
+            PREVIOUS_TAG=$(printf '%s\n' "$RELEASE_TAGS" | awk 'NF { print; exit }')
+
+            if [ -z "$PREVIOUS_TAG" ]; then
+              echo "Could not find '$BUMP_SUBJECT' or a previous release tag."
+              echo "Refusing to generate release notes from the full repository history."
+              exit 1
+            fi
+
+            RANGE="$PREVIOUS_TAG..$HEAD_SHA"
+            CHANGELOG_BASE="$PREVIOUS_TAG"
+          fi
+
+          FULL_CHANGELOG="https://github.com/$GITHUB_REPOSITORY/compare/$CHANGELOG_BASE...$TAG"
+
+          QUERY='
+          query($owner:String!, $repo:String!, $oid:GitObjectID!) {
+            repository(owner:$owner, name:$repo) {
+              object(oid:$oid) {
+                ... on Commit {
+                  messageHeadline
+                  abbreviatedOid
+                  author {
+                    name
+                    user {
+                      login
+                    }
+                  }
+                  associatedPullRequests(first: 1) {
+                    nodes {
+                      number
+                      title
+                      author {
+                        login
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }'
+
+          declare -A SEEN_PULL_REQUESTS
+          CONTRIBUTORS=$(mktemp)
+          PREVIOUS_CONTRIBUTORS=$(mktemp)
+
+          if [ -n "${CHANGELOG_BASE:-}" ] && git rev-parse "$CHANGELOG_BASE" >/dev/null 2>&1; then
+            git log --format='%aN' "$CHANGELOG_BASE" \
+              | sort -fu > "$PREVIOUS_CONTRIBUTORS"
+          fi
+
+          {
+            echo "## What's Changed"
+            echo
+          } > release-notes.md
+
+          HAS_CHANGES=false
+          while read -r SHA; do
+            [ -z "$SHA" ] && continue
+            HAS_CHANGES=true
+
+            DATA=$(gh api graphql \
+              -f query="$QUERY" \
+              -f owner="$OWNER" \
+              -f repo="$REPO" \
+              -F oid="$SHA")
+
+            PR_NUMBER=$(echo "$DATA" | jq -r '.data.repository.object.associatedPullRequests.nodes[0].number // empty')
+            PR_TITLE=$(echo "$DATA" | jq -r '.data.repository.object.associatedPullRequests.nodes[0].title // empty')
+            PR_AUTHOR=$(echo "$DATA" | jq -r '.data.repository.object.associatedPullRequests.nodes[0].author.login // empty')
+
+            COMMIT_TITLE=$(echo "$DATA" | jq -r '.data.repository.object.messageHeadline')
+            COMMIT_AUTHOR_LOGIN=$(echo "$DATA" | jq -r '.data.repository.object.author.user.login // empty')
+            COMMIT_AUTHOR_NAME=$(echo "$DATA" | jq -r '.data.repository.object.author.name // "unknown"')
+            SHORT_SHA=$(echo "$DATA" | jq -r '.data.repository.object.abbreviatedOid')
+
+            if [ -n "$PR_NUMBER" ]; then
+              if [ -z "${SEEN_PULL_REQUESTS[$PR_NUMBER]+x}" ]; then
+                echo "- $PR_TITLE by @$PR_AUTHOR in #$PR_NUMBER" >> release-notes.md
+                [ -n "$PR_AUTHOR" ] && echo "$PR_AUTHOR" >> "$CONTRIBUTORS"
+                SEEN_PULL_REQUESTS[$PR_NUMBER]=1
+              fi
+            else
+              if [ -n "$COMMIT_AUTHOR_LOGIN" ]; then
+                echo "- $COMMIT_TITLE by @$COMMIT_AUTHOR_LOGIN ($SHORT_SHA)" >> release-notes.md
+                echo "$COMMIT_AUTHOR_LOGIN" >> "$CONTRIBUTORS"
+              else
+                echo "- $COMMIT_TITLE by $COMMIT_AUTHOR_NAME ($SHORT_SHA)" >> release-notes.md
+              fi
+            fi
+          done < <(git rev-list --reverse "$RANGE")
+
+          if [ "$HAS_CHANGES" = false ]; then
+            echo "- No code changes detected for this release." >> release-notes.md
+          fi
+
+          if [ -s "$CONTRIBUTORS" ]; then
+            NEW_CONTRIBUTORS=$(mktemp)
+            sort -u "$CONTRIBUTORS" \
+              | grep -Fvxif "$PREVIOUS_CONTRIBUTORS" \
+              > "$NEW_CONTRIBUTORS" || true
+
+            if [ -s "$NEW_CONTRIBUTORS" ]; then
+              {
+                echo
+                echo "## New Contributors"
+                echo
+                sed 's/^/- @/' "$NEW_CONTRIBUTORS"
+              } >> release-notes.md
+            fi
+
+            {
+              echo
+              echo "## Contributors"
+              echo
+              sort -u "$CONTRIBUTORS" | sed 's/^/- @/'
+            } >> release-notes.md
+          fi
+
+          {
+            echo
+            echo "**Full Changelog**: $FULL_CHANGELOG"
+          } >> release-notes.md
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          gh release create "$TAG" "$RELEASE_JAR" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$VERSION" \
+            --notes-file release-notes.md \
+            --target "$HEAD_SHA" \
+            --prerelease \
+            --latest=false

@@ -44,7 +44,7 @@ jobs:
             -name 'CyberLevels-*.jar' \
             ! -name '*-sources.jar' \
             ! -name '*-javadoc.jar' \
-            | head -n 1)
+            -print -quit)
 
           if [ -z "$JAR" ]; then
             echo "Could not find final CyberLevels jar in downloaded artifacts."
@@ -77,15 +77,16 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --cleanup-tag \
               --yes
-          elif git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
+          elif git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             gh api \
               --method DELETE \
               "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" || true
           fi
 
           BUMP_SUBJECT="chore: bump version to $VERSION"
-          BUMP_COMMIT=$(git log --format='%H%x09%s' "$HEAD_SHA" \
-            | awk -F '\t' -v subject="$BUMP_SUBJECT" '$2 == subject { print $1; exit }')
+          BUMP_LOG=$(mktemp)
+          git log --format='%H%x09%s' "$HEAD_SHA" > "$BUMP_LOG"
+          BUMP_COMMIT=$(awk -F '\t' -v subject="$BUMP_SUBJECT" '$2 == subject { print $1; exit }' "$BUMP_LOG")
 
           if [ -n "$BUMP_COMMIT" ]; then
             if BUMP_PARENT=$(git rev-parse "$BUMP_COMMIT^" 2>/dev/null); then
@@ -103,7 +104,7 @@ jobs:
               --json tagName \
               --jq ".[].tagName | select(. != \"$TAG\")")
 
-            PREVIOUS_TAG=$(printf '%s\n' "$RELEASE_TAGS" | awk 'NF { print; exit }')
+            PREVIOUS_TAG=$(awk 'NF { print; exit }' <<< "$RELEASE_TAGS")
 
             if [ -z "$PREVIOUS_TAG" ]; then
               echo "Could not find '$BUMP_SUBJECT' or a previous release tag."

@@ -30,6 +30,7 @@ build/
 *.tar.gz
 *.rar
 
+!gradle/wrapper/gradle-wrapper.jar
 !libraries/
 !libraries/*.jar
 

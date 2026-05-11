@@ -135,8 +135,7 @@ public class Config {
                 database = "database",
                 username = "username", password = "password",
                 table = "levels", type = "MySQL",
-                sqliteFile = "plugins/CyberLevels/data.db",
-                h2File = "plugins/CyberLevels/data.h2";
+                sqliteFile = "plugins/CyberLevels/data.db";
 
         Database(ConfigurationSection section) {
             if (section == null) return;
@@ -152,7 +151,6 @@ public class Config {
             table = section.getString("table", table);
 
             sqliteFile = section.getString("sqlite-file", sqliteFile);
-            h2File = section.getString("h2-file", h2File);
             type = section.getString("type", type);
         }
 

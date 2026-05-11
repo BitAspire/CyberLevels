@@ -94,7 +94,6 @@ public final class CyberLevels extends JavaPlugin {
             loader.load("com.mysql", "mysql-connector-j", "8.0.33", true);
             loader.load("org.xerial", "sqlite-jdbc", "3.51.1.0", true);
             loader.load("org.postgresql", "postgresql", "42.7.8", true);
-            loader.load("com.h2database", "h2", "2.3.232", true);
             loader.load("org.apache.commons", "commons-lang3", "3.18.0", true);
         }
 

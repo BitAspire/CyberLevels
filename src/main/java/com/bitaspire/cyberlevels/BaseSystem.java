@@ -803,12 +803,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 } catch (Exception ignored) {}
             }
 
-            double base = multiplier == 0 ? 1 : multiplier;
-
-            if (system.main.hookManager != null)
-                base *= system.main.hookManager.externalMultiplier(getPlayer());
-
-            return base;
+            return multiplier == 0 ? 1 : multiplier;
         }
 
         @Override

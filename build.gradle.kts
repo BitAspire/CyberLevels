@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.bitaspire"
-version = "1.1.6"
+version = "1.2.0"
 
 repositories {
     mavenLocal()
@@ -42,11 +42,16 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.11.6")
     compileOnly(files("libraries/RivalHarvesterHoesAPI.jar"))
     compileOnly(files("libraries/RivalPickaxesAPI.jar"))
+    compileOnly(files("libraries/AxBoosters-3.15.3.jar"))
+    compileOnly(files("libraries/AxHoes-1.2.0.jar"))
+    compileOnly(files("libraries/AxPickaxes-1.0.0.jar"))
+    compileOnly("net.kyori:adventure-key:4.17.0")
 
     compileOnly("com.zaxxer:HikariCP:7.0.2")
     compileOnly("com.mysql:mysql-connector-j:9.5.0")
     compileOnly("org.xerial:sqlite-jdbc:3.51.1.0")
     compileOnly("org.postgresql:postgresql:42.7.8")
+    compileOnly("com.h2database:h2:2.3.232")
 
     implementation("me.croabeast.expr4j:core:1.0")
     implementation("me.croabeast.expr4j:big-decimal:1.0")

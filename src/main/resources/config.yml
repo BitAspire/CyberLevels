@@ -3,7 +3,7 @@ config:
   # Tested on MySQL 10.4 and MariaDB 10.6.
   mysql:
     enabled: true # When enabled, will use type below. When disabled, this will fall-back to file storage.
-    type: SQLITE # Can also be MARIADB, SQLITE, POSTGRES, POSTGRESQL
+    type: SQLITE # Can also be MARIADB, SQLITE, POSTGRES, POSTGRESQL, H2
     host: 'localhost'
     port: '3306'
     database: 'cyberlevels'
@@ -12,6 +12,10 @@ config:
     table: 'levels'
     ssl: true
     sqlite-file: "plugins/CyberLevels/data.db"
+    # Embedded H2 database file (used when type: H2). H2 will append its own
+    # extension (.mv.db) to the path below. AUTO_SERVER mode is enabled so
+    # multiple JVM processes on the same host can share the file.
+    h2-file: "plugins/CyberLevels/data.h2"
 
   # Should the plugin use BigDecimal for all calculations?
   # Can be required if you plan to use very large numbers, otherwise keep disabled.

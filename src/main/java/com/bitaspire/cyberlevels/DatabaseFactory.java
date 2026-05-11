@@ -1205,6 +1205,230 @@ class DatabaseFactory {
         }
     }
 
+    static class H2<N extends Number> extends DatabaseImpl<N> {
+
+        private final String filePath, table;
+
+        H2(CyberLevels main, BaseSystem<N> system) {
+            super(main, system, "H2");
+            Config.Database db = main.cache().config().database();
+            this.filePath = db.getH2File();
+            this.table = db.getTable();
+        }
+
+        @Override String getTable() { return table; }
+
+        @Override
+        HikariConfig createConfig() {
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl("jdbc:h2:file:" + filePath +
+                    ";MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE" +
+                    ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=TRUE");
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(2);
+            config.setConnectionTimeout(10000);
+            config.setValidationTimeout(5000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.setKeepaliveTime(300000);
+            config.setPoolName("CLV-H2");
+            return config;
+        }
+
+        @Override
+        String qCol(String name) {
+            return "\"" + name + "\"";
+        }
+
+        @Override
+        String qTab(String name) {
+            return "\"" + name + "\"";
+        }
+
+        private PreparedStatement prepareMerge(Connection c,
+                                               String targetTable,
+                                               String[] cols,
+                                               String keyCol,
+                                               String[] caseCols,
+                                               String maxCol,
+                                               Object[] values) throws SQLException {
+            StringBuilder source = new StringBuilder();
+            for (int i = 0; i < cols.length; i++) {
+                if (i > 0) source.append(',');
+                source.append('?');
+            }
+
+            StringBuilder colsList = new StringBuilder();
+            for (int i = 0; i < cols.length; i++) {
+                if (i > 0) colsList.append(',');
+                colsList.append(qCol(cols[i]));
+            }
+
+            StringBuilder srcCols = new StringBuilder();
+            for (int i = 0; i < cols.length; i++) {
+                if (i > 0) srcCols.append(',');
+                srcCols.append(qCol(cols[i]));
+            }
+
+            StringBuilder updateClause = new StringBuilder();
+            for (int i = 0; i < caseCols.length; i++) {
+                if (i > 0) updateClause.append(',');
+                String col = caseCols[i];
+                updateClause.append(qCol(col)).append(" = CASE WHEN s.").append(qCol(maxCol))
+                        .append(" >= t.").append(qCol(maxCol)).append(" THEN s.").append(qCol(col))
+                        .append(" ELSE t.").append(qCol(col)).append(" END");
+            }
+            if (updateClause.length() > 0) updateClause.append(',');
+            updateClause.append(qCol(maxCol)).append(" = CASE WHEN s.").append(qCol(maxCol))
+                    .append(" > t.").append(qCol(maxCol)).append(" THEN s.").append(qCol(maxCol))
+                    .append(" ELSE t.").append(qCol(maxCol)).append(" END");
+
+            String sql = "MERGE INTO " + qTab(targetTable) + " t " +
+                    "USING (SELECT " + buildSelectAliasList(cols) + " FROM (VALUES (" + source + ")) v(" + srcCols + ")) s " +
+                    "ON t." + qCol(keyCol) + " = s." + qCol(keyCol) + " " +
+                    "WHEN MATCHED THEN UPDATE SET " + updateClause + " " +
+                    "WHEN NOT MATCHED THEN INSERT (" + colsList + ") VALUES (" + buildSourceRefList(cols) + ")";
+
+            PreparedStatement ps = c.prepareStatement(sql);
+            for (int i = 0; i < values.length; i++) {
+                Object v = values[i];
+                if (v instanceof Long) ps.setLong(i + 1, (Long) v);
+                else ps.setString(i + 1, String.valueOf(v));
+            }
+            return ps;
+        }
+
+        private String buildSelectAliasList(String[] cols) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < cols.length; i++) {
+                if (i > 0) sb.append(',');
+                sb.append("v.").append(qCol(cols[i])).append(" AS ").append(qCol(cols[i]));
+            }
+            return sb.toString();
+        }
+
+        private String buildSourceRefList(String[] cols) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < cols.length; i++) {
+                if (i > 0) sb.append(',');
+                sb.append("s.").append(qCol(cols[i]));
+            }
+            return sb.toString();
+        }
+
+        @Override
+        PreparedStatement prepareUpsert(Connection c, UUID uuid, long level, String exp, long updatedAt) throws SQLException {
+            String[] cols = { "UUID", "LEVEL", "EXP", "UPDATED_AT" };
+            String[] caseCols = { "LEVEL", "EXP" };
+            Object[] values = { uuid.toString(), level, exp, updatedAt };
+            return prepareMerge(c, getTable(), cols, "UUID", caseCols, "UPDATED_AT", values);
+        }
+
+        @Override
+        PreparedStatement prepareUpsertMeta(Connection c, UUID uuid, long highest, long updatedAt) throws SQLException {
+            String sql = "MERGE INTO " + qTab(metaTable()) + " t " +
+                    "USING (SELECT v." + qCol("UUID") + " AS " + qCol("UUID") + "," +
+                    " v." + qCol("HIGHEST_REWARDED") + " AS " + qCol("HIGHEST_REWARDED") + "," +
+                    " v." + qCol("UPDATED_AT") + " AS " + qCol("UPDATED_AT") +
+                    " FROM (VALUES (?,?,?)) v(" + qCol("UUID") + "," + qCol("HIGHEST_REWARDED") + "," + qCol("UPDATED_AT") + ")) s " +
+                    "ON t." + qCol("UUID") + " = s." + qCol("UUID") + " " +
+                    "WHEN MATCHED THEN UPDATE SET " +
+                    qCol("HIGHEST_REWARDED") + " = CASE WHEN s." + qCol("HIGHEST_REWARDED") + " > t." + qCol("HIGHEST_REWARDED") +
+                    " THEN s." + qCol("HIGHEST_REWARDED") + " ELSE t." + qCol("HIGHEST_REWARDED") + " END," +
+                    qCol("UPDATED_AT") + " = CASE WHEN s." + qCol("UPDATED_AT") + " > t." + qCol("UPDATED_AT") +
+                    " THEN s." + qCol("UPDATED_AT") + " ELSE t." + qCol("UPDATED_AT") + " END " +
+                    "WHEN NOT MATCHED THEN INSERT (" + qCol("UUID") + "," + qCol("HIGHEST_REWARDED") + "," + qCol("UPDATED_AT") +
+                    ") VALUES (s." + qCol("UUID") + ", s." + qCol("HIGHEST_REWARDED") + ", s." + qCol("UPDATED_AT") + ")";
+            PreparedStatement ps = c.prepareStatement(sql);
+            ps.setString(1, uuid.toString());
+            ps.setLong(2, highest);
+            ps.setLong(3, updatedAt);
+            return ps;
+        }
+
+        @Override
+        Set<String> getExistingColumns(Connection conn) throws SQLException {
+            Set<String> cols = new HashSet<>();
+            String sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE UPPER(TABLE_SCHEMA) = UPPER(SCHEMA()) AND UPPER(TABLE_NAME) = UPPER(?)";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, getTable());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) cols.add(rs.getString(1).toUpperCase(Locale.ENGLISH));
+                }
+            }
+            return cols;
+        }
+
+        @Override
+        boolean isExpColumnTextual(Connection conn) throws SQLException {
+            String sql = "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE UPPER(TABLE_SCHEMA) = UPPER(SCHEMA()) AND UPPER(TABLE_NAME) = UPPER(?) " +
+                    "AND UPPER(COLUMN_NAME) = 'EXP'";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, getTable());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String type = rs.getString(1);
+                        if (type == null) return false;
+                        type = type.toLowerCase(Locale.ENGLISH);
+                        return type.contains("char") || type.contains("text") || type.contains("clob") ||
+                                type.contains("varchar");
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Override
+        boolean hasPrimaryKeyOnUuid(Connection conn) throws SQLException {
+            String sql = "SELECT kcu.COLUMN_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc " +
+                    "JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu " +
+                    "ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA " +
+                    "AND tc.TABLE_NAME = kcu.TABLE_NAME " +
+                    "WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY' " +
+                    "AND UPPER(tc.TABLE_SCHEMA) = UPPER(SCHEMA()) " +
+                    "AND UPPER(tc.TABLE_NAME) = UPPER(?)";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, getTable());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String col = rs.getString(1);
+                        if ("UUID".equalsIgnoreCase(col)) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Override
+        void createTargetTable(Connection conn) throws SQLException {
+            String sql = "CREATE TABLE IF NOT EXISTS " + qTab(getTable()) + " (" +
+                    qCol("UUID") + " VARCHAR(36) NOT NULL," +
+                    qCol("LEVEL") + " BIGINT," +
+                    qCol("EXP") + " VARCHAR," +
+                    qCol("UPDATED_AT") + " BIGINT NOT NULL DEFAULT 0," +
+                    "PRIMARY KEY (" + qCol("UUID") + "))";
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate(sql);
+            }
+        }
+
+        @Override
+        void dropTableIfExists(Connection conn, String table) throws SQLException {
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("DROP TABLE IF EXISTS " + qTab(table));
+            }
+        }
+
+        @Override
+        void renameTable(Connection conn, String from, String to) throws SQLException {
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("ALTER TABLE " + qTab(from) + " RENAME TO " + qTab(to));
+            }
+        }
+    }
+
     static <N extends Number> Database<N> createDatabase(CyberLevels main, BaseSystem<N> system) {
         String type = main.cache().config().database().getType();
 
@@ -1215,6 +1439,8 @@ class DatabaseFactory {
             case "MYSQL":
             case "MARIADB":
                 return new MySQL<>(main, system);
+            case "H2":
+                return new H2<>(main, system);
             case "SQLITE":
             default:
                 return new SQLite<>(main, system);

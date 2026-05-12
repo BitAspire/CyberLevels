@@ -4,6 +4,7 @@ import com.bitaspire.cyberlevels.user.LevelUser;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
@@ -66,6 +67,55 @@ public class ExpChangeEvent extends Event {
      */
     public void call() {
         Bukkit.getPluginManager().callEvent(this);
+    }
+
+    /**
+     * Returns the live Bukkit player for integrations that expect a direct player method.
+     *
+     * <p>This is an alias for {@code getUser().getPlayer()} and is especially useful for
+     * reflection-based hooks that cannot consume CyberLevels' {@link LevelUser} wrapper directly.
+     *
+     * @return affected online player
+     */
+    @NotNull
+    public Player getPlayer() {
+        return user.getPlayer();
+    }
+
+    /**
+     * Legacy-style alias for the mutable EXP delta.
+     *
+     * @return EXP amount that will be applied
+     */
+    public double getAmount() {
+        return expAmount;
+    }
+
+    /**
+     * Legacy-style alias for changing the mutable EXP delta.
+     *
+     * @param amount replacement EXP amount
+     */
+    public void setAmount(double amount) {
+        this.expAmount = amount;
+    }
+
+    /**
+     * Legacy-style alias for the previous EXP value.
+     *
+     * @return EXP before the change
+     */
+    public double getOldXP() {
+        return oldExp;
+    }
+
+    /**
+     * Legacy-style alias for the projected EXP value.
+     *
+     * @return EXP after the change preview
+     */
+    public double getNewXP() {
+        return newExp;
     }
 
     /**

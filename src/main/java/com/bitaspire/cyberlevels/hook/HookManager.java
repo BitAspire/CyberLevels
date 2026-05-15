@@ -82,33 +82,33 @@ public class HookManager {
                 "ms&7.", "");
     }
 
-    private synchronized boolean loadAxHoesIfReady() {
-        if (axHoesLoaded) return false;
-        if (!main.isEnabled("AxHoes")) return false;
+    private synchronized void loadAxHoesIfReady() {
+        if (axHoesLoaded || !main.isEnabled("AxHoes")) return;
 
-        final long l = System.currentTimeMillis();
+        long l = System.currentTimeMillis();
         AxHoesHook hook = new AxHoesHook(main, this);
         hooks.add(hook);
+
         // Only register here if the global register() pass has already run; otherwise it'll be
         // picked up by hooks.forEach(Hook::register) later. Registering twice would attach the
         // listener twice and double-count every PlayerXPGainEvent.
         if (globalRegistered) hook.register();
+
         axHoesLoaded = true;
         main.logger("&7Loaded &eAxHoes&7 plugin hook in &a" + (System.currentTimeMillis() - l) + "ms&7.");
-        return true;
     }
 
-    private synchronized boolean loadAxPickIfReady() {
-        if (axPickLoaded) return false;
-        if (!main.isEnabled("AxPickaxes")) return false;
+    private synchronized void loadAxPickIfReady() {
+        if (axPickLoaded || !main.isEnabled("AxPickaxes")) return;
 
-        final long l = System.currentTimeMillis();
+        long l = System.currentTimeMillis();
         AxPickHook hook = new AxPickHook(main, this);
         hooks.add(hook);
+
         if (globalRegistered) hook.register();
+
         axPickLoaded = true;
         main.logger("&7Loaded &eAxPickaxes&7 plugin hook in &a" + (System.currentTimeMillis() - l) + "ms&7.");
-        return true;
     }
 
     void sendExp(Player player, ExpSource source, String item) {
@@ -150,7 +150,8 @@ public class HookManager {
         if (player == null) return 1D;
 
         double multiplier = 1D;
-        if (axBoostersHook != null) multiplier *= axBoostersHook.getMultiplier(player);
+        if (axBoostersHook != null)
+            multiplier *= axBoostersHook.getMultiplier(player);
         return multiplier;
     }
 

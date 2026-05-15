@@ -25,8 +25,18 @@ public class CLVTabComplete implements TabCompleter {
 
     private static final String PLAYER_PREFIX = "CyberLevels.player.";
     private static final String ADMIN_PREFIX = "CyberLevels.admin.";
+    private static final long PLAYER_NAME_CACHE_MILLIS = 5000L;
 
-    private static final Map<String, String> COMMAND_PERMISSIONS = new HashMap<>();
+    private static final List<String> EXP_AMOUNT_SUGGESTIONS = Collections.unmodifiableList(
+        Arrays.asList("<amount>", "5", "100", "250", "1000")
+    );
+    private static final List<String> LEVEL_AMOUNT_SUGGESTIONS = Collections.unmodifiableList(
+        Arrays.asList("<amount>", "1", "2", "5")
+    );
+    private static final Set<String> MUTATION_COMMANDS = Collections.unmodifiableSet(new HashSet<>(
+        Arrays.asList("addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel")
+    ));
+    private static final Map<String, String> COMMAND_PERMISSIONS = new LinkedHashMap<>();
 
     static {
         COMMAND_PERMISSIONS.put("about", PLAYER_PREFIX + "about");
@@ -48,6 +58,9 @@ public class CLVTabComplete implements TabCompleter {
     }
 
     private final CyberLevels main;
+    private long playerNamesCachedAt = 0L;
+    private boolean playerNamesCachedOfflineMode = false;
+    private List<String> cachedPlayerNames = Collections.emptyList();
 
     /**
      * Produces context-aware tab completions for the CyberLevels command set.
@@ -84,16 +97,14 @@ public class CLVTabComplete implements TabCompleter {
                     break;
 
                 case "addexp": case "setexp": case "removeexp":
-                    return partialMatch(args[1], Arrays.asList("<amount>", "5", "100", "250", "1000"));
+                    return partialMatch(args[1], EXP_AMOUNT_SUGGESTIONS);
 
                 case "addlevel": case "setlevel": case "removelevel":
-                    return partialMatch(args[1], Arrays.asList("<amount>", "1", "2", "5"));
+                    return partialMatch(args[1], LEVEL_AMOUNT_SUGGESTIONS);
             }
         }
 
-        if (args.length == 3 &&
-                Arrays.asList("addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel")
-                        .contains(args[0].toLowerCase()))
+        if (args.length == 3 && MUTATION_COMMANDS.contains(args[0].toLowerCase(Locale.ENGLISH)))
         {
             List<String> suggestions = new ArrayList<>();
             suggestions.add("[<player>]");
@@ -105,9 +116,16 @@ public class CLVTabComplete implements TabCompleter {
     }
 
     private List<String> getPlayerNames() {
-        List<String> players = new ArrayList<>();
+        boolean offlineMode = main.cache().config().isTabCompleteLoadOfflineUsers();
+        long now = System.currentTimeMillis();
 
-        if (main.cache().config().isTabCompleteLoadOfflineUsers()) {
+        if (offlineMode == playerNamesCachedOfflineMode &&
+            now - playerNamesCachedAt <= PLAYER_NAME_CACHE_MILLIS)
+            return cachedPlayerNames;
+
+        LinkedHashSet<String> players = new LinkedHashSet<>();
+
+        if (offlineMode) {
             for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
                 String name = p.getName();
                 if (name != null) players.add(name);
@@ -118,13 +136,18 @@ public class CLVTabComplete implements TabCompleter {
             }
         }
 
-        return players;
+        List<String> snapshot = new ArrayList<>(players);
+        snapshot.sort(String.CASE_INSENSITIVE_ORDER);
+        cachedPlayerNames = snapshot;
+        playerNamesCachedOfflineMode = offlineMode;
+        playerNamesCachedAt = now;
+        return cachedPlayerNames;
     }
 
     private List<String> partialMatch(String input, List<String> options) {
         List<String> matches = new ArrayList<>();
         StringUtil.copyPartialMatches(input, options, matches);
-        Collections.sort(matches);
+        matches.sort(String.CASE_INSENSITIVE_ORDER);
         return matches;
     }
 }

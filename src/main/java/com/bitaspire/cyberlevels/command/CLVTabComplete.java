@@ -36,6 +36,9 @@ public class CLVTabComplete implements TabCompleter {
     private static final Set<String> MUTATION_COMMANDS = Collections.unmodifiableSet(new HashSet<>(
         Arrays.asList("addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel")
     ));
+    private static final List<String> CONSOLE_COMMANDS = Collections.unmodifiableList(
+        Arrays.asList("about", "reload", "addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel", "purge")
+    );
     private static final Map<String, String> COMMAND_PERMISSIONS = new LinkedHashMap<>();
 
     static {
@@ -73,26 +76,29 @@ public class CLVTabComplete implements TabCompleter {
      */
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
-        if (!(sender instanceof Player)) return Collections.emptyList();
-        Player player = (Player) sender;
+        Player player = sender instanceof Player ? (Player) sender : null;
 
         if (args.length == 1) {
             List<String> available = new ArrayList<>();
-            COMMAND_PERMISSIONS.forEach((cmd, perm) -> {
-                if (player.hasPermission(perm)) available.add(cmd);
-            });
+            if (player == null) {
+                available.addAll(CONSOLE_COMMANDS);
+            } else {
+                COMMAND_PERMISSIONS.forEach((cmd, perm) -> {
+                    if (player.hasPermission(perm)) available.add(cmd);
+                });
+            }
             return partialMatch(args[0], available);
         }
 
         if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "info":
-                    if (player.hasPermission(ADMIN_PREFIX + "list"))
+                    if (player != null && player.hasPermission(ADMIN_PREFIX + "list"))
                         return partialMatch(args[1], getPlayerNames());
                     break;
 
                 case "purge":
-                    if (player.hasPermission(ADMIN_PREFIX + "purge"))
+                    if (player == null || player.hasPermission(ADMIN_PREFIX + "purge"))
                         return partialMatch(args[1], getPlayerNames());
                     break;
 

@@ -51,13 +51,13 @@ public class CLVTabComplete implements TabCompleter {
         COMMAND_PERMISSIONS.put("list", ADMIN_PREFIX + "list");
         COMMAND_PERMISSIONS.put("purge", ADMIN_PREFIX + "purge");
 
-        COMMAND_PERMISSIONS.put("addExp", ADMIN_PREFIX + "exp.add");
-        COMMAND_PERMISSIONS.put("setExp", ADMIN_PREFIX + "exp.set");
-        COMMAND_PERMISSIONS.put("removeExp", ADMIN_PREFIX + "exp.remove");
+        COMMAND_PERMISSIONS.put("addexp", ADMIN_PREFIX + "exp.add");
+        COMMAND_PERMISSIONS.put("setexp", ADMIN_PREFIX + "exp.set");
+        COMMAND_PERMISSIONS.put("removeexp", ADMIN_PREFIX + "exp.remove");
 
-        COMMAND_PERMISSIONS.put("addLevel", ADMIN_PREFIX + "levels.add");
-        COMMAND_PERMISSIONS.put("setLevel", ADMIN_PREFIX + "levels.set");
-        COMMAND_PERMISSIONS.put("removeLevel", ADMIN_PREFIX + "levels.remove");
+        COMMAND_PERMISSIONS.put("addlevel", ADMIN_PREFIX + "levels.add");
+        COMMAND_PERMISSIONS.put("setlevel", ADMIN_PREFIX + "levels.set");
+        COMMAND_PERMISSIONS.put("removelevel", ADMIN_PREFIX + "levels.remove");
     }
 
     private final CyberLevels main;

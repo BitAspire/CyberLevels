@@ -63,7 +63,7 @@ config:
     load-offline-users: true
 
   # Should adding levels give rewards?
-  add-level-reward: false
+  add-level-reward: true
 
   # Should getting rewards multiple times per
   # level be prevented?

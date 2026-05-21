@@ -102,19 +102,21 @@ public final class Rewards {
         }
 
         public void executeCommands(Player player) {
-            for (String command : commands) {
-                command = command.trim();
+            for (String rawCommand : commands) {
+                String command = rawCommand.trim();
                 if (StringUtils.isBlank(command)) continue;
 
                 if (main.isEnabled("PlaceholderAPI"))
                     command = PlaceholderAPI.setPlaceholders(player, main.levelSystem().replacePlaceholders(command, player.getUniqueId(), false));
 
-                if (command.toLowerCase().startsWith("[player]")) {
-                    Bukkit.dispatchCommand(player, parseFormat("[player]", command));
-                    continue;
-                }
-
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), parseFormat("[console]", command));
+                final String toExecute = command;
+                Bukkit.getScheduler().runTask(main, () -> {
+                    if (toExecute.toLowerCase().startsWith("[player]")) {
+                        Bukkit.dispatchCommand(player, parseFormat("[player]", toExecute));
+                    } else {
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), parseFormat("[console]", toExecute));
+                    }
+                });
             }
         }
 

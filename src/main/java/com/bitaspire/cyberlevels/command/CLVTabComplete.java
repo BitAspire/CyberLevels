@@ -36,6 +36,9 @@ public class CLVTabComplete implements TabCompleter {
     private static final Set<String> MUTATION_COMMANDS = Collections.unmodifiableSet(new HashSet<>(
         Arrays.asList("addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel")
     ));
+    private static final List<String> CONSOLE_COMMANDS = Collections.unmodifiableList(
+        Arrays.asList("about", "reload", "addexp", "setexp", "removeexp", "addlevel", "setlevel", "removelevel", "purge")
+    );
     private static final Map<String, String> COMMAND_PERMISSIONS = new LinkedHashMap<>();
 
     static {
@@ -48,13 +51,13 @@ public class CLVTabComplete implements TabCompleter {
         COMMAND_PERMISSIONS.put("list", ADMIN_PREFIX + "list");
         COMMAND_PERMISSIONS.put("purge", ADMIN_PREFIX + "purge");
 
-        COMMAND_PERMISSIONS.put("addExp", ADMIN_PREFIX + "exp.add");
-        COMMAND_PERMISSIONS.put("setExp", ADMIN_PREFIX + "exp.set");
-        COMMAND_PERMISSIONS.put("removeExp", ADMIN_PREFIX + "exp.remove");
+        COMMAND_PERMISSIONS.put("addexp", ADMIN_PREFIX + "exp.add");
+        COMMAND_PERMISSIONS.put("setexp", ADMIN_PREFIX + "exp.set");
+        COMMAND_PERMISSIONS.put("removeexp", ADMIN_PREFIX + "exp.remove");
 
-        COMMAND_PERMISSIONS.put("addLevel", ADMIN_PREFIX + "levels.add");
-        COMMAND_PERMISSIONS.put("setLevel", ADMIN_PREFIX + "levels.set");
-        COMMAND_PERMISSIONS.put("removeLevel", ADMIN_PREFIX + "levels.remove");
+        COMMAND_PERMISSIONS.put("addlevel", ADMIN_PREFIX + "levels.add");
+        COMMAND_PERMISSIONS.put("setlevel", ADMIN_PREFIX + "levels.set");
+        COMMAND_PERMISSIONS.put("removelevel", ADMIN_PREFIX + "levels.remove");
     }
 
     private final CyberLevels main;
@@ -73,26 +76,29 @@ public class CLVTabComplete implements TabCompleter {
      */
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
-        if (!(sender instanceof Player)) return Collections.emptyList();
-        Player player = (Player) sender;
+        Player player = sender instanceof Player ? (Player) sender : null;
 
         if (args.length == 1) {
             List<String> available = new ArrayList<>();
-            COMMAND_PERMISSIONS.forEach((cmd, perm) -> {
-                if (player.hasPermission(perm)) available.add(cmd);
-            });
+            if (player == null) {
+                available.addAll(CONSOLE_COMMANDS);
+            } else {
+                COMMAND_PERMISSIONS.forEach((cmd, perm) -> {
+                    if (player.hasPermission(perm)) available.add(cmd);
+                });
+            }
             return partialMatch(args[0], available);
         }
 
         if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "info":
-                    if (player.hasPermission(ADMIN_PREFIX + "list"))
+                    if (player != null && player.hasPermission(ADMIN_PREFIX + "list"))
                         return partialMatch(args[1], getPlayerNames());
                     break;
 
                 case "purge":
-                    if (player.hasPermission(ADMIN_PREFIX + "purge"))
+                    if (player == null || player.hasPermission(ADMIN_PREFIX + "purge"))
                         return partialMatch(args[1], getPlayerNames());
                     break;
 

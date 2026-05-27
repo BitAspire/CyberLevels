@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.bitaspire"
-version = "1.2.3"
+version = "1.2.5"
 
 repositories {
     mavenLocal()

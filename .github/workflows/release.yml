@@ -156,8 +156,17 @@ jobs:
             local login
 
             while IFS= read -r line; do
-              if [[ "$line" =~ ^Co-authored-by:[[:space:]]*.*[<]([^>]+)[>][[:space:]]*$ ]]; then
-                email="${BASH_REMATCH[1]}"
+              case "$line" in
+                Co-authored-by:*"<"*">"*)
+                  email="${line##*<}"
+                  email="${email%%>*}"
+                  ;;
+                *)
+                  email=""
+                  ;;
+              esac
+
+              if [ -n "$email" ]; then
                 login=""
 
                 if [[ "$email" =~ ^[0-9]+\+([^@]+)@users\.noreply\.github\.com$ ]]; then

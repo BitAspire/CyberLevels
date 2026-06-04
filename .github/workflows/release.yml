@@ -149,9 +149,35 @@ jobs:
           CONTRIBUTORS=$(mktemp)
           PREVIOUS_CONTRIBUTORS=$(mktemp)
 
+          github_coauthors() {
+            local sha="$1"
+            local line
+            local email
+            local login
+
+            while IFS= read -r line; do
+              if [[ "$line" =~ ^Co-authored-by:[[:space:]]*.*[<]([^>]+)[>][[:space:]]*$ ]]; then
+                email="${BASH_REMATCH[1]}"
+                login=""
+
+                if [[ "$email" =~ ^[0-9]+\+([^@]+)@users\.noreply\.github\.com$ ]]; then
+                  login="${BASH_REMATCH[1]}"
+                elif [[ "$email" =~ ^([^@]+)@users\.noreply\.github\.com$ ]]; then
+                  login="${BASH_REMATCH[1]}"
+                fi
+
+                [ -n "$login" ] && echo "$login"
+              fi
+            done < <(git show -s --format='%B' "$sha")
+          }
+
           if [ -n "${CHANGELOG_BASE:-}" ] && git rev-parse "$CHANGELOG_BASE" >/dev/null 2>&1; then
-            git log --format='%aN' "$CHANGELOG_BASE" \
-              | sort -fu > "$PREVIOUS_CONTRIBUTORS"
+            {
+              git log --format='%aN' "$CHANGELOG_BASE"
+              while read -r SHA; do
+                github_coauthors "$SHA"
+              done < <(git rev-list "$CHANGELOG_BASE")
+            } | sort -fu > "$PREVIOUS_CONTRIBUTORS"
           fi
 
           {
@@ -193,6 +219,8 @@ jobs:
                 echo "- $COMMIT_TITLE by $COMMIT_AUTHOR_NAME ($SHORT_SHA)" >> release-notes.md
               fi
             fi
+
+            github_coauthors "$SHA" >> "$CONTRIBUTORS"
           done < <(git rev-list --reverse "$RANGE")
 
           if [ "$HAS_CHANGES" = false ]; then

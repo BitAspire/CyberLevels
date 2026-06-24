@@ -6,10 +6,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -53,6 +55,12 @@ public class Listeners {
         };
 
         new ExpListener() {
+            @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+            private void onPlace(BlockPlaceEvent event) {
+                if (main.cache().antiAbuse().onlyNaturalBlocks())
+                    event.getBlockPlaced().setMetadata("CLV_PLACED", new FixedMetadataValue(main, true));
+            }
+
             @EventHandler
             private void onPistonExtend(BlockPistonExtendEvent event) {
                 if (!event.isCancelled()) fixPlacedAbuse(event.getBlocks(), event.getDirection());

@@ -28,7 +28,6 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -154,9 +153,6 @@ public class EarnExp {
             @EventHandler (priority = EventPriority.HIGHEST)
             private void onPlacing(BlockPlaceEvent event) {
                 if (event.isCancelled()) return;
-
-                if (main.cache().antiAbuse().onlyNaturalBlocks())
-                    event.getBlock().setMetadata("CLV_PLACED", new FixedMetadataValue(main, true));
 
                 sendExp(event.getPlayer(), s,
                         BlockExpKeys.blockKey(event.getBlock(), main.serverVersion()));
@@ -331,9 +327,7 @@ public class EarnExp {
         events.get("fishing").setListener(s -> new Listener() {
             @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
             private void onFishing(PlayerFishEvent event) {
-                final PlayerFishEvent.State state = event.getState();
-                if (state != PlayerFishEvent.State.CAUGHT_FISH
-                        && state != PlayerFishEvent.State.CAUGHT_ENTITY)
+                if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH)
                     return;
 
                 Entity caught = event.getCaught();

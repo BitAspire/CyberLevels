@@ -29,37 +29,39 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Download build artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release jar
+        shell: bash
         run: |
           set -euo pipefail
+          PROJECT_NAME="CyberLevels"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon clean build shadowJar
 
-          gh run download "$RUN_ID" \
-            --repo "$GITHUB_REPOSITORY" \
-            --dir downloaded-artifacts
+          VERSION=$(./gradlew --no-daemon -q properties --property version | awk -F': ' '$1 == "version" { print $2; exit }')
+          JAR_SOURCE=$(find . -type f -path "*/build/libs/${PROJECT_NAME}-${VERSION}.jar" -print -quit)
 
-          JAR=$(find downloaded-artifacts -type f \
-            -name 'CyberLevels-*.jar' \
-            ! -name '*-sources.jar' \
-            ! -name '*-javadoc.jar' \
-            -print -quit)
-
-          if [ -z "$JAR" ]; then
-            echo "Could not find final CyberLevels jar in downloaded artifacts."
-            find downloaded-artifacts -type f
+          if [ -z "$JAR_SOURCE" ]; then
+            echo "Could not find final ${PROJECT_NAME} jar in build outputs."
+            find . -path "*/build/libs/*.jar" -type f -print
             exit 1
           fi
 
-          VERSION=$(basename "$JAR" | sed -E 's/^CyberLevels-(.+)\.jar$/\1/')
           mkdir -p release-assets
-          cp "$JAR" "release-assets/CyberLevels-$VERSION.jar"
+          RELEASE_JAR="release-assets/${PROJECT_NAME}-${VERSION}.jar"
+          cp "$JAR_SOURCE" "$RELEASE_JAR"
 
+          echo "RELEASE_JAR=$RELEASE_JAR" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$VERSION" >> "$GITHUB_ENV"
-          echo "RELEASE_JAR=release-assets/CyberLevels-$VERSION.jar" >> "$GITHUB_ENV"
-
       - name: Build release notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -156,8 +158,17 @@ jobs:
             local login
 
             while IFS= read -r line; do
-              if [[ "$line" =~ ^Co-authored-by:[[:space:]]*.*[<]([^>]+)[>][[:space:]]*$ ]]; then
-                email="${BASH_REMATCH[1]}"
+              case "$line" in
+                Co-authored-by:*"<"*">"*)
+                  email="${line##*<}"
+                  email="${email%%>*}"
+                  ;;
+                *)
+                  email=""
+                  ;;
+              esac
+
+              if [ -n "$email" ]; then
                 login=""
 
                 if [[ "$email" =~ ^[0-9]+\+([^@]+)@users\.noreply\.github\.com$ ]]; then

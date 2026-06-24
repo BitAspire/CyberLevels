@@ -37,10 +37,3 @@ jobs:
         run: |
           VERSION=$(./gradlew -q properties | awk -F': ' '/^version:/ {print $2; exit}')
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
-      - name: Upload CyberLevels artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: CyberLevels-artifacts-${{ env.VERSION }}
-          if-no-files-found: error
-          path: build/libs/CyberLevels-${{ env.VERSION }}.jar

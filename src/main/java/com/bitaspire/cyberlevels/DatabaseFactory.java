@@ -144,6 +144,27 @@ class DatabaseFactory {
             return dataSource != null && !dataSource.isClosed();
         }
 
+        private boolean isDatabaseSyncStopping() {
+            return main.userManager instanceof UserManagerImpl<?> &&
+                    ((UserManagerImpl<?>) main.userManager).isDatabaseSyncStopping();
+        }
+
+        private boolean isConnectionFailure(Throwable throwable) {
+            for (Throwable current = throwable; current != null; current = current.getCause()) {
+                if (current instanceof SQLException) {
+                    String state = ((SQLException) current).getSQLState();
+                    if (state != null && state.startsWith("08")) return true;
+                }
+
+                if (current instanceof java.net.SocketException) return true;
+
+                String name = current.getClass().getName();
+                if (name.contains("CommunicationsException")) return true;
+            }
+
+            return false;
+        }
+
         @Override
         public void connect() {
             if (isConnected()) return;
@@ -439,6 +460,8 @@ class DatabaseFactory {
                     return users;
                 }
             } catch (Exception e) {
+                if (isDatabaseSyncStopping() && isConnectionFailure(e)) return Collections.emptyList();
+
                 main.logger("&cFailed to fetch recent player updates from " + type + ".", "");
                 e.printStackTrace();
                 return Collections.emptyList();

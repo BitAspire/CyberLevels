@@ -42,6 +42,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
     private final Map<UUID, Long> localOfflineSnapshots = new ConcurrentHashMap<>();
     private final Map<UUID, Long> knownDatabaseUpdatedAt = new ConcurrentHashMap<>();
     private volatile long lastObservedDatabaseUpdateAt = System.currentTimeMillis();
+    private volatile boolean databaseSyncStopping = false;
 
     GlobalTask autoSaveTask = null;
     GlobalTask databaseSyncTask = null;
@@ -549,26 +550,34 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
     void startDatabaseSync() {
         if (databaseSyncTask != null || databaseImpl() == null) return;
+        databaseSyncStopping = false;
         scheduleDatabaseSync();
     }
 
     private void scheduleDatabaseSync() {
+        if (databaseSyncStopping) return;
+
         databaseSyncTask = main.scheduler().runTaskLaterAsynchronously(() -> {
             try {
-                pollDatabaseUpdates();
+                if (!databaseSyncStopping)
+                    pollDatabaseUpdates();
             } finally {
-                if (main.isEnabled() && databaseSyncTask != null)
+                if (main.isEnabled() && databaseSyncTask != null && !databaseSyncStopping)
                     scheduleDatabaseSync();
             }
         }, DATABASE_SYNC_INTERVAL_TICKS);
     }
 
     private void pollDatabaseUpdates() {
+        if (databaseSyncStopping) return;
+
         DatabaseFactory.DatabaseImpl<N> databaseImpl = databaseImpl();
         if (databaseImpl == null || users.isEmpty()) return;
         if (!databaseSyncInFlight.compareAndSet(false, true)) return;
 
         try {
+            if (databaseSyncStopping) return;
+
             long queryAfter = Math.max(0L, lastObservedDatabaseUpdateAt - DATABASE_SYNC_LOOKBACK_MS);
             List<DatabaseFactory.DatabaseImpl.StoredUserData> updates =
                     databaseImpl.getUsersUpdatedSince(queryAfter);
@@ -638,6 +647,33 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         }, 20L * config.getAutoSaveInterval());
     }
 
+    boolean isDatabaseSyncStopping() {
+        return databaseSyncStopping;
+    }
+
+    private void cancelDatabaseSync() {
+        databaseSyncStopping = true;
+
+        if (databaseSyncTask != null) {
+            databaseSyncTask.cancel();
+            databaseSyncTask = null;
+        }
+
+        waitForDatabaseSync();
+    }
+
+    private void waitForDatabaseSync() {
+        long deadline = System.currentTimeMillis() + 5_000L;
+        while (databaseSyncInFlight.get() && System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(25L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
     @Override
     public void cancelAutoSave() {
         if (autoSaveTask != null) {
@@ -645,9 +681,6 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             autoSaveTask = null;
         }
 
-        if (databaseSyncTask != null) {
-            databaseSyncTask.cancel();
-            databaseSyncTask = null;
-        }
+        cancelDatabaseSync();
     }
 }

@@ -379,7 +379,17 @@ public class CLVCommand implements CommandExecutor {
     }
 
     private boolean sendLevelInfo(Player player) {
+        if (player == null) return true;
+
         LevelUser<?> user = main.userManager().getUser(player);
+        if (user == null)
+            return main.cache().lang().sendMessage(
+                player,
+                Lang::getPlayerNotFound,
+                "player",
+                player.getName()
+            );
+
         LevelSystem<?> system = main.levelSystem();
 
         return main.cache().lang().sendMessage(

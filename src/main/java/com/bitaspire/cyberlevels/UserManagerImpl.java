@@ -336,8 +336,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
         LevelUser<N> existing = users.get(uuid);
         if (existing != null) {
-            if (player != null && !existing.isOnline())
-                users.put(uuid, toOnlineUser(uuid, existing));
+            if (player != null && !existing.isOnline()) {
+                users.put(uuid, toOnlineUser(uuid, result.user));
+            }
 
             if (result.databaseUpdatedAt > 0L) {
                 knownDatabaseUpdatedAt.put(uuid, result.databaseUpdatedAt);

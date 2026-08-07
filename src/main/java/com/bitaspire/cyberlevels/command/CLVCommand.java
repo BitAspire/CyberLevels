@@ -3,16 +3,17 @@ package com.bitaspire.cyberlevels.command;
 import com.bitaspire.cyberlevels.CyberLevels;
 import com.bitaspire.cyberlevels.cache.Lang;
 import com.bitaspire.cyberlevels.level.LevelSystem;
+import com.bitaspire.cyberlevels.user.Database;
 import com.bitaspire.cyberlevels.user.LevelUser;
 import com.bitaspire.libs.common.util.ReplaceUtils;
+import com.bitaspire.libs.prismatic.PrismaticAPI;
+import com.bitaspire.libs.vnc.VNC;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import lombok.Getter;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -90,23 +91,7 @@ public class CLVCommand implements CommandExecutor {
             switch (sub) {
                 case "about":
                     if (isRestricted(player, "player.about")) return true;
-                    if (player == null) {
-                        main.logger(
-                            " &d&lCyber&f&lLevels &fv" +
-                            main.getDescription().getVersion() +
-                            " &7(&7&nhttps://bit.ly/2YSlqYq&7).",
-                            " &fDeveloped by &d" + main.getAuthors() + "&f.",
-                            " A leveling system plugin with MySQL support and custom events."
-                        );
-                        return true;
-                    }
-                    return main.createSender(player).send(
-                        " &d&lCyber&f&lLevels &fv" +
-                        main.getDescription().getVersion() +
-                        " &7(&7&nhttps://bit.ly/2YSlqYq&7).",
-                        " &fDeveloped by &d" + main.getAuthors() + "&f.",
-                        " A leveling system plugin with MySQL support and custom events."
-                    );
+                    return sendAbout(sender, player);
                 case "reload":
                     if (isRestricted(player, "admin.reload")) return true;
 
@@ -281,6 +266,35 @@ public class CLVCommand implements CommandExecutor {
         return sendLangMessage(sender, player, Lang::getNoPermission);
     }
 
+    private boolean sendAbout(CommandSender sender, Player player) {
+        Database<?> database = main.userManager() == null ?
+                null :
+                main.userManager().getDatabase();
+        boolean databaseEnabled = main.cache().config().database().isEnabled();
+        boolean databaseConnected = database != null && database.isConnected();
+
+        String[] lines = new String[] {
+                " &d&lCyber&f&lLevels &fv" + main.getDescription().getVersion() + "&7.",
+                " &7Server: &f" + serverInfo(),
+                " &7Authors: &f" + main.getAuthors(),
+                " &7Database: &f" + databaseConnected + " &7(enabled: &f" + databaseEnabled +
+                        "&7, type: &f" + main.cache().config().database().getType() + "&7)",
+                " &7Config: &fauto-save " + main.cache().config().isAutoSaveEnabled() +
+                        " / " + main.cache().config().getAutoSaveInterval() + "s&7, &fleaderboard " +
+                        main.cache().config().isLeaderboardEnabled() + " / " +
+                        main.cache().config().getLeaderboardMaxPositions() + " positions",
+                " &7Engine: &f" + (main.cache().config().useBigDecimalSystem() ? "BigDecimal" : "Double") +
+                        "&7, &fEXP integer-only " + main.cache().config().isExpIntegerOnly()
+        };
+
+        if (player == null) {
+            main.logger(lines);
+            return true;
+        }
+
+        return main.createSender(player).send(lines);
+    }
+
     private boolean sendLangMessage(
         CommandSender cmdSender,
         Player player,
@@ -297,7 +311,7 @@ public class CLVCommand implements CommandExecutor {
             String out = stripConsoleChannels(line);
             if (!out.isEmpty()) {
                 cmdSender.sendMessage(
-                    ChatColor.translateAlternateColorCodes('&', out)
+                    PrismaticAPI.colorize(out)
                 );
             }
         }
@@ -348,7 +362,7 @@ public class CLVCommand implements CommandExecutor {
             out = stripConsoleChannels(out);
             if (!out.isEmpty()) {
                 cmdSender.sendMessage(
-                    ChatColor.translateAlternateColorCodes('&', out)
+                    PrismaticAPI.colorize(out)
                 );
             }
         }
@@ -369,13 +383,17 @@ public class CLVCommand implements CommandExecutor {
         LevelUser<?> user = main.userManager().getUser(name);
         if (user != null) return user;
 
-        Player online = Bukkit.getPlayerExact(name);
+        Player online = main.getServer().getPlayerExact(name);
         if (online != null) return main.userManager().getUser(online);
 
-        OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
+        OfflinePlayer offline = main.getServer().getOfflinePlayer(name);
         if (!offline.hasPlayedBefore() && !offline.isOnline()) return null;
 
         return main.userManager().getUser(offline.getUniqueId());
+    }
+
+    private static String serverInfo() {
+        return VNC.SERVER != null ? VNC.SERVER.getImplementationVersion() : "Unknown";
     }
 
     private boolean sendLevelInfo(Player player) {

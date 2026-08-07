@@ -18,6 +18,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # settings.gradle.kts picks this checkout up as an included build. Keep the path
+      # in sync with the candidates listed there, otherwise the build cannot resolve it.
+      - name: Checkout CyberCore dependency
+        uses: actions/checkout@v4
+        with:
+          repository: BitAspire/CyberCore
+          path: CyberCore
+
       - name: Set up JDK (Temurin 21)
         uses: actions/setup-java@v4
         with:

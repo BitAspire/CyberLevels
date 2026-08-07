@@ -1,5 +1,6 @@
 package com.bitaspire.cyberlevels;
 
+import com.bitaspire.cybercore.TextLibrary;
 import com.bitaspire.libs.common.CollectionBuilder;
 import com.bitaspire.libs.vnc.VNC;
 import com.bitaspire.cybercore.CoreSettings;
@@ -279,7 +280,7 @@ public final class CyberLevels extends JavaPlugin {
      *
      * @return active Takion library facade
      */
-    public TakionLib library() {
+    public TextLibrary library() {
         return core.getLibrary();
     }
 

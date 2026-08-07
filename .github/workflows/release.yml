@@ -29,6 +29,14 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
+      # settings.gradle.kts picks this checkout up as an included build. Keep the path
+      # in sync with the candidates listed there, otherwise the build cannot resolve it.
+      - name: Checkout CyberCore dependency
+        uses: actions/checkout@v4
+        with:
+          repository: BitAspire/CyberCore
+          path: CyberCore
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:

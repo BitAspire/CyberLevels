@@ -37,7 +37,7 @@ dependencies {
     // Spigot API
     compileOnly("org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT")
 
-    implementation(files("libraries/CyberCore-2.0.0.jar"))
+    implementation("com.bitaspire:CyberCore:2.1.0")
 
     compileOnly("me.clip:placeholderapi:2.11.6")
     compileOnly(files("libraries/RivalHarvesterHoesAPI.jar"))

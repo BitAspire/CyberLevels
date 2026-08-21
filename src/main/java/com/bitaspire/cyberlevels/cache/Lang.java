@@ -55,6 +55,10 @@ public class Lang {
         "[C] &8&m――――――――――――――――――――――――――――――――"
     );
 
+    private List<String> unknownCommand = Collections.singletonList(
+        "&cUnknown argument &f{command}&c. Available arguments:"
+    );
+
     private String progressBar = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
     private String progressCompleteColor = "&d";
     private String progressIncompleteColor = "&7";
@@ -165,6 +169,11 @@ public class Lang {
                 file.getConfiguration(),
                 "messages.help-admin",
                 helpAdmin
+            );
+            unknownCommand = Configurable.toStringList(
+                file.getConfiguration(),
+                "messages.unknown-command",
+                unknownCommand
             );
 
             progressBar = file.get("messages.progress.bar", progressBar);

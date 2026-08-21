@@ -21,6 +21,10 @@ messages:
     - '      &8➼ &d/clv removeLevel <amount> [<player>] &fDecrease a player''s level.'
     - '[C] &8&m――――――――――――――――――――――――――――――――'
 
+  # Sent when /clv is used with an argument that does not exist.
+  # The help menu above is sent right after this message.
+  unknown-command: '&cUnknown argument &f{command}&c. Available arguments:'
+
   progress:
     bar: '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬'
     complete-color: '&d'

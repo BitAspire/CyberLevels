@@ -31,6 +31,30 @@ import org.jetbrains.annotations.NotNull;
  */
 public class CLVCommand implements CommandExecutor {
 
+    private static final List<String> VALUE_COMMANDS = Arrays.asList(
+        "addexp",
+        "setexp",
+        "removeexp",
+        "addlevel",
+        "setlevel",
+        "removelevel"
+    );
+
+    private static final List<String> SUB_COMMANDS = Arrays.asList(
+        "about",
+        "help",
+        "reload",
+        "info",
+        "top",
+        "purge",
+        "addexp",
+        "setexp",
+        "removeexp",
+        "addlevel",
+        "setlevel",
+        "removelevel"
+    );
+
     private final CyberLevels main;
     private final List<String> consoleCmds;
 
@@ -156,7 +180,7 @@ public class CLVCommand implements CommandExecutor {
             return sendLevelInfo(player, target);
         }
 
-        if (args.length >= 2) {
+        if (args.length >= 2 && VALUE_COMMANDS.contains(sub)) {
             final String targetName = args.length >= 3 ? args[2] : null;
 
             LevelUser<?> user;
@@ -250,17 +274,29 @@ public class CLVCommand implements CommandExecutor {
             }
         }
 
-        if (player != null) {
-            if (player.hasPermission("CyberLevels.admin.help")) {
-                return main.cache().lang().sendMessage(player, Lang::getHelpAdmin);
-            }
+        if (!SUB_COMMANDS.contains(sub))
+            sendLangMessage(
+                sender,
+                player,
+                Lang::getUnknownCommand,
+                new String[] {"command"},
+                sub
+            );
 
-            if (player.hasPermission("CyberLevels.player.help")) {
-                return main
-                    .cache()
-                    .lang()
-                    .sendMessage(player, Lang::getHelpPlayer);
-            }
+        return sendHelp(sender, player);
+    }
+
+    private boolean sendHelp(CommandSender sender, Player player) {
+        if (player == null) {
+            return sendLangMessage(sender, null, Lang::getHelpAdmin);
+        }
+
+        if (player.hasPermission("CyberLevels.admin.help")) {
+            return main.cache().lang().sendMessage(player, Lang::getHelpAdmin);
+        }
+
+        if (player.hasPermission("CyberLevels.player.help")) {
+            return main.cache().lang().sendMessage(player, Lang::getHelpPlayer);
         }
 
         return sendLangMessage(sender, player, Lang::getNoPermission);

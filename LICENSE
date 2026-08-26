@@ -1,0 +1,41 @@
+BitAspire Community & Public License (BCPL) v1.0
+Software: CyberLevels
+Copyright (c) BitAspire.com / ZeroToil LLC (Authors: Kihsomray, CroaBeast)
+
+1. Grant of Rights
+
+  Subject to the terms and conditions of this license, users are hereby granted a free, non-exclusive right to:
+  
+  1. Use the compiled Software on any number of personal or managed Minecraft servers (including commercial server networks).
+  2. Inspect, study, and modify the source code of the Software for personal use, server needs, or for contributing (via pull requests) to the official project repository.
+  3. Distribute non-commercial forks or modifications exclusively under the condition of full compliance with all restrictions listed in Section 2.
+
+2. Restrictions and Conditions of Use
+
+  The grant of rights under Section 1 is strictly subject to the following limitations:
+  
+  2.1 No Resale
+  
+    The Software, its source code, compiled binary files (.jar), and any derivatives or modifications may not be sold, rented, leased, or monetized on any platform (e.g., SpigotMC, BuiltByBit/MC-Market, Tebex, custom web stores, etc.).
+  
+  2.2 No Brand Reuse
+  
+    You may not re-upload, redistribute, or publish the original or modified Software under the names "CyberLevels", "BitAspire", or "ZeroToil".
+    * If you create a modified derivative (fork), you must clearly rename it to prevent confusion with the official CyberLevels project.
+  
+  2.3 Required Attribution
+  
+    All copies of the Software or substantial portions thereof, as well as works derived from it, must retain the following in source code headers, the LICENSE file, and attached documentation:
+    * The original Copyright Notice,
+    * A link to the official repository (https://github.com/BitAspire/CyberLevels),
+    * The names of the original authors (Kihsomray, CroaBeast, BitAspire, ZeroToil LLC).
+  
+  2.4 No Patenting or Exclusive Claims
+  
+    Users and contributors may not apply for patents, industrial designs, or assert any other exclusive intellectual property claims over the Software, its parts, algorithms, or underlying logic.
+
+3. Limitation of Liability and Disclaimer of Warranty
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY (INCLUDING LOSS OF DATA, SERVER DAMAGE, OR FINANCIAL LOSSES), WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  * For inquiries regarding commercial licensing or exceptions to this license, please contact the developers on the BitAspire Discord (https://discord.gg/DC4Gqj3y5V).

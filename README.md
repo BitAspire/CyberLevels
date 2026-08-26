@@ -1,7 +1,19 @@
-# CyberLevels
+# CyberLevels - Server Leveling System
+
+[![CI](https://github.com/BitAspire/CyberLevels/actions/workflows/build.yml/badge.svg)](https://github.com/BitAspire/CyberLevels/actions/workflows/build.yml)
+[![Latest Release](https://img.shields.io/github/v/release/BitAspire/CyberLevels?sort=semver)](https://github.com/BitAspire/CyberLevels/releases)
+[![License](https://img.shields.io/github/license/BitAspire/CyberLevels)](LICENSE)
+[![Java 8+](https://img.shields.io/badge/Java-8%2B-orange)](https://www.oracle.com/java/technologies/javase/8all-relnotes.html)
+[![Gradle](https://img.shields.io/badge/Gradle-9.7.1-02303A)](https://gradle.org/)
 
 A leveling system plugin for **Spigot** and **Paper** with **Folia support**. Store player levels and experience, reward activity across your server, sync progress through SQL storage, and show progression through chat, action bar, PlaceholderAPI, leaderboards, and more.
 
+---
+
+## 🔗 Downloads
+Download our plugin only from these sources:
+- [SpigotMC](https://www.spigotmc.org/resources/cyberlevels.98826/)
+- [Releases](https://github.com/BitAspire/CyberLevels/releases/)
 ---
 
 ## 🧩 Supported versions
@@ -228,9 +240,15 @@ public final class MyPlugin extends JavaPlugin {
 - **Bugs / questions:** primarily use our [Discord server](https://discord.gg/DC4Gqj3y5V). We do not check GitHub issues that often, and Spigot reviews should not be used as support tickets.
 - **Donations:** [PayPal: zerotoildev](https://paypal.me/zerotoildev)
 
-### 📜 Resource terms (summary)
+### 📜 License
 
-Per the Spigot listing: do not redistribute or sell the resource as your own, do not decompile to claim ownership, and follow any updated terms on the resource page.
+CyberLevels is a licensed plugin with our custom BCPL v1.0 license. Before using or contributing to our plugin, we recommend to read this document.
+
+---
+
+### 👋 Contributing
+
+Contributions are welcome! Please select tab "Contributing" and read more information about how to contribute. We appreciate any help or bugfix from our community.
 
 ---
 
@@ -240,6 +258,6 @@ Per the Spigot listing: do not redistribute or sell the resource as your own, do
 
 ## 🌟 Contributors
 
-**Klema_LP**
+**Klema_LP**, **Faln**, **Zsomi**, **hermes18974-jpg**
 
 &copy; BitAspire.com | Product of ZeroToil LLC

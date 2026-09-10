@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import me.croabeast.expr4j.expression.Builder;
+import me.croabeast.expr4j.expression.Expression;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -160,6 +161,9 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             string = StringUtils.replaceEach(string, k, v);
         }
 
+        if (string.indexOf('{') < 0 && string.indexOf('%') < 0 && string.indexOf('<') < 0)
+            return string;
+
         return main.library().replace(data.isOnline() ? data.getPlayer() : null, string);
     }
 
@@ -216,12 +220,13 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         return cache.antiAbuse().getAntiAbuses();
     }
 
-    @NotNull
-    LevelUser<N> createUser(UUID uuid) {
     @Override
     public boolean checkAntiAbuse(Player player, ExpSource source) {
         return cache.antiAbuse().isLimited(player, source);
     }
+
+    @NotNull
+    LevelUser<N> createUser(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
         return player == null ? createOffline(uuid) : new OnlineUser<>(this, player);
     }
@@ -283,12 +288,25 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
     }
 
-    @RequiredArgsConstructor
     abstract class BaseFormula<T extends Number> implements Formula<T> {
+
+        static final int CACHE_LIMIT = 256;
 
         private final Operator<T> operator;
         @Getter
         private final String asString;
+
+        // A formula using rand() must be evaluated every time, so only its parsed tree is reused.
+        private final boolean cacheable;
+
+        private final Map<String, Expression<T>> expressions = new ConcurrentHashMap<>();
+        private final Map<String, T> results = new ConcurrentHashMap<>();
+
+        BaseFormula(Operator<T> operator, String asString) {
+            this.operator = operator;
+            this.asString = asString;
+            cacheable = !asString.toLowerCase(Locale.ENGLISH).contains("rand");
+        }
 
         abstract Builder<T> builder();
 
@@ -298,8 +316,29 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             if (StringUtils.isBlank(parsed))
                 return operator.fromDouble(0.0);
 
+            if (cacheable) {
+                T cached = results.get(parsed);
+                if (cached != null) return cached;
+            }
+
             try {
-                return builder().build(parsed).evaluate();
+                Expression<T> expression = expressions.get(parsed);
+                if (expression == null) {
+                    expression = builder().build(parsed);
+
+                    if (!cacheable) {
+                        if (expressions.size() >= CACHE_LIMIT) expressions.clear();
+                        expressions.put(parsed, expression);
+                    }
+                }
+
+                T result = expression.evaluate();
+                if (cacheable) {
+                    if (results.size() >= CACHE_LIMIT) results.clear();
+                    results.put(parsed, result);
+                }
+
+                return result;
             } catch (Throwable t) {
                 t.printStackTrace();
                 return operator.fromDouble(0.0);

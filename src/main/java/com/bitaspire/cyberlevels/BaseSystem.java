@@ -348,7 +348,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
                 return result;
             } catch (Throwable t) {
-                t.printStackTrace();
+                main.logger("&cCould not evaluate the formula '" + asString +
+                        "' as '" + parsed + "': " + t.getMessage());
                 return operator.fromDouble(0.0);
             }
         }

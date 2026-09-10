@@ -299,13 +299,25 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         // A formula using rand() must be evaluated every time, so only its parsed tree is reused.
         private final boolean cacheable;
 
-        private final Map<String, Expression<T>> expressions = new ConcurrentHashMap<>();
-        private final Map<String, T> results = new ConcurrentHashMap<>();
+        // Access-ordered maps that evict only their least recently used entry: a full clear would
+        // throw away the whole working set every time the cap is reached. They are guarded by a
+        // single lock instead of being concurrent maps, which is enough for these short lookups.
+        private final Map<String, Expression<T>> expressions = lruCache();
+        private final Map<String, T> results = lruCache();
 
         BaseFormula(Operator<T> operator, String asString) {
             this.operator = operator;
             this.asString = asString;
             cacheable = !asString.toLowerCase(Locale.ENGLISH).contains("rand");
+        }
+
+        private <V> Map<String, V> lruCache() {
+            return Collections.synchronizedMap(new LinkedHashMap<String, V>(CACHE_LIMIT, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, V> eldest) {
+                    return size() > CACHE_LIMIT;
+                }
+            });
         }
 
         abstract Builder<T> builder();
@@ -326,17 +338,13 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
                 if (expression == null) {
                     expression = builder().build(parsed);
 
-                    if (!cacheable) {
-                        if (expressions.size() >= CACHE_LIMIT) expressions.clear();
-                        expressions.put(parsed, expression);
-                    }
+                    // A cacheable formula never reaches this point twice for the same string, since
+                    // its result is stored below, so only rand() formulas keep their parsed tree.
+                    if (!cacheable) expressions.put(parsed, expression);
                 }
 
                 T result = expression.evaluate();
-                if (cacheable) {
-                    if (results.size() >= CACHE_LIMIT) results.clear();
-                    results.put(parsed, result);
-                }
+                if (cacheable) results.put(parsed, result);
 
                 return result;
             } catch (Throwable t) {

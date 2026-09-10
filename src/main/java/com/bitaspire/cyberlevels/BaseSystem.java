@@ -218,6 +218,10 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
     @NotNull
     LevelUser<N> createUser(UUID uuid) {
+    @Override
+    public boolean checkAntiAbuse(Player player, ExpSource source) {
+        return cache.antiAbuse().isLimited(player, source);
+    }
         Player player = Bukkit.getPlayer(uuid);
         return player == null ? createOffline(uuid) : new OnlineUser<>(this, player);
     }

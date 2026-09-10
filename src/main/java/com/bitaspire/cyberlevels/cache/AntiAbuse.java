@@ -67,6 +67,23 @@ public class AntiAbuse {
     }
 
     /**
+     * Checks every loaded module without copying the module map.
+     *
+     * <p>This is the hot-path counterpart of {@link #getAntiAbuses()}, which allocates a snapshot
+     * on every call and is meant for API consumers only.
+     *
+     * @param player player attempting to gain or lose EXP
+     * @param source EXP source being processed
+     * @return {@code true} when any module blocks the action
+     */
+    public boolean isLimited(Player player, ExpSource source) {
+        for (Module module : modules.values())
+            if (module.isLimited(player, source)) return true;
+
+        return false;
+    }
+
+    /**
      * Starts every configured limiter timer.
      *
      * <p>This is typically called once after the plugin runtime finishes loading so timed limiter

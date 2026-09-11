@@ -481,14 +481,43 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
     }
 
+    private static final long LEADERBOARD_THROTTLE_MS = 5_000L;
+
+    private volatile long lastLeaderboardUpdate = 0L;
+    private volatile boolean leaderboardPending = false;
+
     void updateLeaderboard() {
         if (!main.isEnabled() || leaderboard == null ||
                 !cache.config().isLeaderboardEnabled()) return;
 
+        if (cache.config().leaderboardInstantUpdate()) {
+            runLeaderboardUpdate();
+            return;
+        }
+
+        if (leaderboardPending) return;
+
+        long wait = LEADERBOARD_THROTTLE_MS - (System.currentTimeMillis() - lastLeaderboardUpdate);
+        if (wait <= 0) {
+            runLeaderboardUpdate();
+            return;
+        }
+
+        leaderboardPending = true;
+        main.scheduler().runTaskLater(() -> {
+            leaderboardPending = false;
+            runLeaderboardUpdate();
+        }, Math.max(1L, wait / 50L));
+    }
+
+    private void runLeaderboardUpdate() {
+        lastLeaderboardUpdate = System.currentTimeMillis();
         if (!leaderboard.isUpdating()) leaderboard.update();
     }
 
     abstract class BaseUser<T extends Number> implements LevelUser<T> {
+
+        static final long MULTIPLIER_CACHE_MS = 5_000L;
 
         private final BaseSystem<T> system;
         private final Operator<T> operator;

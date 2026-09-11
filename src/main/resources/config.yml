@@ -48,6 +48,9 @@ config:
     # system when the auto-save is called?
     sync-on-auto-save: true
 
+    # Should the leaderboard be rebuilt on every EXP change?
+    # Turning this off groups the changes and rebuilds at most
+    # once every 5 seconds, which is much cheaper on busy servers.
     instant-update: true
 
   # Should player data be auto-saved?

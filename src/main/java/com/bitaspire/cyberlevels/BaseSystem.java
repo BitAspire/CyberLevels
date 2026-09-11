@@ -521,6 +521,8 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
     abstract class BaseUser<T extends Number> implements LevelUser<T> {
 
+        // A permission granted or revoked while the cached value is still fresh only affects EXP
+        // gains once this window expires.
         static final long MULTIPLIER_CACHE_MS = 5_000L;
 
         private final BaseSystem<T> system;

@@ -484,7 +484,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
     private static final long LEADERBOARD_THROTTLE_MS = 5_000L;
 
     private volatile long lastLeaderboardUpdate = 0L;
-    private volatile boolean leaderboardPending = false;
+    private final AtomicBoolean leaderboardPending = new AtomicBoolean(false);
 
     void updateLeaderboard() {
         if (!main.isEnabled() || leaderboard == null ||
@@ -495,7 +495,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             return;
         }
 
-        if (leaderboardPending) return;
+        if (leaderboardPending.get()) return;
 
         long wait = LEADERBOARD_THROTTLE_MS - (System.currentTimeMillis() - lastLeaderboardUpdate);
         if (wait <= 0) {
@@ -503,10 +503,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
             return;
         }
 
-        leaderboardPending = true;
+        if (!leaderboardPending.compareAndSet(false, true)) return;
+
         main.scheduler().runTaskLater(() -> {
-            leaderboardPending = false;
-            runLeaderboardUpdate();
+            try {
+                runLeaderboardUpdate();
+            } finally {
+                leaderboardPending.set(false);
+            }
         }, Math.max(1L, wait / 50L));
     }
 

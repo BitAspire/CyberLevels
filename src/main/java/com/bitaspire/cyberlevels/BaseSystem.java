@@ -129,36 +129,51 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         return formulas.getOrDefault(level, formula).evaluate(uuid);
     }
 
+    private static final String[] LEVEL_KEYS = {
+            "{level}", "{playerEXP}", "{nextLevel}", "{maxLevel}", "{minLevel}", "{minEXP}"
+    };
+    private static final String[] PLAYER_KEYS = {"{player}", "{playerDisplayName}", "{playerUUID}"};
+    private static final String[] PROGRESS_KEYS = {"{requiredEXP}", "{percent}", "{progressBar}"};
+
+    private static boolean containsAny(String string, String[] keys) {
+        for (String key : keys)
+            if (string.contains(key)) return true;
+
+        return false;
+    }
+
     @NotNull
     public String replacePlaceholders(String string, UUID uuid, boolean safeForFormula) {
+        if (string == null || string.isEmpty()) return string;
+
         LevelUser<N> data = userManager.getUser(uuid);
 
-        String[] keys = {"{level}", "{playerEXP}", "{nextLevel}",
-                "{maxLevel}", "{minLevel}", "{minEXP}"};
-        String[] values = {
-                String.valueOf(data.getLevel()),
-                roundString(data.getExp()),
-                String.valueOf(data.getLevel() + 1),
-                String.valueOf(maxLevel),
-                String.valueOf(startLevel),
-                String.valueOf(startExp)
-        };
-        string = StringUtils.replaceEach(string, keys, values);
+        // Every supported key is brace-wrapped, so a string without braces needs no pass at all.
+        if (string.indexOf('{') >= 0) {
+            if (containsAny(string, LEVEL_KEYS))
+                string = StringUtils.replaceEach(string, LEVEL_KEYS, new String[] {
+                        String.valueOf(data.getLevel()),
+                        roundString(data.getExp()),
+                        String.valueOf(data.getLevel() + 1),
+                        String.valueOf(maxLevel),
+                        String.valueOf(startLevel),
+                        String.valueOf(startExp)
+                });
 
-        String[] k = {"{player}", "{playerDisplayName}", "{playerUUID}"};
-        String[] v = {
-                data.getName(), data.isOnline() ? data.getPlayer().getDisplayName() : data.getName(),
-                data.getUuid().toString()
-        };
-        string = StringUtils.replaceEach(string, k, v);
+            if (containsAny(string, PLAYER_KEYS))
+                string = StringUtils.replaceEach(string, PLAYER_KEYS, new String[] {
+                        data.getName(),
+                        data.isOnline() ? data.getPlayer().getDisplayName() : data.getName(),
+                        data.getUuid().toString()
+                });
 
-        if (!safeForFormula) {
-            k = new String[] {"{requiredEXP}", "{percent}", "{progressBar}"};
-            v = new String[] {
-                    roundString(data.getRequiredExp()),
-                    data.getPercent(), data.getProgressBar()
-            };
-            string = StringUtils.replaceEach(string, k, v);
+            // These values cost a formula evaluation each, so they are only resolved on demand.
+            if (!safeForFormula && containsAny(string, PROGRESS_KEYS))
+                string = StringUtils.replaceEach(string, PROGRESS_KEYS, new String[] {
+                        roundString(data.getRequiredExp()),
+                        data.getPercent(),
+                        data.getProgressBar()
+                });
         }
 
         if (string.indexOf('{') < 0 && string.indexOf('%') < 0 && string.indexOf('<') < 0)

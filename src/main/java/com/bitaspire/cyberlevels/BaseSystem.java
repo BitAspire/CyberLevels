@@ -129,36 +129,51 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         return formulas.getOrDefault(level, formula).evaluate(uuid);
     }
 
+    private static final String[] LEVEL_KEYS = {
+            "{level}", "{playerEXP}", "{nextLevel}", "{maxLevel}", "{minLevel}", "{minEXP}"
+    };
+    private static final String[] PLAYER_KEYS = {"{player}", "{playerDisplayName}", "{playerUUID}"};
+    private static final String[] PROGRESS_KEYS = {"{requiredEXP}", "{percent}", "{progressBar}"};
+
+    private static boolean containsAny(String string, String[] keys) {
+        for (String key : keys)
+            if (string.contains(key)) return true;
+
+        return false;
+    }
+
     @NotNull
     public String replacePlaceholders(String string, UUID uuid, boolean safeForFormula) {
+        if (string == null || string.isEmpty()) return string;
+
         LevelUser<N> data = userManager.getUser(uuid);
 
-        String[] keys = {"{level}", "{playerEXP}", "{nextLevel}",
-                "{maxLevel}", "{minLevel}", "{minEXP}"};
-        String[] values = {
-                String.valueOf(data.getLevel()),
-                roundString(data.getExp()),
-                String.valueOf(data.getLevel() + 1),
-                String.valueOf(maxLevel),
-                String.valueOf(startLevel),
-                String.valueOf(startExp)
-        };
-        string = StringUtils.replaceEach(string, keys, values);
+        // Every supported key is brace-wrapped, so a string without braces needs no pass at all.
+        if (string.indexOf('{') >= 0) {
+            if (containsAny(string, LEVEL_KEYS))
+                string = StringUtils.replaceEach(string, LEVEL_KEYS, new String[] {
+                        String.valueOf(data.getLevel()),
+                        roundString(data.getExp()),
+                        String.valueOf(data.getLevel() + 1),
+                        String.valueOf(maxLevel),
+                        String.valueOf(startLevel),
+                        String.valueOf(startExp)
+                });
 
-        String[] k = {"{player}", "{playerDisplayName}", "{playerUUID}"};
-        String[] v = {
-                data.getName(), data.isOnline() ? data.getPlayer().getDisplayName() : data.getName(),
-                data.getUuid().toString()
-        };
-        string = StringUtils.replaceEach(string, k, v);
+            if (containsAny(string, PLAYER_KEYS))
+                string = StringUtils.replaceEach(string, PLAYER_KEYS, new String[] {
+                        data.getName(),
+                        data.isOnline() ? data.getPlayer().getDisplayName() : data.getName(),
+                        data.getUuid().toString()
+                });
 
-        if (!safeForFormula) {
-            k = new String[] {"{requiredEXP}", "{percent}", "{progressBar}"};
-            v = new String[] {
-                    roundString(data.getRequiredExp()),
-                    data.getPercent(), data.getProgressBar()
-            };
-            string = StringUtils.replaceEach(string, k, v);
+            // These values cost a formula evaluation each, so they are only resolved on demand.
+            if (!safeForFormula && containsAny(string, PROGRESS_KEYS))
+                string = StringUtils.replaceEach(string, PROGRESS_KEYS, new String[] {
+                        roundString(data.getRequiredExp()),
+                        data.getPercent(),
+                        data.getProgressBar()
+                });
         }
 
         if (string.indexOf('{') < 0 && string.indexOf('%') < 0 && string.indexOf('<') < 0)
@@ -466,14 +481,49 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         }
     }
 
+    private static final long LEADERBOARD_THROTTLE_MS = 5_000L;
+
+    private volatile long lastLeaderboardUpdate = 0L;
+    private final AtomicBoolean leaderboardPending = new AtomicBoolean(false);
+
     void updateLeaderboard() {
         if (!main.isEnabled() || leaderboard == null ||
                 !cache.config().isLeaderboardEnabled()) return;
 
+        if (cache.config().leaderboardInstantUpdate()) {
+            runLeaderboardUpdate();
+            return;
+        }
+
+        if (leaderboardPending.get()) return;
+
+        long wait = LEADERBOARD_THROTTLE_MS - (System.currentTimeMillis() - lastLeaderboardUpdate);
+        if (wait <= 0) {
+            runLeaderboardUpdate();
+            return;
+        }
+
+        if (!leaderboardPending.compareAndSet(false, true)) return;
+
+        main.scheduler().runTaskLater(() -> {
+            try {
+                runLeaderboardUpdate();
+            } finally {
+                leaderboardPending.set(false);
+            }
+        }, Math.max(1L, wait / 50L));
+    }
+
+    private void runLeaderboardUpdate() {
+        lastLeaderboardUpdate = System.currentTimeMillis();
         if (!leaderboard.isUpdating()) leaderboard.update();
     }
 
     abstract class BaseUser<T extends Number> implements LevelUser<T> {
+
+        // A permission granted or revoked while the cached value is still fresh only affects EXP
+        // gains once this window expires.
+        static final long MULTIPLIER_CACHE_MS = 5_000L;
 
         private final BaseSystem<T> system;
         private final Operator<T> operator;
@@ -489,6 +539,10 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
         @Getter
         private long highestRewardedLevel;
+
+        // A permission scan per EXP gain is expensive, so the result is reused for a short window.
+        private double multiplier = 1D;
+        private long multiplierTime = 0L;
 
         public void setHighestRewardedLevel(long value) {
             this.highestRewardedLevel = Math.max(0L, value);
@@ -841,6 +895,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         public double getMultiplier() {
             if (!isOnline()) return 1;
 
+            long now = System.currentTimeMillis();
+            if (now - multiplierTime <= MULTIPLIER_CACHE_MS) return multiplier;
+
+            multiplierTime = now;
+            return multiplier = calculateMultiplier();
+        }
+
+        private double calculateMultiplier() {
             double multiplier = 0;
             for (PermissionAttachmentInfo perm : getPlayer().getEffectivePermissions()) {
                 if (!perm.getValue()) continue;

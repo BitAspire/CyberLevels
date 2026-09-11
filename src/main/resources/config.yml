@@ -48,6 +48,9 @@ config:
     # system when the auto-save is called?
     sync-on-auto-save: true
 
+    # When false, leaderboard rebuilds are throttled to at most
+    # once every 5 seconds instead of running on every EXP
+    # change, which is much cheaper on busy servers.
     instant-update: true
 
   # Should player data be auto-saved?

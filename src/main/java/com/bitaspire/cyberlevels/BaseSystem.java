@@ -534,6 +534,10 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         @Getter
         private long highestRewardedLevel;
 
+        // A permission scan per EXP gain is expensive, so the result is reused for a short window.
+        private double multiplier = 1D;
+        private long multiplierTime = 0L;
+
         public void setHighestRewardedLevel(long value) {
             this.highestRewardedLevel = Math.max(0L, value);
         }
@@ -885,6 +889,14 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
         public double getMultiplier() {
             if (!isOnline()) return 1;
 
+            long now = System.currentTimeMillis();
+            if (now - multiplierTime <= MULTIPLIER_CACHE_MS) return multiplier;
+
+            multiplierTime = now;
+            return multiplier = calculateMultiplier();
+        }
+
+        private double calculateMultiplier() {
             double multiplier = 0;
             for (PermissionAttachmentInfo perm : getPlayer().getEffectivePermissions()) {
                 if (!perm.getValue()) continue;

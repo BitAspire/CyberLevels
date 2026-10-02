@@ -36,6 +36,14 @@ class DatabaseFactory {
         abstract String getTable();
         abstract HikariConfig createConfig();
 
+        void setKeepaliveTime(HikariConfig config, long ms) {
+            try {
+                HikariConfig.class.getMethod("setKeepaliveTime", long.class).invoke(config, ms);
+            } catch (ReflectiveOperationException e) {
+                main.logger("&e" + type + ": outdated HikariCP on the classpath, keepaliveTime is disabled.");
+            }
+        }
+
         String qCol(String name) {
             return name;
         }
@@ -795,7 +803,7 @@ class DatabaseFactory {
             config.setValidationTimeout(5000);
             config.setIdleTimeout(600000);
             config.setMaxLifetime(1800000);
-            config.setKeepaliveTime(300000);
+            setKeepaliveTime(config, 300000);
             config.setMaximumPoolSize(20);
             config.setMinimumIdle(4);
             config.setPoolName("CLV-MySQL");
@@ -952,7 +960,7 @@ class DatabaseFactory {
             config.setValidationTimeout(5000);
             config.setIdleTimeout(600000);
             config.setMaxLifetime(1800000);
-            config.setKeepaliveTime(300000);
+            setKeepaliveTime(config, 300000);
             config.setPoolName("CLV-SQLite");
             return config;
         }
@@ -1099,7 +1107,7 @@ class DatabaseFactory {
             config.setValidationTimeout(5000);
             config.setIdleTimeout(600000);
             config.setMaxLifetime(1800000);
-            config.setKeepaliveTime(300000);
+            setKeepaliveTime(config, 300000);
             config.setMaximumPoolSize(20);
             config.setMinimumIdle(4);
             config.setPoolName("CLV-Postgres");
@@ -1253,7 +1261,7 @@ class DatabaseFactory {
             config.setValidationTimeout(5000);
             config.setIdleTimeout(600000);
             config.setMaxLifetime(1800000);
-            config.setKeepaliveTime(300000);
+            setKeepaliveTime(config, 300000);
             config.setPoolName("CLV-H2");
             return config;
         }

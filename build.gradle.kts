@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.bitaspire"
-version = "1.3.3"
+version = "1.3.4"
 
 repositories {
     mavenLocal()
@@ -37,7 +37,7 @@ dependencies {
     // Spigot API
     compileOnly("org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT")
 
-    implementation("com.bitaspire:CyberCore:2.1.1")
+    implementation("com.bitaspire:CyberCore:2.1.2")
 
     compileOnly("me.clip:placeholderapi:2.11.6")
     compileOnly(files("libraries/RivalHarvesterHoesAPI.jar"))

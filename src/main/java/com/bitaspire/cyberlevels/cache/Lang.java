@@ -308,9 +308,13 @@ public class Lang {
                 spigotUpdateEarlyAccessChat
             );
 
-            leaderboardKeys = new LeaderboardKeys(
-                file.getSection("messages.leaderboard-placeholders")
-            );
+            ConfigurationSection leaderboardSection =
+                file.getSection("leaderboard-placeholders");
+            if (leaderboardSection == null) {
+                leaderboardSection =
+                    file.getSection("messages.leaderboard-placeholders");
+            }
+            leaderboardKeys = new LeaderboardKeys(leaderboardSection);
         } catch (IOException ignored) {}
     }
 

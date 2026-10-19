@@ -55,8 +55,19 @@ final class PlaceholderAPI implements Hook {
                 LevelUser<?> user = system.getLeaderboard().getTopPlayer(position);
 
                 Lang.LeaderboardKeys keys = main.cache().lang().leaderboardKeys();
-                String value = system.getLeaderboard().isUpdating() ?
-                        keys.getLoadingName() : keys.getNoPlayerName();
+                boolean updating = system.getLeaderboard().isUpdating();
+                String value;
+                switch (type.toLowerCase()) {
+                    case "level":
+                        value = updating ? keys.getLoadingLevel() : keys.getNoPlayerLevel();
+                        break;
+                    case "exp":
+                        value = updating ? keys.getLoadingExp() : keys.getNoPlayerExp();
+                        break;
+                    default:
+                        value = updating ? keys.getLoadingName() : keys.getNoPlayerName();
+                        break;
+                }
 
                 if (user != null) {
                     switch (type.toLowerCase()) {

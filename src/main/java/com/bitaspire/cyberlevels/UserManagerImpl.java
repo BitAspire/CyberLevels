@@ -496,7 +496,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             public void run() {
                 int processed = 0;
                 while (index < players.length && processed < batchSize) {
-                    loadUserAsync(players[index++], false);
+                    loadUserAsync(players[index++], true);
                     loaded++;
                     processed++;
                 }
@@ -509,8 +509,6 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                             " &7offline player(s) in &a" +
                             (System.currentTimeMillis() - l) +
                             "ms&7.", "");
-
-                scheduleLeaderboardUpdate();
             }
         }.runTaskTimer(0L, 1L);
     }
@@ -524,7 +522,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
 
         int counter = 0;
         for (Player player : Bukkit.getOnlinePlayers()) {
-            loadUserAsync(player, false);
+            loadUserAsync(player, true);
             counter++;
         }
 
@@ -533,7 +531,6 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         main.logger("&7Loaded data for &e" + counter +
                 " &7online player(s) in &a" +
                 (System.currentTimeMillis() - l) + "ms&7.", "");
-        scheduleLeaderboardUpdate();
     }
 
     @Override

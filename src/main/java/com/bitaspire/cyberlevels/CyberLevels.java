@@ -2,6 +2,7 @@ package com.bitaspire.cyberlevels;
 
 import com.bitaspire.cybercore.TextLibrary;
 import com.bitaspire.libs.common.CollectionBuilder;
+import com.bitaspire.libs.common.DependencyLoader;
 import com.bitaspire.libs.vnc.VNC;
 import com.bitaspire.cybercore.CoreSettings;
 import com.bitaspire.cybercore.CyberCore;

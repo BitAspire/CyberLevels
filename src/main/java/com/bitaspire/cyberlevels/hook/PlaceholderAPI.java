@@ -75,7 +75,7 @@ final class PlaceholderAPI implements Hook {
                             value = user.getName();
                             break;
                         case "displayname":
-                            value = user.getPlayer().getDisplayName();
+                            value = user.isOnline() ? user.getPlayer().getDisplayName() : user.getName();
                             break;
                         case "level":
                             value = user.getLevel() + "";
@@ -91,8 +91,6 @@ final class PlaceholderAPI implements Hook {
 
             @Override
             public String onRequest(OfflinePlayer player, @NotNull String identifier) {
-                if (player == null || !player.isOnline()) return null;
-
                 LevelSystem<?> system = main.levelSystem();
 
                 switch (identifier.toLowerCase()) {
@@ -110,6 +108,8 @@ final class PlaceholderAPI implements Hook {
                         return getLeaderboard(player, type, pos);
                     }
                 }
+
+                if (player == null || !player.isOnline()) return null;
 
                 LevelUser<?> user = main.userManager().getUser(player.getUniqueId());
                 if (user == null) return "0";

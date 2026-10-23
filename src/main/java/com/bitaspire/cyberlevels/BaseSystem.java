@@ -516,7 +516,7 @@ abstract class BaseSystem<N extends Number> implements LevelSystem<N> {
 
     private void runLeaderboardUpdate() {
         lastLeaderboardUpdate = System.currentTimeMillis();
-        if (!leaderboard.isUpdating()) leaderboard.update();
+        leaderboard.update();
     }
 
     abstract class BaseUser<T extends Number> implements LevelUser<T> {

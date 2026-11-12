@@ -3,7 +3,6 @@ package com.bitaspire.cyberlevels.command;
 import com.bitaspire.cyberlevels.CyberLevels;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -131,16 +130,15 @@ public class CLVTabComplete implements TabCompleter {
 
         LinkedHashSet<String> players = new LinkedHashSet<>();
 
-        if (offlineMode) {
-            for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
-                String name = p.getName();
+        for (Player player : Bukkit.getOnlinePlayers())
+            players.add(player.getName());
+
+        // Offline names come from CLV's own data, so purged players stop being suggested.
+        if (offlineMode)
+            main.userManager().getUsers().forEach(user -> {
+                String name = user.getName();
                 if (name != null) players.add(name);
-            }
-        } else {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                players.add(player.getName());
-            }
-        }
+            });
 
         List<String> snapshot = new ArrayList<>(players);
         snapshot.sort(String.CASE_INSENSITIVE_ORDER);

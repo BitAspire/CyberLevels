@@ -237,6 +237,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         LevelUser<N> user;
         String migrationMessage = "";
         long databaseUpdatedAt = 0L;
+        boolean persisted = true;
 
         if (database != null) {
             DatabaseFactory.DatabaseImpl<N> databaseImpl = databaseImpl();
@@ -259,6 +260,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                     }
                 } else {
                     user = system.createUser(uuid);
+                    persisted = false;
                 }
             }
         } else {
@@ -277,10 +279,13 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
                 }
             }
 
-            if (user == null) user = system.createUser(uuid);
+            if (user == null) {
+                user = system.createUser(uuid);
+                persisted = false;
+            }
         }
 
-        return new LoadResult(user, migrationMessage, databaseUpdatedAt);
+        return new LoadResult(user, migrationMessage, databaseUpdatedAt, persisted);
     }
 
     private void loadUserAsync(OfflinePlayer offline, boolean updateLeaderboard) {
@@ -350,6 +355,9 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
             return;
         }
 
+        // Offline players without saved CLV data stay out of the cache, so they never reach the leaderboard.
+        if (player == null && !result.persisted) return;
+
         LevelUser<N> loaded = result.user;
         if (player != null && !loaded.isOnline()) loaded = toOnlineUser(uuid, loaded);
 
@@ -385,6 +393,7 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         final LevelUser<N> user;
         final String migrationMessage;
         final long databaseUpdatedAt;
+        final boolean persisted;
     }
 
     @Override
@@ -477,15 +486,30 @@ final class UserManagerImpl<N extends Number> implements UserManager<N> {
         if (!file.delete()) main.logger("&cFailed to delete flat-file for user " + uuid);
     }
 
+    private Set<UUID> getStoredUuids() {
+        if (database != null) return database.getUuids();
+
+        Set<UUID> uuids = new LinkedHashSet<>();
+        File[] files = new File(main.getDataFolder(), "player_data").listFiles((dir, name) -> name.endsWith(".clv"));
+        if (files == null) return uuids;
+
+        for (File file : files) {
+            String name = file.getName();
+            try {
+                uuids.add(UUID.fromString(name.substring(0, name.length() - 4)));
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return uuids;
+    }
+
+    // Loads only players that have saved CLV data, never every player in the world's playerdata folder.
     void loadOfflinePlayers() {
-        if (Bukkit.getOfflinePlayers().length < 1) return;
-
         long l = System.currentTimeMillis();
-        main.logger("&dLoading data for offline players...");
 
-        OfflinePlayer[] players = Bukkit.getOfflinePlayers();
+        OfflinePlayer[] players = getStoredUuids().stream().map(Bukkit::getOfflinePlayer).toArray(OfflinePlayer[]::new);
         if (players.length < 1) return;
 
+        main.logger("&dLoading data for offline players...");
         int batchSize = 10;
 
         new GlobalRunnable(main.scheduler()) {

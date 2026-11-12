@@ -10,8 +10,11 @@ import com.bitaspire.libs.prismatic.PrismaticAPI;
 import com.bitaspire.libs.vnc.VNC;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import lombok.Getter;
 import org.bukkit.OfflinePlayer;
@@ -149,9 +152,22 @@ public class CLVCommand implements CommandExecutor {
         }
 
         if (args.length == 2 && sub.equals("purge")) {
-            LevelUser<?> target = main.userManager().getUser(args[1]);
-            if (target != null) {
-                main.userManager().removeUser(target.getUuid());
+            // Same name can map to several UUIDs (online/offline mode), so purge every match; a raw UUID also works.
+            Set<UUID> targets = new LinkedHashSet<>();
+            try {
+                targets.add(UUID.fromString(args[1]));
+            } catch (IllegalArgumentException ignored) {}
+
+            for (LevelUser<?> user : main.userManager().getUsers())
+                if (args[1].equalsIgnoreCase(user.getName())) targets.add(user.getUuid());
+
+            if (targets.isEmpty()) {
+                LevelUser<?> target = main.userManager().getUser(args[1]);
+                if (target != null) targets.add(target.getUuid());
+            }
+
+            if (!targets.isEmpty()) {
+                targets.forEach(main.userManager()::removeUser);
                 main.levelSystem().getLeaderboard().update();
                 return sendLangMessage(
                     sender,
